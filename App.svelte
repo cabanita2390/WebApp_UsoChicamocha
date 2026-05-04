@@ -12,6 +12,14 @@
   import Loader from "./components/shared/Loader.svelte";
   import Dashboard from "./components/views/Dashboard.svelte";
   import OilManagement from "./components/views/OilManagement.svelte";
+  import VehicleMonitoring from "./components/views/VehicleMonitoring.svelte";
+  import VehicleInspections from "./components/views/VehicleInspections.svelte";
+  import MotoMonitoring from "./components/views/MotoMonitoring.svelte";
+  import MotoInspections from "./components/views/MotoInspections.svelte";
+  import MotoMaintenance from "./components/views/MotoMaintenance.svelte";
+  import VehicleManagement from "./components/views/VehicleManagement.svelte";
+  import VehicleMaintenance from "./components/views/VehicleMaintenance.svelte";
+  import VehicleWorkshopHistory from "./components/views/VehicleWorkshopHistory.svelte";
   import { auth } from "./stores/auth.js";
   import {
     ui,
@@ -46,6 +54,14 @@
     "/work-orders": WorkOrderManagement,
     "/consolidado": Consolidado,
     "/oil-management": OilManagement,
+    "/vehicle-monitoring": VehicleMonitoring,
+    "/vehicle-inspections": VehicleInspections,
+    "/moto-monitoring": MotoMonitoring,
+    "/moto-inspections": MotoInspections,
+    "/moto-maintenance": MotoMaintenance,
+    "/vehicles": VehicleManagement,
+    "/vehicle-maintenance": VehicleMaintenance,
+    "/vehicle-workshop-history": VehicleWorkshopHistory,
   };
 
   function handleActivateSound() {
@@ -171,6 +187,29 @@
     } else if (location.includes("/oil-management")) {
       ui.setCurrentView("oil-management");
       data.fetchOils();
+    } else if (location.includes("/vehicle-monitoring")) {
+      ui.setCurrentView("vehicle-monitoring");
+      data.fetchVehicleMonitoring();
+    } else if (location.includes("/vehicle-inspections")) {
+      ui.setCurrentView("vehicle-inspections");
+      data.fetchVehicleInspections(0, 20, { reload: true });
+    } else if (location.includes("/moto-monitoring")) {
+      ui.setCurrentView("moto-monitoring");
+      data.fetchMotoMonitoring();
+    } else if (location.includes("/moto-inspections")) {
+      ui.setCurrentView("moto-inspections");
+      data.fetchMotoInspections();
+    } else if (location.includes("/moto-maintenance")) {
+      ui.setCurrentView("moto-maintenance");
+      data.fetchMotoMaintenance();
+    } else if (location.includes("/vehicles")) {
+      ui.setCurrentView("vehicles");
+      data.fetchVehicles();
+    } else if (location.includes("/vehicle-workshop-history")) {
+      ui.setCurrentView("vehicle-workshop-history");
+      data.fetchVehicleMaintenance();
+    } else if (location.includes("/vehicle-maintenance")) {
+      ui.setCurrentView("vehicle-maintenance");
     }
   }
 </script>

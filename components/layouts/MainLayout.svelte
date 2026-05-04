@@ -49,6 +49,22 @@
                 return "Consolidado de Maquinaria";
             case "/oil-management":
                 return "Gestión de Aceites";
+            case "/vehicle-monitoring":
+                return "Monitoreo consolidado — Vehículos";
+            case "/vehicle-inspections":
+                return "Inspecciones pre-operativas — Vehículos";
+            case "/moto-monitoring":
+                return "Monitoreo de Motocicletas";
+            case "/moto-inspections":
+                return "Reportes Diarios Motos";
+            case "/moto-maintenance":
+                return "Mantenimiento de Motos";
+            case "/vehicles":
+                return "Gestión de Inventario de Vehículos";
+            case "/vehicle-maintenance":
+                return "Mantenimiento y Documentación de Vehículos";
+            case "/vehicle-workshop-history":
+                return "Historial de taller — Vehículos";
             default:
                 return "Dashboard Maquinaria";
         }

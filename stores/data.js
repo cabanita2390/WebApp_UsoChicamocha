@@ -9,6 +9,20 @@ function createDataStore() {
         oils: [],
         workOrders: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
         consolidated: { distrito: [], asociacion: [] },
+        vehicleMonitoring: [],
+        motoMonitoring: [],
+        vehicleInspections: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
+        /** Lista completa de inspecciones vehículo (API devuelve array, no página Spring). */
+        vehicleInspectionsFull: [],
+        motoInspections: [],
+        motoMaintenance: [],
+        vehicleMaintenance: [],
+        // Gestión Administrativa
+        vehicles: [],
+        vehicleBrands: [],
+        vehicleTypes: [],
+        areas: [],
+        locations: [],
         isLoading: false,
         error: null
     });
@@ -160,9 +174,131 @@ function createDataStore() {
             const updatedOil = await fetchWithAuth(`oil/brand/${id}`, { method: 'PUT', body: JSON.stringify(oilData) });
             update(s => ({ ...s, oils: s.oils.map(o => (o.id === id ? updatedOil : o)) }));
         },
-        deleteOil: async (id) => {
-            await fetchWithAuth(`oil/brand/${id}`, { method: 'DELETE' });
-            update(s => ({ ...s, oils: s.oils.filter(o => o.id !== id) }));
+        deleteLocation: async (id) => {
+            await fetchWithAuth(`catalog/location/${id}`, { method: 'DELETE' });
+            update(s => ({ ...s, locations: s.locations.filter(l => l.id !== id) }));
+        },
+        // Mantenimiento y Documentación Vehículos
+        registerVehicleOilChange: async (oilData) => {
+            await fetchWithAuth('vehicle/oil-change', { method: 'POST', body: JSON.stringify(oilData) });
+        },
+        updateVehicleDocument: async (docData) => {
+            await fetchWithAuth('admin/documents', { method: 'POST', body: JSON.stringify(docData) });
+        },
+        getVehicleDocuments: (idVehiculo) => fetchWithAuth(`vehicle-inspection/documentos/${idVehiculo}`),
+
+        // Monitoreo Vehículos y Motos
+        fetchVehicleMonitoring: () => fetchAll('vehicleMonitoring', 'vehicle/monitoring/consolidated'),
+        fetchMotoMonitoring: () => fetchAll('motoMonitoring', 'moto/monitoring/consolidated'),
+        
+        /**
+         * Inspecciones pre-operativas tipo carro (typeId=1). El backend devuelve un array completo;
+         * la paginación es en cliente. Use { reload: true } para volver a pedir al servidor.
+         */
+        fetchVehicleInspections: async (page = 0, size = 20, options = {}) => {
+            const reload = options.reload === true;
+            setLoading(true);
+            try {
+                const prev = get({ subscribe });
+                let list = Array.isArray(prev.vehicleInspectionsFull) ? prev.vehicleInspectionsFull : [];
+                if (reload || list.length === 0) {
+                    const result = await fetchWithAuth('vehicle-inspection/reports/1');
+                    list = Array.isArray(result) ? result : [];
+                    list = [...list].sort((a, b) => {
+                        const ta = a.fechaRegistro ? new Date(a.fechaRegistro).getTime() : 0;
+                        const tb = b.fechaRegistro ? new Date(b.fechaRegistro).getTime() : 0;
+                        return tb - ta;
+                    });
+                }
+                const totalElements = list.length;
+                const totalPages = Math.max(1, Math.ceil(totalElements / size) || 1);
+                const safePage = Math.min(Math.max(0, page), totalPages - 1);
+                const start = safePage * size;
+                const slice = list.slice(start, start + size);
+                update((s) => ({
+                    ...s,
+                    vehicleInspectionsFull: list,
+                    vehicleInspections: {
+                        data: slice,
+                        totalPages,
+                        totalElements,
+                        currentPage: safePage,
+                        pageSize: size,
+                    },
+                    isLoading: false,
+                    error: null,
+                }));
+                return slice;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
+        getVehicleByPlaca: (placa) => fetchWithAuth(`vehicle/${encodeURIComponent(placa)}`),
+        validateVehicleKilometraje: (placa, kilometraje) => {
+            const q = new URLSearchParams({ placa, kilometraje: String(kilometraje) });
+            return fetchWithAuth(`vehicle-inspection/validar-kilometraje?${q.toString()}`);
+        },
+        fetchMotoInspections: () => fetchAll('motoInspections', 'moto/inspections/reports'),
+        
+        // Mantenimiento
+        fetchMotoMaintenance: () => fetchAll('motoMaintenance', 'maintenance/motos'),
+        fetchVehicleMaintenance: () => fetchAll('vehicleMaintenance', 'maintenance/vehicles'),
+
+        // Gestión de Vehículos (CRUD)
+        fetchVehicles: () => fetchAll('vehicles', 'vehicle'),
+        createVehicle: async (newVehicle) => {
+            const created = await fetchWithAuth('vehicle', { method: 'POST', body: JSON.stringify(newVehicle) });
+            update(s => ({ ...s, vehicles: [...s.vehicles, created] }));
+        },
+        updateVehicle: async (id, vehicleData) => {
+            const updated = await fetchWithAuth(`vehicle/${id}`, { method: 'PUT', body: JSON.stringify(vehicleData) });
+            update(s => ({ ...s, vehicles: s.vehicles.map(v => v.id === id ? updated : v) }));
+        },
+        deleteVehicle: async (id) => {
+            await fetchWithAuth(`vehicle/${id}`, { method: 'DELETE' });
+            update(s => ({ ...s, vehicles: s.vehicles.filter(v => v.id !== id) }));
+        },
+
+        // Catálogos (Marcas, Tipos, Áreas, Ubicaciones)
+        fetchVehicleBrands: () => fetchAll('vehicleBrands', 'brand/vehicle'),
+        createVehicleBrand: async (newBrand) => {
+            const created = await fetchWithAuth('brand/vehicle', { method: 'POST', body: JSON.stringify(newBrand) });
+            update(s => ({ ...s, vehicleBrands: [...s.vehicleBrands, created] }));
+            return created;
+        },
+        updateVehicleBrand: async (id, brandData) => {
+            const updated = await fetchWithAuth(`brand/vehicle/${id}`, { method: 'PUT', body: JSON.stringify(brandData) });
+            update(s => ({ ...s, vehicleBrands: s.vehicleBrands.map(b => b.idMarca === id ? updated : b) }));
+        },
+        deleteVehicleBrand: async (id) => {
+            await fetchWithAuth(`brand/vehicle/${id}`, { method: 'DELETE' });
+            update(s => ({ ...s, vehicleBrands: s.vehicleBrands.filter(b => b.idMarca !== id) }));
+        },
+
+        fetchVehicleTypes: () => fetchAll('vehicleTypes', 'catalog/tipo-vehiculo'),
+        fetchAreas: () => fetchAll('areas', 'catalog/area'),
+        fetchLocations: () => fetchAll('locations', 'catalog/ubicacion'),
+
+        // Acciones Genéricas para Catálogos (Área, Ubicación, Tipo)
+        createCatalogItem: async (type, newItem) => {
+            const endpointMap = { 'area': 'catalog/area', 'location': 'catalog/ubicacion', 'type': 'catalog/tipo-vehiculo' };
+            const stateMap = { 'area': 'areas', 'location': 'locations', 'type': 'vehicleTypes' };
+            const created = await fetchWithAuth(endpointMap[type], { method: 'POST', body: JSON.stringify(newItem) });
+            update(s => ({ ...s, [stateMap[type]]: [...s[stateMap[type]], created] }));
+            return created;
+        },
+        updateCatalogItem: async (type, id, itemData) => {
+            const endpointMap = { 'area': 'catalog/area', 'location': 'catalog/ubicacion', 'type': 'catalog/tipo-vehiculo' };
+            const stateMap = { 'area': 'areas', 'location': 'locations', 'type': 'vehicleTypes' };
+            const updated = await fetchWithAuth(`${endpointMap[type]}/${id}`, { method: 'PUT', body: JSON.stringify(itemData) });
+            update(s => ({ ...s, [stateMap[type]]: s[stateMap[type]].map(i => i.id === id ? updated : i) }));
+        },
+        deleteCatalogItem: async (type, id) => {
+            const endpointMap = { 'area': 'catalog/area', 'location': 'catalog/ubicacion', 'type': 'catalog/tipo-vehiculo' };
+            const stateMap = { 'area': 'areas', 'location': 'locations', 'type': 'vehicleTypes' };
+            await fetchWithAuth(`${endpointMap[type]}/${id}`, { method: 'DELETE' });
+            update(s => ({ ...s, [stateMap[type]]: s[stateMap[type]].filter(i => i.id !== id) }));
         }
     };
 

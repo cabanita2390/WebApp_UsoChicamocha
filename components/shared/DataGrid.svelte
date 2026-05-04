@@ -17,6 +17,8 @@
   export let pageSize = 20;
   export let totalElements = 0;
   export let fixedLayout = false;
+  /** Si es false, se oculta el pie de paginación (listas cargadas de una vez). */
+  export let showPagination = true;
 
   const dispatch = createEventDispatcher();
 
@@ -59,13 +61,98 @@
     dispatch("sizeChange", Number(event.target.value));
   }
 
+  /** Semáforo textual: Bueno/Vigente/SÍ, Regular/Próximo a vencer, Malo/Vencido/NO, mixtos (advertencia). */
   function getStatusClass(value) {
-    const status = String(value || "").toLowerCase();
-    if (status.includes("óptimo") || status.includes("optimo"))
+    const raw = String(value ?? "").trim();
+    if (!raw) return "status-unknown";
+    const status = raw
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    if (status.includes(",") && /\bsi\b/.test(status) && /\bno\b/.test(status)) {
+      return "status-regular";
+    }
+    if (status === "si" || status === "sí") return "status-optimo";
+    if (status === "no") return "status-malo";
+    if (status === "n/a" || status === "na") return "status-unknown";
+
+    if (
+      status.includes("optimo") ||
+      status.includes("optima") ||
+      status.includes("vigente") ||
+      status === "ok" ||
+      status.includes("bueno") ||
+      status.includes("excelente")
+    ) {
       return "status-optimo";
-    if (status.includes("regular")) return "status-regular";
-    if (status.includes("malo")) return "status-malo";
+    }
+    if (
+      status.includes("regular") ||
+      status.includes("proximo") ||
+      status.includes("medio")
+    ) {
+      return "status-regular";
+    }
+    if (
+      status.includes("malo") ||
+      status.includes("vencido") ||
+      (status.includes("cambio") && !status.includes("sin cambio"))
+    ) {
+      return "status-malo";
+    }
     return "status-unknown";
+  }
+
+  /** LocalDate / ISO desde API → "yyyy-mm-dd" para clases de fecha. */
+  function normalizeDateForClass(v) {
+    if (v == null || v === "") return null;
+    if (typeof v === "string") return v;
+    if (Array.isArray(v) && v.length >= 3) {
+      const y = v[0];
+      const mo = v[1];
+      const d = v[2];
+      return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }
+    return String(v);
+  }
+
+  function formatMonitoringDateCell(v) {
+    const s = normalizeDateForClass(v);
+    if (!s) return "N/A";
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return String(v);
+    return d.toLocaleDateString("es-CO");
+  }
+
+  /** Misma regla que el backend de documentos: ≥15 verde, 0–14 amarillo, &lt;0 rojo. */
+  function getDocDaysRemainingClass(days) {
+    if (days == null || days === "") return "status-unknown";
+    const n = Number(days);
+    if (Number.isNaN(n)) return "status-unknown";
+    if (n >= 15) return "status-optimo";
+    if (n >= 0) return "status-regular";
+    return "status-malo";
+  }
+
+  /** Misma lógica que aceite vehículo en backend: &gt;500 verde, 0–500 amarillo, &lt;0 rojo. */
+  function getOilKmParaCambioClass(km) {
+    if (km == null || km === "") return "status-unknown";
+    const n = Number(km);
+    if (Number.isNaN(n)) return "status-unknown";
+    if (n > 500) return "status-optimo";
+    if (n >= 0) return "status-regular";
+    return "status-malo";
+  }
+
+  /** Días sin reporte: ≤7 verde, ≤14 amarillo, &gt;14 rojo. */
+  function getReportLagClass(d) {
+    if (d == null || d === "") return "status-unknown";
+    const n = Number(d);
+    if (Number.isNaN(n)) return "status-unknown";
+    if (n <= 7) return "status-optimo";
+    if (n <= 14) return "status-regular";
+    return "status-malo";
   }
 
   function getDateStatusClass(dateString) {
@@ -221,15 +308,56 @@
                       Ver
                     </button>
                   </div>
+                {:else if cell.column.columnDef.meta?.isDateStatus}
+                  {@const raw = cell.getContext().getValue()}
+                  {@const norm = normalizeDateForClass(raw)}
+                  {@const colorClass = getDateStatusClass(norm)}
+                  <button
+                    type="button"
+                    class="status-btn {colorClass}"
+                    on:click={() =>
+                      handleStatusClick(row.original, cell.column.columnDef)}
+                  >
+                    {formatMonitoringDateCell(raw)}
+                  </button>
+                {:else if cell.column.columnDef.meta?.isDocDaysRemaining}
+                  {@const v = cell.getContext().getValue()}
+                  <button
+                    type="button"
+                    class="status-btn {getDocDaysRemainingClass(v)}"
+                    on:click={() =>
+                      handleStatusClick(row.original, cell.column.columnDef)}
+                  >
+                    {v == null || v === "" ? "N/A" : new Intl.NumberFormat("es-CO").format(Number(v))}
+                  </button>
+                {:else if cell.column.columnDef.meta?.isOilKmSemaforo}
+                  {@const v = cell.getContext().getValue()}
+                  <button
+                    type="button"
+                    class="status-btn {getOilKmParaCambioClass(v)}"
+                    on:click={() =>
+                      handleStatusClick(row.original, cell.column.columnDef)}
+                  >
+                    {v == null || v === "" ? "N/A" : new Intl.NumberFormat("es-CO").format(Number(v))}
+                  </button>
+                {:else if cell.column.columnDef.meta?.isReportLagSemaforo}
+                  {@const v = cell.getContext().getValue()}
+                  <button
+                    type="button"
+                    class="status-btn {getReportLagClass(v)}"
+                    on:click={() =>
+                      handleStatusClick(row.original, cell.column.columnDef)}
+                  >
+                    {v ?? "N/A"}
+                  </button>
                 {:else if cell.column.columnDef.meta?.isOrigin || cell.column.columnDef.meta?.isCondition}
                   {@const cellValue = cell.getContext().getValue()}
                   <span class={getConditionalCellClass(cell)}>{cellValue}</span>
-                {:else if cell.column.columnDef.meta?.isStatus || cell.column.columnDef.meta?.isDateStatus}
+                {:else if cell.column.columnDef.meta?.isStatus || cell.column.columnDef.meta?.isBadge}
                   {@const cellValue = cell.getContext().getValue()}
-                  {@const colorClass = cell.column.columnDef.meta.isDateStatus
-                    ? getDateStatusClass(cellValue)
-                    : getStatusClass(cellValue)}
+                  {@const colorClass = getStatusClass(cellValue)}
                   <button
+                    type="button"
                     class="status-btn {colorClass}"
                     on:click={() =>
                       handleStatusClick(row.original, cell.column.columnDef)}
@@ -256,6 +384,7 @@
     <span class="record-count">
       Mostrando {$table.getRowModel().rows.length} de {totalElements} registros
     </span>
+    {#if showPagination}
     <div class="pagination-controls">
       <select on:change={handleSizeChange} value={pageSize}>
         {#each [10, 20, 30, 50, 100, 250] as size}
@@ -288,6 +417,7 @@
         Último »
       </button>
     </div>
+    {/if}
   </div>
 </div>
 

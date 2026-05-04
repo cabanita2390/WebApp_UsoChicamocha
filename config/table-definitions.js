@@ -244,6 +244,35 @@ function formatDate(utcDateString) {
  });
 }
 
+/** Fecha-hora sin forzar Z (LocalDateTime del backend). */
+function formatDateTimeLocal(value) {
+ if (!value) return 'N/A';
+ const d = new Date(value);
+ if (Number.isNaN(d.getTime())) return String(value);
+ return `${d.toLocaleDateString('es-CO')} ${d.toLocaleTimeString('en-GB', { hour12: false })}`;
+}
+
+function yn(v) {
+ if (v === true) return 'SÍ';
+ if (v === false) return 'NO';
+ return 'N/A';
+}
+
+/** Texto SI/NO/N/A para campos de existencia (boolean o texto tipo "SI", "SI, NO"). */
+function siNoCampo(v) {
+ if (v === true || v === 'true' || v === 'TRUE') return 'SÍ';
+ if (v === false || v === 'false' || v === 'FALSE') return 'NO';
+ if (v == null || v === '') return 'N/A';
+ return String(v).trim();
+}
+
+function vehiculoInspeccionLabel(row) {
+ const m = (row.marca || '').trim();
+ const p = (row.placa || '').trim();
+ if (m && p) return `${m} ${p}`;
+ return p || m || 'N/A';
+}
+
 export const createConsolidadoColumns = (owner) => [
  {
   header: `Propiedad de ${owner}`,
@@ -301,6 +330,8 @@ const formatCurrency = (value) => new Intl.NumberFormat('es-CO', {
     currency: 'COP', 
     minimumFractionDigits: 0 
 }).format(value || 0);
+
+const formatKm = (value) => new Intl.NumberFormat('es-CO').format(value || 0);
 
 export const curriculumColumns = [
   // Columna 1: Fecha (sin grupo)
@@ -395,4 +426,242 @@ export const curriculumColumns = [
     header: "VALOR TOTAL (Repuestos + M. de O)",
     size: 150,
   }
+];
+
+// --- VEHICLE & MOTO COLUMNS ---
+
+/**
+ * Inspección pre-operativa vehículos — columnas en el mismo orden que la hoja / formulario de campo
+ * (Timestamp → vehículo → km → estados mecánicos → vigencias → elementos → observaciones → responsable → salud → cierre).
+ * DTO: VehicleInspectionReportDTO. Semáforo: meta.isStatus (DataGrid getStatusClass).
+ */
+export const vehicleInspectionReportColumns = [
+  {
+    header: 'Registro',
+    columns: [
+      {
+        header: 'Timestamp',
+        accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro),
+        id: 'vi_ts',
+        size: 132,
+      },
+      {
+        header: 'Vehículo inspeccionado',
+        accessorFn: vehiculoInspeccionLabel,
+        id: 'vi_vehiculo',
+        size: 150,
+      },
+      {
+        header: 'Km actual',
+        accessorFn: (row) => formatKm(row.kilometraje),
+        id: 'vi_km',
+        size: 88,
+      },
+    ],
+  },
+  {
+    header: 'Estado actual del vehículo',
+    columns: [
+      { header: 'Aceite', accessorKey: 'nivelAceite', size: 78, meta: { isStatus: true } },
+      { header: 'Refrigerante', accessorKey: 'nivelRefrigerante', size: 88, meta: { isStatus: true } },
+      { header: 'Líquido frenos', accessorKey: 'nivelFrenos', size: 88, meta: { isStatus: true } },
+      { header: 'Llantas / aire', accessorKey: 'estadoLlantas', size: 88, meta: { isStatus: true } },
+      { header: 'Luces', accessorKey: 'lucesGeneral', size: 78, meta: { isStatus: true } },
+      { header: 'Visual (pintura, golpes)', accessorKey: 'estadoVisual', size: 100, meta: { isStatus: true } },
+      { header: 'Limpieza general', accessorKey: 'limpiezaGeneral', size: 88, meta: { isStatus: true } },
+    ],
+  },
+  {
+    header: 'Vigencia documentación (próximo a vencer: menos de 1 mes)',
+    columns: [
+      { header: 'SOAT', accessorKey: 'checkSoat', size: 78, meta: { isStatus: true } },
+      { header: 'Tecnomecánica', accessorKey: 'checkTecno', size: 92, meta: { isStatus: true } },
+      { header: 'Licencia conducción', accessorKey: 'checkLicencia', size: 100, meta: { isStatus: true } },
+      { header: 'Extintor', accessorKey: 'checkExtintor', size: 82, meta: { isStatus: true } },
+    ],
+  },
+  {
+    header: 'Existencia de elementos',
+    columns: [
+      { header: 'Botiquín', accessorFn: (row) => siNoCampo(row.tieneBotiquin), id: 'vi_bot', size: 72, meta: { isStatus: true } },
+      { header: 'Señalización (conos)', accessorFn: (row) => siNoCampo(row.tieneSeñalizacion), id: 'vi_sen', size: 100, meta: { isStatus: true } },
+      { header: 'Líneas emergencia', accessorFn: (row) => siNoCampo(row.tieneLineasEmergencia), id: 'vi_lin', size: 100, meta: { isStatus: true } },
+      { header: 'Llanta repuesto', accessorFn: (row) => siNoCampo(row.tieneLlantaRepuesto), id: 'vi_llanta', size: 100, meta: { isStatus: true } },
+      { header: 'Gato / cruceta', accessorFn: (row) => siNoCampo(row.tieneGatoHidraulico), id: 'vi_gato', size: 100, meta: { isStatus: true } },
+    ],
+  },
+  {
+    header: 'Observaciones y responsable',
+    columns: [
+      { header: 'Observaciones / novedades', accessorKey: 'observacionesFinales', id: 'vi_obs', size: 220, meta: { isMultiline: true } },
+      { header: 'Responsable inspección', accessorKey: 'responsable', size: 120 },
+    ],
+  },
+  {
+    header: 'Condiciones de salud (conducción)',
+    columns: [
+      { header: 'Salud física', accessorFn: (row) => yn(row.saludFisica), id: 'vi_sf', size: 82, meta: { isStatus: true } },
+      { header: 'Salud mental', accessorFn: (row) => yn(row.saludMental), id: 'vi_sm', size: 88, meta: { isStatus: true } },
+      { header: 'Sobrio', accessorFn: (row) => yn(row.sobrio), id: 'vi_sob', size: 68, meta: { isStatus: true } },
+      { header: 'Medicamentos', accessorFn: (row) => yn(row.medicamentos), id: 'vi_med', size: 95, meta: { isStatus: true } },
+      { header: '¿Apto para conducir?', accessorFn: (row) => yn(row.condicionParaConducir), id: 'vi_cond', size: 108, meta: { isStatus: true } },
+      { header: 'Consciente responsabilidad', accessorFn: (row) => yn(row.conscienteResponsabilidad), id: 'vi_cons', size: 118, meta: { isStatus: true } },
+      { header: '¿Aprobado salida a ruta?', accessorFn: (row) => yn(row.aprobadoRuta), id: 'vi_ruta', size: 108, meta: { isStatus: true } },
+    ],
+  },
+];
+
+/** Tabla 1 del Excel de control: documentación (Tecno + SOAT). Semáforo en fechas/días como el dashboard. */
+export const monitoringVehicleDocumentColumns = [
+    { header: 'Responsable', accessorKey: 'area', size: 130 },
+    { header: 'Placa', accessorKey: 'placa', size: 90 },
+    { header: 'Km Actual', accessorFn: row => formatKm(row.kmActual), id: 'doc_km_actual', size: 90 },
+    { header: 'Fecha Último Reporte', accessorFn: row => formatDateTime(row.fechaUltimoReporte), id: 'doc_fecha_reporte', size: 140 },
+    { header: 'Días Último Reporte', accessorKey: 'diasUltimoReporte', id: 'doc_dias_reporte', size: 95, meta: { isReportLagSemaforo: true } },
+    {
+        header: 'Revisión Tecnicomecánica',
+        columns: [
+            { header: 'Fecha Vencimiento', accessorFn: (row) => row.tecno?.fechaVencimiento, id: 'doc_tecno_venc', size: 105, meta: { isDateStatus: true } },
+            { header: 'Días Para Vencimiento', accessorFn: (row) => row.tecno?.diasRestantes, id: 'doc_tecno_dias', size: 95, meta: { isDocDaysRemaining: true } },
+            { header: 'Estado Actual', accessorKey: 'tecno.estado', id: 'doc_tecno_est', size: 100, meta: { isBadge: true } },
+        ],
+    },
+    {
+        header: 'SOAT (Seguro Obligatorio)',
+        columns: [
+            { header: 'Fecha Vencimiento', accessorFn: (row) => row.soat?.fechaVencimiento, id: 'doc_soat_venc', size: 105, meta: { isDateStatus: true } },
+            { header: 'Días Para Vencimiento', accessorFn: (row) => row.soat?.diasRestantes, id: 'doc_soat_dias', size: 95, meta: { isDocDaysRemaining: true } },
+            { header: 'Estado Actual', accessorKey: 'soat.estado', id: 'doc_soat_est', size: 100, meta: { isBadge: true } },
+        ],
+    },
+];
+
+/** Tabla 2 del Excel: aceite. Semáforo en km restante alineado al servicio de monitoreo. */
+export const monitoringVehicleOilColumns = [
+    { header: 'Responsable', accessorKey: 'area', size: 130 },
+    { header: 'Placa', accessorKey: 'placa', size: 90 },
+    { header: 'Km Actual', accessorFn: row => formatKm(row.kmActual), id: 'oil_km_actual', size: 90 },
+    { header: 'Fecha Último Reporte', accessorFn: row => formatDateTime(row.fechaUltimoReporte), id: 'oil_fecha_reporte', size: 140 },
+    { header: 'Días Último Reporte', accessorKey: 'diasUltimoReporte', id: 'oil_dias_reporte', size: 95, meta: { isReportLagSemaforo: true } },
+    { header: 'TIPO de Aceite', accessorFn: (row) => row.maintenance?.tipoAceite ?? 'N/A', id: 'oil_tipo', size: 130 },
+    {
+        header: 'Cambio de Aceite',
+        columns: [
+            { header: 'Fecha Último Cambio', accessorFn: (row) => row.maintenance?.fechaUltimoCambio, id: 'oil_fecha_cambio', size: 110, meta: { isDateStatus: true } },
+            {
+                header: 'Distancia de Cambio (Km)',
+                accessorFn: (row) => {
+                    const m = row.maintenance;
+                    if (m?.kmProximoCambio == null || m?.kmUltimoCambio == null) return 'N/A';
+                    return formatKm(m.kmProximoCambio - m.kmUltimoCambio);
+                },
+                id: 'oil_intervalo',
+                size: 110,
+            },
+            { header: 'Km Cambio', accessorFn: row => formatKm(row.maintenance?.kmUltimoCambio), id: 'oil_km_cambio', size: 95 },
+            { header: 'Km Próximo Cambio', accessorFn: row => formatKm(row.maintenance?.kmProximoCambio), id: 'oil_km_proximo', size: 110 },
+            {
+                header: 'Km Para Cambio',
+                accessorFn: (row) => row.maintenance?.kmParaCambio,
+                id: 'oil_km_restante',
+                size: 100,
+                meta: { isOilKmSemaforo: true },
+            },
+            { header: 'Estado Actual', accessorKey: 'maintenance.estado', id: 'oil_estado', size: 120, meta: { isBadge: true } },
+        ],
+    },
+];
+
+export const monitoringMotoColumns = [
+    { header: 'Ubicación', accessorKey: 'departamento', size: 120 },
+    { header: 'Responsable', accessorKey: 'responsable', size: 150 },
+    { header: 'Placa', accessorKey: 'placa', size: 100 },
+    { header: 'Km Actual', accessorKey: 'kmActual', size: 100 },
+    {
+        header: 'Documentación',
+        columns: [
+            { header: 'Tecno', accessorFn: row => formatDate(row.tecno?.fechaVencimiento), id: 'tecno_venc', size: 90 },
+            { header: 'SOAT', accessorFn: row => formatDate(row.soat?.fechaVencimiento), id: 'soat_venc', size: 90 },
+            { header: 'Estado Doc.', accessorFn: row => row.tecno?.estado === 'Vencido' || row.soat?.estado === 'Vencido' ? 'Vencido' : 'Vigente', id: 'estado_doc', size: 100, meta: { isBadge: true } }
+        ]
+    },
+    {
+        header: 'Cambio de Aceite',
+        columns: [
+            { header: 'Último Cambio', accessorFn: row => formatDate(row.oil?.fechaUltimoCambio), id: 'aceite_fecha', size: 100 },
+            { header: 'Km Cambio', accessorKey: 'oil.kmCambio', size: 90 },
+            { header: 'Km Próximo', accessorKey: 'oil.kmProximoCambio', size: 90 },
+            { header: 'Km Faltantes', accessorKey: 'oil.kmParaProximo', size: 90 },
+            { header: 'Filtro Aire', accessorFn: row => row.oil?.filtroAire ? 'SÍ' : 'NO', id: 'filtro_aire', size: 70 },
+            { header: 'Estado Aceite', accessorKey: 'oil.estado', size: 120, meta: { isBadge: true } }
+        ]
+    },
+    {
+        header: 'Estado Actual',
+        columns: [
+            { header: 'Estado', accessorKey: 'estadoMoto', size: 100 },
+            { header: 'Últ. Reporte', accessorFn: row => formatDateTime(row.fechaUltimoReporte), id: 'moto_fecha_reporte', size: 130 },
+            { header: 'Días', accessorKey: 'diasUltimoReporte', size: 60 },
+            { header: 'Novedad', accessorKey: 'novedadActual', size: 150, meta: { isMultiline: true } }
+        ]
+    }
+];
+
+export const reportMotoColumns = [
+    { header: 'Fecha', accessorFn: row => formatDateTime(row.fecha), id: 'fecha', size: 140 },
+    { header: 'Placa', accessorKey: 'placa', size: 90 },
+    { header: 'Ubicación', accessorKey: 'ubicacion', size: 120 },
+    { header: 'Responsable', accessorKey: 'responsable', size: 150 },
+    { header: 'Km', accessorKey: 'kilometraje', size: 90 },
+    { header: 'Estado Gral.', accessorKey: 'estadoGeneral', size: 100, meta: { isStatus: true } },
+    {
+        header: 'Documentación',
+        columns: [
+            { header: 'SOAT', accessorKey: 'soat', size: 60, meta: { isStatus: true } },
+            { header: 'TECNO', accessorKey: 'tecno', size: 60, meta: { isStatus: true } },
+            { header: 'LICENCIA', accessorKey: 'licencia', size: 60, meta: { isStatus: true } }
+        ]
+    },
+    {
+        header: 'Mecánico',
+        columns: [
+            { header: 'Aceite', accessorKey: 'nivelAceite', size: 60, meta: { isStatus: true } },
+            { header: 'Llantas', accessorKey: 'estadoLlantas', size: 60, meta: { isStatus: true } },
+            { header: 'Luces', accessorKey: 'lucesGeneral', size: 60, meta: { isStatus: true } }
+        ]
+    },
+    { header: 'Observaciones', accessorKey: 'observaciones', size: 200, meta: { isMultiline: true } }
+];
+
+export const maintenanceMotoColumns = [
+    { header: 'Fecha', accessorFn: row => formatDateTime(row.fecha), id: 'fecha', size: 140 },
+    { header: 'Placa', accessorKey: 'placa', size: 90 },
+    { header: 'Ubicación', accessorKey: 'ubicacion', size: 120 },
+    { header: 'Responsable', accessorKey: 'responsableAsignado', size: 150 },
+    { header: 'Km', accessorKey: 'kilometraje', size: 90 },
+    { header: 'Tipo', accessorKey: 'tipoMantenimiento', size: 100 },
+    { header: 'Repuestos / Trabajo', accessorKey: 'repuestosMantenimiento', size: 250, meta: { isMultiline: true } },
+    { header: 'Taller / Mecánico', accessorKey: 'tallerResponsable', size: 150 },
+    { header: 'Observaciones', accessorKey: 'observaciones', size: 200, meta: { isMultiline: true } }
+];
+
+// --- GESTIÓN ADMINISTRATIVA ---
+
+export const vehicleManagementColumns = [
+    { header: 'Placa', accessorKey: 'placa', size: 100 },
+    { header: 'Marca', accessorKey: 'marca', size: 150 },
+    { header: 'Tipo', accessorKey: 'tipoVehiculo', size: 120 },
+    { 
+        header: 'Km Base', 
+        accessorFn: row => formatKm(row.kilometrajeActual), 
+        id: 'km_actual', 
+        size: 100 
+    },
+    { header: 'Pertenece a', accessorKey: 'belongsTo', size: 120 },
+    {
+        id: "actions",
+        header: "Acciones",
+        size: 100,
+        meta: { isAction: true }, 
+    }
 ];
