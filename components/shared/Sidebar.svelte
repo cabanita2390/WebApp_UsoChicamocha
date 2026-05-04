@@ -22,7 +22,7 @@
   <div class="section-header"><span>Maquinaria</span></div>
 
   <a class="nav-item" href="/machines" use:link use:active={{ path: "/machines", className: "active" }} title="Inventario de máquinas">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10M10.07,20.7L8.65,19.28L10.09,17.83C9.56,17.46 9.09,17 8.72,16.47L7.27,17.91L5.85,16.5L7.3,15.05C6.96,14.42 6.73,13.72 6.64,13H4.61V11H6.64C6.73,10.28 6.96,9.58 7.3,8.95L5.85,7.5L7.27,6.09L8.72,7.53C9.09,7 9.56,6.54 10.09,6.17L8.65,4.72L10.07,3.3L11.5,4.74C12.13,4.4 12.83,4.17 13.55,4.08V2H15.55V4.08C16.27,4.17 16.97,4.4 17.6,4.74L19.04,3.3L20.46,4.72L19,6.17C19.54,6.54 20,7 20.37,7.53L21.82,6.09L23.24,7.5L21.79,8.95C22.13,9.58 22.36,10.28 22.45,11H24.48V13H22.45C22.36,13.72 22.13,14.42 21.79,15.05L23.24,16.5L21.82,17.91L20.37,16.47C20,17 19.54,17.46 19,17.83L20.46,19.28L19.04,20.7L17.6,19.26C16.97,19.6 16.27,19.83 15.55,19.92V21.92H13.55V19.92C12.83,19.83 12.13,19.6 11.5,19.26L10.07,20.7Z" /></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10M12,2L9.5,4.5L6.4,4L5.5,1L2,3.5L3,6.5L1,7.5L2.5,11L4.5,9.5L5,12.5L1.5,15L4,17.5L6.5,16.5L7.5,19L11,20.5L9.5,22.5L12.5,23L15,20.5L17.6,21L18.5,24L22,21.5L21,18.5L23,17.5L21.5,14L19.5,15.5L19,12.5L22.5,10L20,7.5L17.5,8.5L16.5,6L13,4.5L14.5,2.5L11.5,2H12Z" /></svg>
     <span class="nav-text">Máquinas</span>
   </a>
 
@@ -32,7 +32,12 @@
   </a>
 
   <a class="nav-item" href="/consolidado" use:link use:active={{ path: "/consolidado", className: "active" }} title="Aceite motor e hidráulico por máquina (horómetro). Exportar Excel.">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14,10H10V14H14V10M19,10H15V14H19V10M14,15H10V19H14V15M19,15H15V19H19V15M20,1H4C2.89,1 2,1.89 2,3V21C2,22.11 2.89,23 4,23H20C21.11,23 22,22.11 22,21V3C22,1.89 21.11,1 20,1M20,21H4V7H20V21Z" /></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="nav-icon-consolidado" aria-hidden="true">
+      <path d="M6 2H14L20 8V20C20 21.1 19.1 22 18 22H6C4.9 22 4 21.1 4 20V4C4 2.9 4.9 2 6 2Z" fill="none" stroke="currentColor" stroke-width="2" />
+      <path d="M18 2C18 2 15 6 15 9A3 3 0 0 0 21 9C21 6 18 2 18 2Z" fill="currentColor" />
+      <path d="M8 11L12 9L16 11V15L12 17L8 15Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+      <circle cx="12" cy="13" r="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+    </svg>
     <span class="nav-text">Consolidado</span>
   </a>
 
@@ -47,7 +52,7 @@
   <!-- ── Vehículos (camionetas / carros, no moto) ── -->
   <div class="section-header"><span>Vehículos</span></div>
 
-  <a class="nav-item" href="/vehicles" use:link use:active={{ path: "/vehicles", className: "active" }} title="Inventario y datos maestros">
+  <a class="nav-item" href="/vehicles" use:link use:active={{ path: "/vehicles", className: "active" }} title="Inventario de vehículos">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18.92,6.01C18.72,5.42 18.16,5 17.5,5H6.5C5.84,5 5.28,5.42 5.08,6.01L3,12V20A1,1 0 0,0 4,21H5A1,1 0 0,0 6,20V19H18V20A1,1 0 0,0 19,21H20A1,1 0 0,0 21,20V12L18.92,6.01M6.5,16A1.5,1.5 0 1,1 8,14.5A1.5,1.5 0 0,1 6.5,16M17.5,16A1.5,1.5 0 1,1 19,14.5A1.5,1.5 0 0,1 17.5,16M5,11L6.5,6.5H17.5L19,11H5Z" /></svg>
     <span class="nav-text">Inventario</span>
   </a>
@@ -55,16 +60,6 @@
   <a class="nav-item" href="/vehicle-monitoring" use:link use:active={{ path: "/vehicle-monitoring", className: "active" }} title="Estado operativo: documentos, aceite y kilometraje (vista tipo planilla).">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,2C6.47,2 2,6.47 2,12C2,17.53 6.47,22 12,22C17.53,22 22,17.53 22,12C22,6.47 17.53,2 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M13,7H11V13H17V11H13V7Z" /></svg>
     <span class="nav-text">Monitoreo</span>
-  </a>
-
-  <a class="nav-item" href="/vehicle-maintenance" use:link use:active={{ path: "/vehicle-maintenance", className: "active" }} title="Cambio de aceite motor y vencimientos SOAT / Tecnomecánica (administración web).">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.7,4.7C0.6,7.1 1,10.1 3,12.1C4.9,14 7.6,14.5 9.9,13.6L19,22.7L22.7,19Z" /></svg>
-    <span class="nav-text">Aceite y documentos</span>
-  </a>
-
-  <a class="nav-item" href="/vehicle-workshop-history" use:link use:active={{ path: "/vehicle-workshop-history", className: "active" }} title="Historial de mantenimientos en taller (repuestos, tipo de servicio).">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M16,18H8V16H16V18M16,14H8V12H16V14M13,9V3.5L18.5,9H13Z" /></svg>
-    <span class="nav-text">Historial taller</span>
   </a>
 
   <a class="nav-item" href="/vehicle-inspections" use:link use:active={{ path: "/vehicle-inspections", className: "active" }} title="Inspecciones pre-operativas desde campo">
@@ -75,13 +70,18 @@
   <!-- ── Motocicletas ── -->
   <div class="section-header"><span>Motos</span></div>
 
+  <a class="nav-item" href="/moto-inventory" use:link use:active={{ path: "/moto-inventory", className: "active" }} title="Inventario de motocicletas">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17.8,20C17.4,21.2 16.3,22 15,22H9C7.7,22 6.6,21.2 6.2,20H3V18H6.2C6.6,16.8 7.7,16 9,16H15C16.3,16 17.4,16.8 17.8,18H21V20H17.8M7,18C7,18.6 7.4,19 8,19H16C16.6,19 17,18.6 17,18C17,17.4 16.6,17 16,17H8C7.4,17 7,17.4 7,18M18.3,5.3C19.4,6.4 19.4,8.1 18.3,9.2L16.5,11L18.3,12.8C19.4,13.9 19.4,15.6 18.3,16.7C17.2,17.8 15.5,17.8 14.4,16.7L12.6,14.9L10.8,16.7C9.7,17.8 8,17.8 6.9,16.7C5.8,15.6 5.8,13.9 6.9,12.8L8.7,11L6.9,9.2C5.8,8.1 5.8,6.4 6.9,5.3C8,4.2 9.7,4.2 10.8,5.3L12.6,7.1L14.4,5.3C15.5,4.2 17.2,4.2 18.3,5.3M16.2,6.5C15.9,6.2 15.4,6.2 15.1,6.5L12.6,9L10.1,6.5C9.8,6.2 9.3,6.2 9,6.5C8.7,6.8 8.7,7.3 9,7.6L11.5,10.1L9,12.6C8.7,12.9 8.7,13.4 9,13.7C9.3,14 9.8,14 10.1,13.7L12.6,11.2L15.1,13.7C15.4,14 15.9,14 16.2,13.7C16.5,13.4 16.5,12.9 16.2,12.6L13.7,10.1L16.2,7.6C16.5,7.3 16.5,6.8 16.2,6.5Z" /></svg>
+    <span class="nav-text">Inventario</span>
+  </a>
+
   <a class="nav-item" href="/moto-monitoring" use:link use:active={{ path: "/moto-monitoring", className: "active" }} title="Estado consolidado: documentación, aceite, último reporte">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M19,19H5V5H19V19M13.96,12.29L11.21,15.04L9.46,13.29L8.04,14.71L11.21,17.88L15.38,13.71L13.96,12.29M16.5,7V9H7.5V7H16.5Z" /></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,2C6.47,2 2,6.47 2,12C2,17.53 6.47,22 12,22C17.53,22 22,17.53 22,12C22,6.47 17.53,2 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M13,7H11V13H17V11H13V7Z" /></svg>
     <span class="nav-text">Monitoreo</span>
   </a>
 
   <a class="nav-item" href="/moto-inspections" use:link use:active={{ path: "/moto-inspections", className: "active" }} title="Inspecciones de motos">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19,3H5C3.89,3 3,3.9 3,5V19C3,20.1 3.89,21 5,21H19C20.1,21 21,20.1 21,19V5C21,3.9 20.1,3 19,3M19,19H5V5H19V19M17,12L12,17L7,12L8.41,10.59L11,13.17V7H13V13.17L15.59,10.59L17,12Z" /></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" /></svg>
     <span class="nav-text">Inspecciones</span>
   </a>
 
@@ -163,6 +163,28 @@
     height: 24px;
     fill: #000000;
     flex-shrink: 0;
+  }
+
+  /* Consolidado: documento + aceite (trazo + gota rellena); anula fill heredado en trazos */
+  .nav-item svg.nav-icon-consolidado {
+    color: #000000;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .nav-item svg.nav-icon-consolidado path:nth-of-type(2) {
+    fill: currentColor;
+    stroke: none;
+  }
+  .nav-item svg.nav-icon-consolidado path:nth-of-type(1),
+  .nav-item svg.nav-icon-consolidado path:nth-of-type(3) {
+    fill: none;
+    stroke: currentColor;
+  }
+  .nav-item svg.nav-icon-consolidado circle {
+    fill: none;
+    stroke: currentColor;
   }
 
   .nav-text {

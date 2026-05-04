@@ -11,6 +11,7 @@
     } from "../../stores/ui.js";
     import { wsNotificationService } from "../../composables/useWebSocketNotifications.js";
     import { location } from "svelte-spa-router";
+    import { getPageTitle } from "../../config/page-titles.js";
 
     export let isAutoRefreshEnabled = true;
     export let isAutoRefreshActive = false;
@@ -31,44 +32,7 @@
         dispatch("toggleAutoRefresh");
     }
 
-    // Map routes to titles
-    $: currentPath = $location;
-    $: pageTitle = getPageTitle(currentPath);
-
-    function getPageTitle(path) {
-        switch (path) {
-            case "/":
-                return "Panel de Control - Estado de Equipos";
-            case "/users":
-                return "Gestión de Usuarios";
-            case "/machines":
-                return "Gestión de Máquinas";
-            case "/work-orders":
-                return "Gestión de Órdenes de Trabajo";
-            case "/consolidado":
-                return "Consolidado de Maquinaria";
-            case "/oil-management":
-                return "Gestión de Aceites";
-            case "/vehicle-monitoring":
-                return "Monitoreo consolidado — Vehículos";
-            case "/vehicle-inspections":
-                return "Inspecciones pre-operativas — Vehículos";
-            case "/moto-monitoring":
-                return "Monitoreo de Motocicletas";
-            case "/moto-inspections":
-                return "Reportes Diarios Motos";
-            case "/moto-maintenance":
-                return "Mantenimiento de Motos";
-            case "/vehicles":
-                return "Gestión de Inventario de Vehículos";
-            case "/vehicle-maintenance":
-                return "Mantenimiento y Documentación de Vehículos";
-            case "/vehicle-workshop-history":
-                return "Historial de taller — Vehículos";
-            default:
-                return "Dashboard Maquinaria";
-        }
-    }
+    $: pageTitle = getPageTitle($location);
 </script>
 
 <svelte:window on:click={() => (showNotifications = false)} />

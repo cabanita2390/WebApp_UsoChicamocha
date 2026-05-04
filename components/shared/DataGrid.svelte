@@ -145,6 +145,22 @@
     return "status-malo";
   }
 
+  /** Motos: alineado con MotoMonitoringService — “OK” si km restantes &gt; max(100, intervalo/5). */
+  function getMotoOilKmParaCambioClass(kmRemaining, row) {
+    if (kmRemaining == null || kmRemaining === "") return "status-unknown";
+    const n = Number(kmRemaining);
+    if (Number.isNaN(n)) return "status-unknown";
+    const oil = row?.oil;
+    let interval = 3000;
+    if (oil?.kmProximoCambio != null && oil?.kmCambio != null) {
+      interval = Math.max(1, Number(oil.kmProximoCambio) - Number(oil.kmCambio));
+    }
+    const umbralProximo = Math.max(100, Math.floor(interval / 5));
+    if (n > umbralProximo) return "status-optimo";
+    if (n >= 0) return "status-regular";
+    return "status-malo";
+  }
+
   /** Días sin reporte: ≤7 verde, ≤14 amarillo, &gt;14 rojo. */
   function getReportLagClass(d) {
     if (d == null || d === "") return "status-unknown";
@@ -155,6 +171,10 @@
     return "status-malo";
   }
 
+  /**
+   * Semáforo para fechas de vencimiento (p. ej. SOAT): pasado = rojo, próximo = amarillo, lejano = verde.
+   * No aplicar a “fecha último cambio de aceite” (evento pasado; no es un vencimiento).
+   */
   function getDateStatusClass(dateString) {
     if (!dateString || typeof dateString !== "string") return "status-unknown";
     const parts = dateString.split("-");
@@ -222,6 +242,7 @@
                   ? `${header.column.getSize()}px`
                   : "auto"}
                 class:sortable={header.column.getCanSort()}
+                class:multiline-hdr={header.column.columnDef.meta?.isMultilineHeader}
                 on:click={header.column.getToggleSortingHandler()}
                 class={header.column.columnDef.meta?.cellClass || ""}
               >
@@ -230,9 +251,16 @@
                     header.column.columnDef.header,
                     header.getContext(),
                   )}
-                  <div class="header-content">
+                  <div
+                    class="header-content"
+                    class:multiline-header={header.column.columnDef.meta?.isMultilineHeader}
+                  >
                     {#if typeof content === "string"}
-                      {@html content}
+                      {#if header.column.columnDef.meta?.isMultilineHeader}
+                        <span class="header-text-pre">{content}</span>
+                      {:else}
+                        {@html content}
+                      {/if}
                     {:else}
                       <svelte:component this={content} />
                     {/if}
@@ -262,7 +290,8 @@
                 key={cell.id}
                 class:multiline={cell.column.columnDef.meta?.isMultiline}
                 class:status-cell={cell.column.columnDef.meta?.isStatus ||
-                  cell.column.columnDef.meta?.isDateStatus}
+                  cell.column.columnDef.meta?.isDateStatus ||
+                  cell.column.columnDef.meta?.isPlainMonitoringDate}
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
@@ -308,6 +337,30 @@
                       Ver
                     </button>
                   </div>
+                {:else if cell.column.columnDef.meta?.isMonitoringDocsAction}
+                  <div class="actions-cell actions-cell-stack">
+                    <button
+                      type="button"
+                      class="mon-action-text"
+                      on:click={() => handleAction("monitoring_update_docs", row.original)}
+                    >
+                      Actualizar SOAT / Tecno
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isMonitoringOilAction}
+                  <div class="actions-cell actions-cell-stack">
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact"
+                      title="Registrar cambio de aceite"
+                      on:click={() => handleAction("monitoring_register_oil", row.original)}
+                    >
+                      Registrar aceite
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isPlainMonitoringDate}
+                  {@const raw = cell.getContext().getValue()}
+                  <span class="mon-plain-date">{formatMonitoringDateCell(raw)}</span>
                 {:else if cell.column.columnDef.meta?.isDateStatus}
                   {@const raw = cell.getContext().getValue()}
                   {@const norm = normalizeDateForClass(raw)}
@@ -325,6 +378,16 @@
                   <button
                     type="button"
                     class="status-btn {getDocDaysRemainingClass(v)}"
+                    on:click={() =>
+                      handleStatusClick(row.original, cell.column.columnDef)}
+                  >
+                    {v == null || v === "" ? "N/A" : new Intl.NumberFormat("es-CO").format(Number(v))}
+                  </button>
+                {:else if cell.column.columnDef.meta?.isMotoOilKmSemaforo}
+                  {@const v = cell.getContext().getValue()}
+                  <button
+                    type="button"
+                    class="status-btn {getMotoOilKmParaCambioClass(v, row.original)}"
                     on:click={() =>
                       handleStatusClick(row.original, cell.column.columnDef)}
                   >
@@ -431,6 +494,58 @@
     background-color: #d1c4e9;
   }
 
+  .actions-cell-stack {
+    white-space: normal;
+    max-width: 140px;
+    align-items: center;
+  }
+  /**
+   * Acciones de monitoreo: texto neutro (sin colores de semáforo) para no confundir con celdas de estado.
+   */
+  .mon-action-text {
+    display: inline-block;
+    width: auto;
+    max-width: 100%;
+    padding: 2px 8px;
+    margin: 0;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: normal;
+    line-height: 1.2;
+    text-align: center;
+    color: #101010;
+    background: linear-gradient(to bottom, #f4f4f4 0%, #d8d8d8 100%);
+    border: 1px solid #808080;
+    border-radius: 0;
+    cursor: pointer;
+  }
+  .mon-action-text--compact {
+    padding: 1px 6px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .mon-action-text:hover {
+    background: linear-gradient(to bottom, #fafafa 0%, #e4e4e4 100%);
+    border-color: #606060;
+  }
+  .mon-action-text:active {
+    border-style: inset;
+  }
+
+  /** Fecha informativa (p. ej. último cambio aceite): sin semáforo rojo/amarillo de vencimiento. */
+  .mon-plain-date {
+    display: block;
+    padding: 6px 6px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: normal;
+    color: #101010;
+    background: #f5f5f5;
+    border: 1px solid #d0d0d0;
+    box-sizing: border-box;
+  }
+
   .data-grid-wrapper {
     display: flex;
     flex-direction: column;
@@ -527,6 +642,22 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+  th.sortable .header-content.multiline-header {
+    display: block;
+    text-align: center;
+  }
+  .header-text-pre {
+    white-space: pre-line;
+    display: block;
+    text-align: center;
+    font-weight: bold;
+    line-height: 1.25;
+  }
+  .data-grid th.multiline-hdr {
+    white-space: normal;
+    vertical-align: middle;
+    min-width: 8rem;
   }
   .sort-indicator {
     font-size: 8px;

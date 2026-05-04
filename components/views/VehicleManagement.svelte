@@ -87,6 +87,9 @@
     activo: true
   };
   let newVehicle = { ...initialVehicleState };
+  /** Vigencias opcionales al alta (POST admin/documents tras crear el vehículo). */
+  let docSoatVencimiento = "";
+  let docTecnoVencimiento = "";
 
   let vehicleInEditor = null;
   let showEditModal = false;
@@ -116,9 +119,37 @@
     isSubmitting = true;
     errorMessage = "";
     try {
-      await data.createVehicle(newVehicle);
+      const created = await data.createVehicle(newVehicle);
+      const vid = created?.id;
+      let docExtra = "";
+      if (vid != null && (docSoatVencimiento || docTecnoVencimiento)) {
+        try {
+          if (docSoatVencimiento) {
+            await data.updateVehicleDocument({
+              idVehiculo: vid,
+              tipoDocumento: "SOAT",
+              fechaVencimiento: docSoatVencimiento,
+            });
+          }
+          if (docTecnoVencimiento) {
+            await data.updateVehicleDocument({
+              idVehiculo: vid,
+              tipoDocumento: "TECNOMECANICA",
+              fechaVencimiento: docTecnoVencimiento,
+            });
+          }
+          docExtra = " Documentación (SOAT/Tecno) registrada.";
+        } catch (docErr) {
+          docExtra =
+            " " +
+            (docErr.message ||
+              "No se pudieron guardar las fechas de documentos (¿rol ADMIN?).");
+        }
+      }
       newVehicle = { ...initialVehicleState };
-      addNotification({ id: Date.now(), text: 'Vehículo creado con éxito.' });
+      docSoatVencimiento = "";
+      docTecnoVencimiento = "";
+      addNotification({ id: Date.now(), text: "Vehículo creado con éxito." + docExtra });
     } catch (e) {
       errorMessage = e.message || "Error al crear vehículo.";
     } finally {
@@ -216,7 +247,7 @@
               <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog('brand')}>+ Añadir</button>
             </span>
             <select bind:value={newVehicle.idMarca} required disabled={isSubmitting}>
-              <option value={null}>—</option>
+              <option value={null}>Seleccione marca</option>
               {#each brands as brand}
                 <option value={brand.idMarca}>{brand.descripcion}</option>
               {/each}
@@ -240,11 +271,11 @@
           </label>
           <label class="field span-2">
             <span class="field-lab field-lab-row">
-              Pertenece a (área)
+              Área
               <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog('area')}>+ Añadir</button>
             </span>
             <select bind:value={newVehicle.belongsTo} required disabled={isSubmitting}>
-              <option value="">— Área —</option>
+              <option value="">Área</option>
               {#each areas as area}
                 <option value={areaLabel(area)}>{areaLabel(area)}</option>
               {/each}
@@ -256,6 +287,14 @@
               <option value={true}>Activo</option>
               <option value={false}>Inactivo</option>
             </select>
+          </label>
+          <label class="field span-2">
+            <span class="field-lab">SOAT</span>
+            <input type="date" bind:value={docSoatVencimiento} disabled={isSubmitting} />
+          </label>
+          <label class="field span-2">
+            <span class="field-lab">Tecnomecánica</span>
+            <input type="date" bind:value={docTecnoVencimiento} disabled={isSubmitting} />
           </label>
         </div>
         <div class="create-actions">
@@ -314,12 +353,12 @@
         
         <label>
           <span class="modal-field-head">
-            Pertenece a (área)
+            Área
             <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('area')}>+ Añadir</button>
           </span>
           <select bind:value={vehicleInEditor.belongsTo}>
             <option value="">-- Seleccione área --</option>
-            {#each areas as area}
+            {#each areas as area} 
               <option value={areaLabel(area)}>{areaLabel(area)}</option>
             {/each}
           </select>
@@ -359,7 +398,6 @@
         <h3 id="quick-cat-title">{quickModalTitles[quickModal]}</h3>
         <button type="button" class="close-btn" on:click={closeQuickCatalog}>×</button>
       </div>
-      <p class="quick-help">Se guardará en el catálogo y quedará seleccionado en este formulario.</p>
       <label class="quick-label">
         Nombre
         <input

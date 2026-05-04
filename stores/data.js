@@ -16,9 +16,9 @@ function createDataStore() {
         vehicleInspectionsFull: [],
         motoInspections: [],
         motoMaintenance: [],
-        vehicleMaintenance: [],
         // Gestión Administrativa
         vehicles: [],
+        motos: [],
         vehicleBrands: [],
         vehicleTypes: [],
         areas: [],
@@ -29,6 +29,44 @@ function createDataStore() {
 
     const setLoading = (isLoading) => update(s => ({ ...s, isLoading }));
     const setError = (error) => update(s => ({ ...s, error, isLoading: false }));
+
+    /**
+     * Asegura `ubicacionBase` / `idUbicacionBase` en filas tipo VehicleResponse:
+     * - acepta camelCase o snake_case del JSON;
+     * - si solo viene el id, resuelve el nombre desde `locations` (evita carrera fetchMotos vs fetchLocations).
+     */
+    function enrichVehicleUbicacionRow(row, locations) {
+        if (!row || typeof row !== 'object') return row;
+        const idRaw = row.idUbicacionBase ?? row.id_ubicacion_base;
+        const idUb = idRaw != null && idRaw !== '' ? Number(idRaw) : null;
+        let nombre =
+            row.ubicacionBase != null && String(row.ubicacionBase).trim() !== ''
+                ? String(row.ubicacionBase).trim()
+                : row.ubicacion_base != null && String(row.ubicacion_base).trim() !== ''
+                  ? String(row.ubicacion_base).trim()
+                  : null;
+        if (
+            (nombre == null || nombre === '') &&
+            idUb != null &&
+            !Number.isNaN(idUb) &&
+            Array.isArray(locations)
+        ) {
+            const loc = locations.find(
+                (l) =>
+                    l &&
+                    (Number(l.id) === idUb ||
+                        Number(l.id_ubicacion) === idUb ||
+                        Number(l.idUbicacion) === idUb),
+            );
+            const raw = loc?.name ?? loc?.nombre ?? loc?.nombreUbicacion;
+            if (raw != null && String(raw).trim() !== '') nombre = String(raw).trim();
+        }
+        return {
+            ...row,
+            ...(idUb != null && !Number.isNaN(idUb) ? { idUbicacionBase: idUb } : {}),
+            ubicacionBase: nombre ?? null,
+        };
+    }
 
     async function fetchAll(key, endpoint) {
         setLoading(true);
@@ -152,10 +190,15 @@ function createDataStore() {
             setLoading(true);
             try {
                 const result = await fetchWithAuth('oil-changes/consolidated', { version: null });
-                const dataToStore = result?.content ?? result;
+                const dataToStore = Array.isArray(result?.content) ? result.content : (Array.isArray(result) ? result : []);
+                const norm = (s) =>
+                    String(s ?? '')
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '');
                 const consolidatedData = {
-                    distrito: dataToStore.filter(item => item.machine.belongsTo.toLowerCase() === 'distrito'),
-                    asociacion: dataToStore.filter(item => item.machine.belongsTo.toLowerCase() === 'asociacion')
+                    distrito: dataToStore.filter((item) => norm(item?.machine?.belongsTo) === 'distrito'),
+                    asociacion: dataToStore.filter((item) => norm(item?.machine?.belongsTo) === 'asociacion'),
                 };
                 update(s => ({ ...s, consolidated: consolidatedData, isLoading: false, error: null }));
                 return consolidatedData;
@@ -192,8 +235,9 @@ function createDataStore() {
         fetchMotoMonitoring: () => fetchAll('motoMonitoring', 'moto/monitoring/consolidated'),
         
         /**
-         * Inspecciones pre-operativas tipo carro (typeId=1). El backend devuelve un array completo;
-         * la paginación es en cliente. Use { reload: true } para volver a pedir al servidor.
+         * Inspecciones pre-operativas por tipo de vehículo (id en cat_tipos_vehiculo).
+         * Debe coincidir con el seed: 2 = AUTOMOVIL (livianos); 1 = MOTOCICLETA (ver vista motos).
+         * El backend devuelve un array completo; la paginación es en cliente.
          */
         fetchVehicleInspections: async (page = 0, size = 20, options = {}) => {
             const reload = options.reload === true;
@@ -202,7 +246,7 @@ function createDataStore() {
                 const prev = get({ subscribe });
                 let list = Array.isArray(prev.vehicleInspectionsFull) ? prev.vehicleInspectionsFull : [];
                 if (reload || list.length === 0) {
-                    const result = await fetchWithAuth('vehicle-inspection/reports/1');
+                    const result = await fetchWithAuth('vehicle-inspection/reports/2');
                     list = Array.isArray(result) ? result : [];
                     list = [...list].sort((a, b) => {
                         const ta = a.fechaRegistro ? new Date(a.fechaRegistro).getTime() : 0;
@@ -239,25 +283,100 @@ function createDataStore() {
             const q = new URLSearchParams({ placa, kilometraje: String(kilometraje) });
             return fetchWithAuth(`vehicle-inspection/validar-kilometraje?${q.toString()}`);
         },
+        /** Última inspección por placa (API deduplica por moto). */
         fetchMotoInspections: () => fetchAll('motoInspections', 'moto/inspections/reports'),
         
         // Mantenimiento
         fetchMotoMaintenance: () => fetchAll('motoMaintenance', 'maintenance/motos'),
-        fetchVehicleMaintenance: () => fetchAll('vehicleMaintenance', 'maintenance/vehicles'),
 
         // Gestión de Vehículos (CRUD)
-        fetchVehicles: () => fetchAll('vehicles', 'vehicle'),
+        fetchVehicles: async () => {
+            setLoading(true);
+            try {
+                const result = await fetchWithAuth('vehicle');
+                const list = Array.isArray(result) ? result : [];
+                let vehiclesEnriched = [];
+                update(s => {
+                    vehiclesEnriched = list.map(v => enrichVehicleUbicacionRow(v, s.locations || []));
+                    return {
+                        ...s,
+                        vehicles: vehiclesEnriched,
+                        isLoading: false,
+                        error: null,
+                    };
+                });
+                return vehiclesEnriched;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
         createVehicle: async (newVehicle) => {
             const created = await fetchWithAuth('vehicle', { method: 'POST', body: JSON.stringify(newVehicle) });
-            update(s => ({ ...s, vehicles: [...s.vehicles, created] }));
+            let enriched;
+            update(s => {
+                enriched = enrichVehicleUbicacionRow(created, s.locations || []);
+                return { ...s, vehicles: [...s.vehicles, enriched] };
+            });
+            return enriched;
         },
         updateVehicle: async (id, vehicleData) => {
             const updated = await fetchWithAuth(`vehicle/${id}`, { method: 'PUT', body: JSON.stringify(vehicleData) });
-            update(s => ({ ...s, vehicles: s.vehicles.map(v => v.id === id ? updated : v) }));
+            let enriched;
+            update(s => {
+                enriched = enrichVehicleUbicacionRow(updated, s.locations || []);
+                return { ...s, vehicles: s.vehicles.map(v => v.id === id ? enriched : v) };
+            });
+            return enriched;
         },
         deleteVehicle: async (id) => {
             await fetchWithAuth(`vehicle/${id}`, { method: 'DELETE' });
             update(s => ({ ...s, vehicles: s.vehicles.filter(v => v.id !== id) }));
+        },
+
+        /** CRUD motocicletas — GET/POST/PUT/DELETE `/api/v1/moto` (tipo MOTOCICLETA forzado en servidor). */
+        fetchMotos: async () => {
+            setLoading(true);
+            try {
+                const result = await fetchWithAuth('moto');
+                const list = Array.isArray(result) ? result : [];
+                let motosEnriched = [];
+                update(s => {
+                    motosEnriched = list.map(m => enrichVehicleUbicacionRow(m, s.locations || []));
+                    return {
+                        ...s,
+                        motos: motosEnriched,
+                        isLoading: false,
+                        error: null,
+                    };
+                });
+                return motosEnriched;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
+        createMoto: async (payload) => {
+            const created = await fetchWithAuth('moto', { method: 'POST', body: JSON.stringify(payload) });
+            let enriched;
+            update(s => {
+                enriched = enrichVehicleUbicacionRow(created, s.locations || []);
+                return { ...s, motos: [...s.motos, enriched] };
+            });
+            return enriched;
+        },
+        updateMoto: async (id, payload) => {
+            const updated = await fetchWithAuth(`moto/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+            let enriched;
+            update(s => {
+                enriched = enrichVehicleUbicacionRow(updated, s.locations || []);
+                return { ...s, motos: s.motos.map(m => m.id === id ? enriched : m) };
+            });
+            return enriched;
+        },
+        deleteMoto: async (id) => {
+            await fetchWithAuth(`moto/${id}`, { method: 'DELETE' });
+            update(s => ({ ...s, motos: s.motos.filter(m => m.id !== id) }));
         },
 
         // Catálogos (Marcas, Tipos, Áreas, Ubicaciones)
@@ -278,7 +397,26 @@ function createDataStore() {
 
         fetchVehicleTypes: () => fetchAll('vehicleTypes', 'catalog/tipo-vehiculo'),
         fetchAreas: () => fetchAll('areas', 'catalog/area'),
-        fetchLocations: () => fetchAll('locations', 'catalog/ubicacion'),
+        fetchLocations: async () => {
+            setLoading(true);
+            try {
+                const result = await fetchWithAuth('catalog/ubicacion');
+                const dataToStore = result?.content ?? result?.users ?? result;
+                const locations = Array.isArray(dataToStore) ? dataToStore : [];
+                update(s => ({
+                    ...s,
+                    locations,
+                    motos: (s.motos || []).map(m => enrichVehicleUbicacionRow(m, locations)),
+                    vehicles: (s.vehicles || []).map(v => enrichVehicleUbicacionRow(v, locations)),
+                    isLoading: false,
+                    error: null,
+                }));
+                return locations;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
 
         // Acciones Genéricas para Catálogos (Área, Ubicación, Tipo)
         createCatalogItem: async (type, newItem) => {

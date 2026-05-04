@@ -72,6 +72,11 @@
       <p>{errorMessage}</p>
     </div>
   {:else}
+    {#if distritoMachines.length === 0 && asociacionMachines.length === 0}
+      <div class="empty-panel" role="status">
+        <p><strong>No hay filas para mostrar.</strong></p>
+      </div>
+    {/if}
     {#if distritoMachines.length > 0}
       <div class="table-group">
         <DataGrid columns={distritoColumns} data={distritoMachines} fixedLayout={false} />
@@ -111,6 +116,27 @@
     background-color: #ffdddd;
     border: 1px solid #ff0000;
     color: #8b0000;
+  }
+  .empty-panel {
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    background: #f5f5f5;
+    border: 1px inset #c0c0c0;
+    font-family: "MS Sans Serif", "Tahoma", sans-serif;
+    font-size: 11px;
+    color: #202020;
+    max-width: 720px;
+  }
+  .empty-panel p {
+    margin: 0 0 8px 0;
+  }
+  .empty-panel p:last-child {
+    margin-bottom: 0;
+  }
+  .empty-panel code {
+    font-size: 10px;
+    background: #e8e8e8;
+    padding: 0 4px;
   }
   .refresh-container {
     display: flex;

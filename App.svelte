@@ -1,7 +1,8 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { get } from "svelte/store";
-  import Router from "svelte-spa-router";
+  import Router, { replace, location } from "svelte-spa-router";
+  import { getPageTitle } from "./config/page-titles.js";
   import MainLayout from "./components/layouts/MainLayout.svelte";
   import WorkOrderModal from "./components/shared/WorkOrderModal.svelte";
   import Login from "./components/views/Login.svelte";
@@ -18,8 +19,7 @@
   import MotoInspections from "./components/views/MotoInspections.svelte";
   import MotoMaintenance from "./components/views/MotoMaintenance.svelte";
   import VehicleManagement from "./components/views/VehicleManagement.svelte";
-  import VehicleMaintenance from "./components/views/VehicleMaintenance.svelte";
-  import VehicleWorkshopHistory from "./components/views/VehicleWorkshopHistory.svelte";
+  import MotoManagement from "./components/views/MotoManagement.svelte";
   import { auth } from "./stores/auth.js";
   import {
     ui,
@@ -60,8 +60,7 @@
     "/moto-inspections": MotoInspections,
     "/moto-maintenance": MotoMaintenance,
     "/vehicles": VehicleManagement,
-    "/vehicle-maintenance": VehicleMaintenance,
-    "/vehicle-workshop-history": VehicleWorkshopHistory,
+    "/moto-inventory": MotoManagement,
   };
 
   function handleActivateSound() {
@@ -164,6 +163,8 @@
   }
 
   // Handle route loaded event to fetch data
+  $: browserTabTitle = getPageTitle($location);
+
   function routeLoaded(event) {
     console.log("Route loaded:", event.detail.location);
     const location = event.detail.location;
@@ -196,6 +197,9 @@
     } else if (location.includes("/moto-monitoring")) {
       ui.setCurrentView("moto-monitoring");
       data.fetchMotoMonitoring();
+    } else if (location.includes("/moto-inventory")) {
+      ui.setCurrentView("moto-inventory");
+      data.fetchMotos();
     } else if (location.includes("/moto-inspections")) {
       ui.setCurrentView("moto-inspections");
       data.fetchMotoInspections();
@@ -206,17 +210,15 @@
       ui.setCurrentView("vehicles");
       data.fetchVehicles();
     } else if (location.includes("/vehicle-workshop-history")) {
-      ui.setCurrentView("vehicle-workshop-history");
-      data.fetchVehicleMaintenance();
-    } else if (location.includes("/vehicle-maintenance")) {
-      ui.setCurrentView("vehicle-maintenance");
+      // Ruta retirada: el historial de taller aplica solo a motos.
+      replace("/moto-maintenance");
     }
   }
 </script>
 
 <svelte:head>
   <title
-    >{$notificationCount > 0 ? `(${$notificationCount})` : ""} Dashboard Maquinaria</title
+    >{$notificationCount > 0 ? `(${$notificationCount}) ` : ""}{browserTabTitle}</title
   >
 </svelte:head>
 

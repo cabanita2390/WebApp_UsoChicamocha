@@ -89,6 +89,12 @@
   z-index: 1;
 }
 
+/** Pestaña corta (p. ej. monitoreo aceite) para no competir en ancho con “Documentación…”. */
+.vehicle-tab--compact {
+  padding: 4px 10px 5px;
+  font-size: 10px;
+}
+
 .vehicle-loader {
   display: flex;
   flex-direction: column;
