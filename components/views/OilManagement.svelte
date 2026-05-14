@@ -2,6 +2,7 @@
   import { data as dataStore } from '../../stores/data.js';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
+  import { formatOilBrandPayload } from '@/lib/textFormat.js';
 
   let oilHydraulic = [], oilMotor = [];
   $: {
@@ -27,7 +28,7 @@
       return;
     }
     try {
-      await dataStore.createOil({ name: newOilName, type: newOilType });
+      await dataStore.createOil(formatOilBrandPayload({ name: newOilName, type: newOilType }));
       newOilName = '';
     } catch (err) {}
   }
@@ -39,7 +40,7 @@
       return;
     }
     try {
-      await dataStore.updateOil(selectedOil.id, { ...selectedOil, name: editedName });
+      await dataStore.updateOil(selectedOil.id, formatOilBrandPayload({ ...selectedOil, name: editedName }));
       closeModals();
     } catch (err) {}
   }

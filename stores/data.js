@@ -1,5 +1,6 @@
 import { writable, get } from 'svelte/store';
 import fetchWithAuth from './api';
+import { normalizePlaca, normalizeTitleWords, normalizeUpperToken, normalizeFreeTextPreserveCase } from '../src/lib/textFormat.js';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 function createDataStore() {
     const { subscribe, update } = writable({
@@ -14,8 +15,11 @@ function createDataStore() {
         vehicleInspections: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
         /** Lista completa de inspecciones vehículo (API devuelve array, no página Spring). */
         vehicleInspectionsFull: [],
+        vehicleWorkOrders: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
         motoInspections: [],
+        motoInspectionsHistory: [],
         motoMaintenance: [],
+        vehicleMaintenance: [],
         // Gestión Administrativa
         vehicles: [],
         motos: [],
@@ -33,12 +37,17 @@ function createDataStore() {
     /**
      * Asegura `ubicacionBase` / `idUbicacionBase` en filas tipo VehicleResponse:
      * - acepta camelCase o snake_case del JSON;
-     * - si solo viene el id, resuelve el nombre desde `locations` (evita carrera fetchMotos vs fetchLocations).
+     * - normaliza id numérico (evita NaN / tipos raros);
+     * - si solo viene el id, resuelve el nombre desde `locations` (evita carrera fetchMotos vs fetchLocations);
+     * - si solo viene el nombre (o el id no coincide con el catálogo), intenta resolver el id por nombre (p. ej. select de edición).
      */
     function enrichVehicleUbicacionRow(row, locations) {
         if (!row || typeof row !== 'object') return row;
         const idRaw = row.idUbicacionBase ?? row.id_ubicacion_base;
-        const idUb = idRaw != null && idRaw !== '' ? Number(idRaw) : null;
+        let idNum = idRaw != null && idRaw !== '' ? Number(idRaw) : null;
+        if (idNum != null && Number.isNaN(idNum)) {
+            idNum = null;
+        }
         let nombre =
             row.ubicacionBase != null && String(row.ubicacionBase).trim() !== ''
                 ? String(row.ubicacionBase).trim()
@@ -47,32 +56,75 @@ function createDataStore() {
                   : null;
         if (
             (nombre == null || nombre === '') &&
-            idUb != null &&
-            !Number.isNaN(idUb) &&
+            idNum != null &&
             Array.isArray(locations)
         ) {
             const loc = locations.find(
                 (l) =>
                     l &&
-                    (Number(l.id) === idUb ||
-                        Number(l.id_ubicacion) === idUb ||
-                        Number(l.idUbicacion) === idUb),
+                    (Number(l.id) === idNum ||
+                        Number(l.id_ubicacion) === idNum ||
+                        Number(l.idUbicacion) === idNum),
             );
             const raw = loc?.name ?? loc?.nombre ?? loc?.nombreUbicacion;
             if (raw != null && String(raw).trim() !== '') nombre = String(raw).trim();
         }
+        if ((idNum == null || Number.isNaN(idNum)) && nombre && Array.isArray(locations)) {
+            const nomLower = nombre.toLocaleLowerCase('es');
+            const loc = locations.find((l) => {
+                const label = String(l?.name ?? l?.nombre ?? l?.nombreUbicacion ?? '').trim();
+                return label.length > 0 && label.toLocaleLowerCase('es') === nomLower;
+            });
+            if (loc) {
+                const lid = loc.id ?? loc.id_ubicacion ?? loc.idUbicacion;
+                if (lid != null && lid !== '') {
+                    const n = Number(lid);
+                    if (!Number.isNaN(n)) idNum = n;
+                }
+            }
+        }
         return {
             ...row,
-            ...(idUb != null && !Number.isNaN(idUb) ? { idUbicacionBase: idUb } : {}),
+            idUbicacionBase: idNum != null && !Number.isNaN(idNum) ? idNum : null,
             ubicacionBase: nombre ?? null,
         };
+    }
+
+    /** Respuestas que deben guardarse como array (evita .filter is not a function si el API envía página u objeto). */
+    const STORE_ARRAY_KEYS = new Set([
+        'machines',
+        'oils',
+        'vehicleMonitoring',
+        'motoMonitoring',
+        'motoInspections',
+        'motoInspectionsHistory',
+        'motoMaintenance',
+        'vehicleMaintenance',
+        'vehicleBrands',
+        'vehicleTypes',
+        'areas',
+        'vehicleInspectionsFull',
+    ]);
+
+    /** Convierte cuerpo JSON a lista (array plano, Spring `content`, o `data`). */
+    function unwrapEntityList(value) {
+        if (value == null) return [];
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'object') {
+            if (Array.isArray(value.content)) return value.content;
+            if (Array.isArray(value.data)) return value.data;
+        }
+        return [];
     }
 
     async function fetchAll(key, endpoint) {
         setLoading(true);
         try {
             const result = await fetchWithAuth(endpoint);
-            const dataToStore = result?.content ?? result?.users ?? result;
+            let dataToStore = result?.content ?? result?.users ?? result;
+            if (STORE_ARRAY_KEYS.has(key)) {
+                dataToStore = unwrapEntityList(dataToStore);
+            }
             update(s => ({ ...s, [key]: dataToStore, isLoading: false, error: null }));
             return dataToStore;
         } catch (err) {
@@ -173,6 +225,17 @@ function createDataStore() {
                 throw err;
             }
         },
+        fetchVehicleCurriculum: async (vehicleId) => {
+            setLoading(true);
+            try {
+                const result = await fetchWithAuth(`curriculum/vehicle/${vehicleId}`);
+                setLoading(false);
+                return result;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
         // Órdenes de Trabajo
         fetchWorkOrders: (page = 0, size = 20) => fetchPaginated('workOrders', 'order/all', page, size),
         createWorkOrder: async (newWorkOrder) => {
@@ -180,10 +243,22 @@ function createDataStore() {
             const currentState = get({ subscribe });
             actions.fetchWorkOrders(currentState.workOrders.currentPage, currentState.workOrders.pageSize);
         },
+        // Órdenes de Trabajo — Vehículos
+        fetchVehicleWorkOrders: (page = 0, size = 20) => fetchPaginated('vehicleWorkOrders', 'order/vehicle/all', page, size),
+        createVehicleWorkOrder: async (payload) => {
+            await fetchWithAuth('order/vehicle', { method: 'POST', body: JSON.stringify(payload) });
+            const currentState = get({ subscribe });
+            actions.fetchVehicleWorkOrders(currentState.vehicleWorkOrders.currentPage, currentState.vehicleWorkOrders.pageSize);
+        },
         executeWorkOrder: async (executionData) => {
             await fetchWithAuth('results/execute', { method: 'POST', body: JSON.stringify(executionData) });
             const currentState = get({ subscribe });
             actions.fetchWorkOrders(currentState.workOrders.currentPage, currentState.workOrders.pageSize);
+        },
+        executeVehicleWorkOrder: async (executionData) => {
+            await fetchWithAuth('results/execute', { method: 'POST', body: JSON.stringify(executionData) });
+            const currentState = get({ subscribe });
+            actions.fetchVehicleWorkOrders(currentState.vehicleWorkOrders.currentPage, currentState.vehicleWorkOrders.pageSize);
         },
         // Consolidado
         fetchConsolidadoData: async () => {
@@ -223,20 +298,48 @@ function createDataStore() {
         },
         // Mantenimiento y Documentación Vehículos
         registerVehicleOilChange: async (oilData) => {
-            await fetchWithAuth('vehicle/oil-change', { method: 'POST', body: JSON.stringify(oilData) });
+            const body = {
+                ...oilData,
+                placa: normalizePlaca(oilData.placa),
+                oilType: normalizeFreeTextPreserveCase(oilData.oilType) ?? oilData.oilType,
+            };
+            await fetchWithAuth('vehicle/oil-change', { method: 'POST', body: JSON.stringify(body) });
+        },
+        fetchVehicleOilHistory: async (placa) => {
+            try {
+                const p = normalizePlaca(placa);
+                const result = await fetchWithAuth(`vehicle/oil-change/history/${encodeURIComponent(p)}`);
+                return Array.isArray(result) ? result : [];
+            } catch (err) {
+                throw err;
+            }
         },
         updateVehicleDocument: async (docData) => {
             await fetchWithAuth('admin/documents', { method: 'POST', body: JSON.stringify(docData) });
         },
+        /**
+         * Sube PDF o imagen y registra vigencia (multipart).
+         * @param {{ idVehiculo: number, tipoDocumento: string, fechaVencimiento: string, file: File }} payload
+         */
+        uploadVehicleDocumentFile: async (payload) => {
+            const { idVehiculo, tipoDocumento, fechaVencimiento, file } = payload;
+            const form = new FormData();
+            form.append('file', file);
+            form.append('idVehiculo', String(idVehiculo));
+            form.append('tipoDocumento', tipoDocumento);
+            form.append('fechaVencimiento', fechaVencimiento);
+            await fetchWithAuth('admin/documents/upload', { method: 'POST', body: form });
+        },
         getVehicleDocuments: (idVehiculo) => fetchWithAuth(`vehicle-inspection/documentos/${idVehiculo}`),
+        getVehicleDocumentHistory: (idVehiculo) =>
+            fetchWithAuth(`vehicle-inspection/documentos/${idVehiculo}/history`),
 
         // Monitoreo Vehículos y Motos
         fetchVehicleMonitoring: () => fetchAll('vehicleMonitoring', 'vehicle/monitoring/consolidated'),
         fetchMotoMonitoring: () => fetchAll('motoMonitoring', 'moto/monitoring/consolidated'),
         
         /**
-         * Inspecciones pre-operativas por tipo de vehículo (id en cat_tipos_vehiculo).
-         * Debe coincidir con el seed: 2 = AUTOMOVIL (livianos); 1 = MOTOCICLETA (ver vista motos).
+         * Última inspección por vehículo (excluye motos). Una fila por placa, la más reciente.
          * El backend devuelve un array completo; la paginación es en cliente.
          */
         fetchVehicleInspections: async (page = 0, size = 20, options = {}) => {
@@ -246,7 +349,7 @@ function createDataStore() {
                 const prev = get({ subscribe });
                 let list = Array.isArray(prev.vehicleInspectionsFull) ? prev.vehicleInspectionsFull : [];
                 if (reload || list.length === 0) {
-                    const result = await fetchWithAuth('vehicle-inspection/reports/2');
+                    const result = await fetchWithAuth('vehicle-inspection/reports/latest');
                     list = Array.isArray(result) ? result : [];
                     list = [...list].sort((a, b) => {
                         const ta = a.fechaRegistro ? new Date(a.fechaRegistro).getTime() : 0;
@@ -278,23 +381,27 @@ function createDataStore() {
                 throw err;
             }
         },
-        getVehicleByPlaca: (placa) => fetchWithAuth(`vehicle/${encodeURIComponent(placa)}`),
+        getVehicleByPlaca: (placa) =>
+            fetchWithAuth(`vehicle/${encodeURIComponent(normalizePlaca(placa))}`),
         validateVehicleKilometraje: (placa, kilometraje) => {
-            const q = new URLSearchParams({ placa, kilometraje: String(kilometraje) });
+            const q = new URLSearchParams({ placa: normalizePlaca(placa), kilometraje: String(kilometraje) });
             return fetchWithAuth(`vehicle-inspection/validar-kilometraje?${q.toString()}`);
         },
         /** Última inspección por placa (API deduplica por moto). */
         fetchMotoInspections: () => fetchAll('motoInspections', 'moto/inspections/reports'),
-        
+        /** Historial completo de inspecciones de motos (todas, más recientes primero). */
+        fetchMotoInspectionsHistory: () => fetchAll('motoInspectionsHistory', 'moto/inspections/reports/history'),
+
         // Mantenimiento
         fetchMotoMaintenance: () => fetchAll('motoMaintenance', 'maintenance/motos'),
+        fetchVehicleMaintenance: () => fetchAll('vehicleMaintenance', 'maintenance/vehicles'),
 
         // Gestión de Vehículos (CRUD)
         fetchVehicles: async () => {
             setLoading(true);
             try {
                 const result = await fetchWithAuth('vehicle');
-                const list = Array.isArray(result) ? result : [];
+                const list = unwrapEntityList(result);
                 let vehiclesEnriched = [];
                 update(s => {
                     vehiclesEnriched = list.map(v => enrichVehicleUbicacionRow(v, s.locations || []));
@@ -339,7 +446,7 @@ function createDataStore() {
             setLoading(true);
             try {
                 const result = await fetchWithAuth('moto');
-                const list = Array.isArray(result) ? result : [];
+                const list = unwrapEntityList(result);
                 let motosEnriched = [];
                 update(s => {
                     motosEnriched = list.map(m => enrichVehicleUbicacionRow(m, s.locations || []));
@@ -382,12 +489,21 @@ function createDataStore() {
         // Catálogos (Marcas, Tipos, Áreas, Ubicaciones)
         fetchVehicleBrands: () => fetchAll('vehicleBrands', 'brand/vehicle'),
         createVehicleBrand: async (newBrand) => {
-            const created = await fetchWithAuth('brand/vehicle', { method: 'POST', body: JSON.stringify(newBrand) });
+            const descripcion = normalizeTitleWords(newBrand.descripcion) ?? String(newBrand.descripcion ?? '').trim();
+            const created = await fetchWithAuth('brand/vehicle', {
+                method: 'POST',
+                body: JSON.stringify({ descripcion }),
+            });
             update(s => ({ ...s, vehicleBrands: [...s.vehicleBrands, created] }));
             return created;
         },
         updateVehicleBrand: async (id, brandData) => {
-            const updated = await fetchWithAuth(`brand/vehicle/${id}`, { method: 'PUT', body: JSON.stringify(brandData) });
+            const descripcion =
+                normalizeTitleWords(brandData.descripcion) ?? String(brandData.descripcion ?? '').trim();
+            const updated = await fetchWithAuth(`brand/vehicle/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ descripcion }),
+            });
             update(s => ({ ...s, vehicleBrands: s.vehicleBrands.map(b => b.idMarca === id ? updated : b) }));
         },
         deleteVehicleBrand: async (id) => {
@@ -402,7 +518,7 @@ function createDataStore() {
             try {
                 const result = await fetchWithAuth('catalog/ubicacion');
                 const dataToStore = result?.content ?? result?.users ?? result;
-                const locations = Array.isArray(dataToStore) ? dataToStore : [];
+                const locations = unwrapEntityList(dataToStore);
                 update(s => ({
                     ...s,
                     locations,
@@ -422,14 +538,30 @@ function createDataStore() {
         createCatalogItem: async (type, newItem) => {
             const endpointMap = { 'area': 'catalog/area', 'location': 'catalog/ubicacion', 'type': 'catalog/tipo-vehiculo' };
             const stateMap = { 'area': 'areas', 'location': 'locations', 'type': 'vehicleTypes' };
-            const created = await fetchWithAuth(endpointMap[type], { method: 'POST', body: JSON.stringify(newItem) });
+            let body = { ...newItem };
+            if (newItem?.name != null) {
+                const raw = newItem.name;
+                body = {
+                    ...newItem,
+                    name: type === 'type' ? (normalizeUpperToken(raw) ?? String(raw).trim()) : (normalizeTitleWords(raw) ?? String(raw).trim()),
+                };
+            }
+            const created = await fetchWithAuth(endpointMap[type], { method: 'POST', body: JSON.stringify(body) });
             update(s => ({ ...s, [stateMap[type]]: [...s[stateMap[type]], created] }));
             return created;
         },
         updateCatalogItem: async (type, id, itemData) => {
             const endpointMap = { 'area': 'catalog/area', 'location': 'catalog/ubicacion', 'type': 'catalog/tipo-vehiculo' };
             const stateMap = { 'area': 'areas', 'location': 'locations', 'type': 'vehicleTypes' };
-            const updated = await fetchWithAuth(`${endpointMap[type]}/${id}`, { method: 'PUT', body: JSON.stringify(itemData) });
+            let body = { ...itemData };
+            if (itemData?.name != null) {
+                const raw = itemData.name;
+                body = {
+                    ...itemData,
+                    name: type === 'type' ? (normalizeUpperToken(raw) ?? String(raw).trim()) : (normalizeTitleWords(raw) ?? String(raw).trim()),
+                };
+            }
+            const updated = await fetchWithAuth(`${endpointMap[type]}/${id}`, { method: 'PUT', body: JSON.stringify(body) });
             update(s => ({ ...s, [stateMap[type]]: s[stateMap[type]].map(i => i.id === id ? updated : i) }));
         },
         deleteCatalogItem: async (type, id) => {

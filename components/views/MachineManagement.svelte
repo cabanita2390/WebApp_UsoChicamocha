@@ -8,6 +8,7 @@
   } from "../../config/table-definitions.js";
   import { onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
+  import { formatMachinePayload } from '@/lib/textFormat.js';
 
   let isDeleteMachineEnabled = false;
   let deleteMachineTimer;
@@ -55,7 +56,7 @@
     isSubmitting = true;
     errorMessage = "";
     try {
-      await data.createMachine(newMachine);
+      await data.createMachine(formatMachinePayload(newMachine));
       newMachine = { ...initialMachineState };
     } catch (e) {
       errorMessage = e.message || "Error al crear máquina.";
@@ -70,7 +71,7 @@
     isSubmitting = true;
     errorMessage = "";
     try {
-      await data.updateMachine(machineInEditor);
+      await data.updateMachine({ id: machineInEditor.id, ...formatMachinePayload(machineInEditor) });
       closeEditModal();
     } catch (e) {
       errorMessage = e.message || "Error al actualizar máquina.";
@@ -172,26 +173,25 @@
 
 </script>
 
-{#if isLoading}
-  <div class="loader-container">
-    <Loader />
-    <p>Cargando máquinas...</p>
-  </div>
-{:else}
-  <div class="management-container">
-    <div class="refresh-container">
-      <button class="btn-refresh" on:click={() => data.fetchMachines()}>
-        Refrescar información
-      </button>
-      <button class="btn-export" on:click={handleExportCurriculum} disabled={isExporting}>
-        {#if isExporting}
-          <span class="loading-icon">⟳</span>
-        {/if}
-        {isExporting ? 'Descargando...' : 'Exportar Excel'}
-      </button>
-    </div>
-    <div class="form-container">
-      <h3>Crear Nueva Máquina</h3>
+<div class="vehicle-module">
+  <div class="vehicle-module-inner">
+    {#if isLoading}
+      <div class="vehicle-loader">
+        <Loader />
+        <p>Cargando máquinas...</p>
+      </div>
+    {:else}
+      <div class="vehicle-toolbar">
+        <button type="button" class="vehicle-btn" on:click={() => data.fetchMachines()}>
+          Refrescar
+        </button>
+        <button type="button" class="vehicle-btn vehicle-btn--export" on:click={handleExportCurriculum} disabled={isExporting}>
+          {#if isExporting}<span class="spin">⟳</span>{/if}
+          {isExporting ? 'Descargando...' : 'Exportar Excel'}
+        </button>
+      </div>
+      <div class="vehicle-form-section">
+        <div class="vehicle-subpanel-head">Registrar nueva máquina</div>
       <form class="create-form" on:submit={handleCreateMachine}>
         <input
           type="text"
@@ -243,19 +243,20 @@
           <input type="date" id="newRunt" bind:value={newMachine.runt} disabled={isSubmitting} />
         </div>
         <button type="submit" class="btn-create" disabled={isSubmitting}>
-          {isSubmitting ? "Creando..." : "Crear"}
+          {isSubmitting ? "Registrando..." : "Registrar máquina"}
         </button>
       </form>
       {#if errorMessage}
         <p class="error-message">{errorMessage}</p>
       {/if}
-    </div>
+      </div>
 
-    <div class="table-wrapper">
-      <DataGrid columns={machineColumns} data={machines} on:action={handleAction} />
-    </div>
+      <div class="vehicle-table-wrap vehicle-table-wrap--inset">
+        <DataGrid columns={machineColumns} data={machines} on:action={handleAction} />
+      </div>
+    {/if}
   </div>
-{/if}
+</div>
 
 {#if showEditModal}
   <div class="modal-overlay">
@@ -348,47 +349,30 @@
   </div>
 {/if}
 <style>
- 
-.modal-content.large {
+  .modal-content.large {
     min-width: 80%;
     max-width: 1200px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-}
-
-.modal-table {
+  }
+  .modal-table {
     flex: 1;
     min-height: 0;
     margin-top: 16px;
-}
+  }
   .loader-container {
     display: flex;
     justify-content: center;
     align-items: center;
     flex: 1;
   }
-  .management-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    font-family: "MS Sans Serif", "Tahoma", sans-serif;
-    font-size: 11px;
-    height: 100%;
-  }
-  .form-container {
-    padding: 16px;
-    background: #e0e0e0;
-    border: 2px outset #c0c0c0;
-  }
-  h3 {
-    margin: 0 0 12px 0;
-  }
   .create-form {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
+    padding: 10px 16px 14px;
   }
   .create-form input,
   .create-form select {
@@ -405,58 +389,11 @@
     border: 1px outset #c0c0c0;
     cursor: pointer;
     font-size: 11px;
-  }
-  .refresh-container {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .btn-refresh {
-    padding: 2px 8px;
-    background: linear-gradient(to bottom, #e0e0e0 0%, #c0c0c0 100%);
-    border: 1px outset #c0c0c0;
-    cursor: pointer;
-    font-size: 10px;
     font-family: inherit;
-  }
-  .btn-refresh:hover {
-    background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%);
-  }
-  .btn-export {
-    padding: 2px 8px;
-    background: linear-gradient(to bottom, #90ee90 0%, #7bc97b 100%);
-    border: 1px outset #7bc97b;
-    cursor: pointer;
-    font-size: 10px;
-    font-family: inherit;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .btn-export:hover:not(:disabled) {
-    background: linear-gradient(to bottom, #a0ffa0 0%, #8bd98b 100%);
-  }
-  .btn-export:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-  .loading-icon {
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  .table-wrapper {
-    flex: 1;
-    overflow-y: auto;
-    background-color: #ffffff;
-    border: 2px inset #c0c0c0;
-    min-height: 0;
   }
   .error-message {
     color: red;
+    padding: 0 16px 8px;
   }
   .modal-overlay {
     position: fixed;
@@ -473,8 +410,9 @@
   .modal-content {
     background: #e0e0e0;
     padding: 20px;
-    border: 2px outset #c0c0c0;
+    border: 2px outset #ffffff;
     min-width: 400px;
+    box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.3);
   }
   .modal-content.confirmation {
     text-align: center;
@@ -512,13 +450,25 @@
     gap: 8px;
     margin-top: 20px;
   }
-  .btn-cancel,
-  .btn-save {
+  .btn-cancel {
     padding: 4px 12px;
-    border: 1px outset #c0c0c0;
+    background: #d0d0d0;
+    border: 1px outset #fff;
     cursor: pointer;
   }
   .btn-save {
+    padding: 4px 12px;
+    background: #90ee90;
+    border: 1px outset #fff;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .btn-delete {
+    padding: 4px 12px;
+    background: #ff6b6b;
+    color: white;
+    border: 1px outset #fff;
+    cursor: pointer;
     font-weight: bold;
   }
 </style>

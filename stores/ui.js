@@ -54,6 +54,9 @@ function createUIStore() {
     showWorkOrderModal: false,
     selectedRowData: null,
     selectedColumnDef: null,
+    showVehicleWorkOrderModal: false,
+    selectedVehicleRowData: null,
+    selectedVehicleColumnDef: null,
     isSaving: false,
     // Image Modal State
     showImageModal: false,
@@ -84,6 +87,20 @@ function createUIStore() {
       showWorkOrderModal: false,
       selectedRowData: null,
       selectedColumnDef: null
+    })),
+
+    openVehicleWorkOrderModal: (data, columnDef) => update(store => ({
+      ...store,
+      showVehicleWorkOrderModal: true,
+      selectedVehicleRowData: data,
+      selectedVehicleColumnDef: columnDef,
+    })),
+
+    closeVehicleWorkOrderModal: () => update(store => ({
+      ...store,
+      showVehicleWorkOrderModal: false,
+      selectedVehicleRowData: null,
+      selectedVehicleColumnDef: null,
     })),
 
     setSaving: (isSaving) => update(store => ({ ...store, isSaving })),

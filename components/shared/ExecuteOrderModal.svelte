@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher } from "svelte";
+  import { parseWorkOrderDescription } from "../../config/table-definitions.js";
 
   export let workOrder = null;
   export const isSubmitting = false;
@@ -10,11 +11,35 @@
   let description = "";
 
   let labor = {
-    price: workOrder.labor?.price?.toString() || "0",
-    sameMecanic: workOrder.labor?.sameMecanic || true,
-    contractor: workOrder.labor?.contractor || "",
-    observations: workOrder.labor?.observations || "",
+    price: "0",
+    sameMecanic: true,
+    contractor: "",
+    observations: "",
   };
+
+  /** Solo al abrir otra orden: si se sincroniza desde `workOrder` en cada re-render, se borra lo que escribe el usuario. */
+  let previousWorkOrderId = undefined;
+
+  $: {
+    const oid = workOrder?.order?.id;
+    if (oid != null && oid !== previousWorkOrderId) {
+      previousWorkOrderId = oid;
+      labor = {
+        price: workOrder.labor?.price?.toString() || "0",
+        sameMecanic: workOrder.labor?.sameMecanic ?? true,
+        contractor: workOrder.labor?.contractor || "",
+        observations: workOrder.labor?.observations || "",
+      };
+      timeSpent = "";
+      description = "";
+      spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "" }];
+      nextSparePartId = 2;
+      isProcessing = false;
+    }
+    if (workOrder == null) {
+      previousWorkOrderId = undefined;
+    }
+  }
 
   let spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "" }];
   let nextSparePartId = 2;
@@ -83,12 +108,22 @@
   function onCancel() {
     dispatch("cancel");
   }
-  const orderFields = workOrder.order.description.split("|");
-  const tipo = orderFields[0]?.trim() || "";
-  const sector = orderFields[1]?.trim() || "";
-  const estado = orderFields[2]?.trim() || "";
-  const descripcionOrden = orderFields[3]?.trim() || "";
-  const asignadoA = orderFields[4]?.trim() || "";
+
+  $: orderParsed = workOrder
+    ? parseWorkOrderDescription(workOrder.order?.description)
+    : {
+        origen: "",
+        sector: "",
+        condicion: "",
+        detalle: "",
+        tareaAsignada: "",
+        structured: false,
+      };
+  $: tipo = orderParsed.origen;
+  $: sector = orderParsed.sector;
+  $: estado = orderParsed.condicion;
+  $: descripcionOrden = orderParsed.detalle;
+  $: asignadoA = orderParsed.tareaAsignada;
 </script>
 
 <div class="modal-overlay">
@@ -103,18 +138,38 @@
       <div class="info-panel">
         <div class="info-panel-header">Detalles de la Orden Original</div>
         <div class="info-panel-body">
-          <p>
-            <strong>Máquina:</strong>
-            {workOrder.machine?.name} - {workOrder.machine?.model}
-          </p>
-          <p><strong>Tipo:</strong> {tipo}</p>
-          <p><strong>Sector:</strong> {sector}</p>
-          <p>
-            <strong>Estado:</strong>
-            <span style="font-weight:bold">{estado}</span>
-          </p>
-          <p><strong>Descripción orden:</strong> {descripcionOrden}</p>
-          <p><strong>Asignado a:</strong> {asignadoA}</p>
+          {#if workOrder.machine}
+            <p><strong>Máquina:</strong> {workOrder.machine.name} - {workOrder.machine.model}</p>
+          {:else if workOrder.vehicle}
+            <p><strong>Vehículo:</strong> {workOrder.vehicle.placa} — {workOrder.vehicle.marca ?? ''}</p>
+          {/if}
+          {#if orderParsed.structured}
+            <p><strong>Tipo:</strong> {tipo}</p>
+            <p><strong>Sector:</strong> {sector}</p>
+            <p>
+              <strong>Estado:</strong>
+              <span style="font-weight:bold">{estado}</span>
+            </p>
+            <p><strong>Descripción orden:</strong> {descripcionOrden}</p>
+            <p><strong>Asignado a:</strong> {asignadoA}</p>
+          {:else}
+            {#if sector && sector !== "N/A"}
+              <p><strong>Asunto:</strong> {tipo}</p>
+              <p><strong>Contexto:</strong> {sector}</p>
+              {#if estado && estado !== "N/A"}
+                <p>
+                  <strong>Estado / condición:</strong>
+                  <span style="font-weight:bold">{estado}</span>
+                </p>
+              {/if}
+              {#if asignadoA && asignadoA !== "N/A"}
+                <p><strong>Notas:</strong> {asignadoA}</p>
+              {/if}
+            {:else if tipo && tipo !== "N/A"}
+              <p><strong>Resumen:</strong> {tipo}</p>
+            {/if}
+            <p><strong>Descripción completa:</strong> {descripcionOrden || "—"}</p>
+          {/if}
         </div>
       </div>
 
@@ -243,7 +298,8 @@
   }
   .modal-content {
     background: #e0e0e0;
-    border: 2px outset #c0c0c0;
+    border: 2px outset #ffffff;
+    box-shadow: 4px 4px 10px rgba(0,0,0,0.3);
     width: 90%;
     max-width: 800px;
     max-height: 90vh;
@@ -283,7 +339,9 @@
   .info-panel-header {
     padding: 6px 10px;
     font-weight: bold;
-    background: #d0d0d0;
+    font-size: 11px;
+    background: #d4d0c8;
+    border-bottom: 1px solid #808080;
   }
   .info-panel-body {
     padding: 10px;
@@ -358,14 +416,27 @@
     gap: 8px;
     padding: 12px;
     border-top: 1px solid #808080;
-    background: #d0d0d0;
+    background: #e0e0e0;
   }
-  .btn-cancel,
+  .btn-cancel {
+    padding: 4px 12px;
+    background: #d0d0d0;
+    border: 1px outset #fff;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+  }
   .btn-create {
-    padding: 6px 12px;
-    border: 1px outset #c0c0c0;
+    padding: 4px 12px;
+    background: #90ee90;
+    border: 1px outset #fff;
     cursor: pointer;
     font-size: 11px;
     font-weight: bold;
+    font-family: inherit;
+  }
+  .btn-create:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 </style>

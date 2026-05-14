@@ -25,8 +25,11 @@
   const globalFilter = writable("");
   let sorting = [];
 
+  /** Evita fallos de TanStack / Svelte si el padre pasa un objeto o undefined. */
+  $: tableData = Array.isArray(data) ? data : [];
+
   $: table = createSvelteTable({
-    data,
+    data: tableData,
     columns,
     state: {
       get globalFilter() {
@@ -292,6 +295,14 @@
                 class:status-cell={cell.column.columnDef.meta?.isStatus ||
                   cell.column.columnDef.meta?.isDateStatus ||
                   cell.column.columnDef.meta?.isPlainMonitoringDate}
+                class:td-actions={cell.column.columnDef.meta?.isAction ||
+                  cell.column.columnDef.meta?.isExecuteAction ||
+                  cell.column.columnDef.meta?.isCvAction ||
+                  cell.column.columnDef.meta?.isImageAction ||
+                  cell.column.columnDef.meta?.isMonitoringDocsAction ||
+                  cell.column.columnDef.meta?.isMonitoringOilAction ||
+                  cell.column.columnDef.meta?.isConsolidadoVehicleActions ||
+                  cell.column.columnDef.meta?.isDocHistoryAction}
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
@@ -328,6 +339,15 @@
                       Ver Hoja de Vida
                     </button>
                   </div>
+                {:else if cell.column.columnDef.meta?.isDocHistoryAction}
+                  <div class="actions-cell">
+                    <button
+                      class="btn-action btn-doc-history"
+                      on:click={() => handleAction("docHistory", row.original)}
+                    >
+                      Historial docs
+                    </button>
+                  </div>
                 {:else if cell.column.columnDef.meta?.isImageAction}
                   <div class="actions-cell">
                     <button
@@ -337,14 +357,34 @@
                       Ver
                     </button>
                   </div>
-                {:else if cell.column.columnDef.meta?.isMonitoringDocsAction}
+                {:else if cell.column.columnDef.meta?.isConsolidadoVehicleActions}
                   <div class="actions-cell actions-cell-stack">
                     <button
                       type="button"
-                      class="mon-action-text"
+                      class="mon-action-text mon-action-text--compact"
+                      title="Actualizar fechas y archivos de documentación (SOAT, tecnomecánica, licencia, extintor)"
                       on:click={() => handleAction("monitoring_update_docs", row.original)}
                     >
-                      Actualizar SOAT / Tecno
+                      Actualizar Documentos
+                    </button>
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact mon-action-text--hist"
+                      title="Ver historial de cambios de aceite"
+                      on:click={() => handleAction("monitoring_oil_history", row.original)}
+                    >
+                      Ver historial aceite
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isMonitoringDocsAction}
+                  <div class="actions-cell">
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact"
+                      title="Actualizar fechas y archivos de documentación (SOAT, tecnomecánica, licencia, extintor)"
+                      on:click={() => handleAction("monitoring_update_docs", row.original)}
+                    >
+                      Actualizar Documentos
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isMonitoringOilAction}
@@ -356,6 +396,14 @@
                       on:click={() => handleAction("monitoring_register_oil", row.original)}
                     >
                       Registrar aceite
+                    </button>
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact mon-action-text--hist"
+                      title="Ver historial de cambios de aceite"
+                      on:click={() => handleAction("monitoring_oil_history", row.original)}
+                    >
+                      Ver historial
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isPlainMonitoringDate}
@@ -416,6 +464,12 @@
                 {:else if cell.column.columnDef.meta?.isOrigin || cell.column.columnDef.meta?.isCondition}
                   {@const cellValue = cell.getContext().getValue()}
                   <span class={getConditionalCellClass(cell)}>{cellValue}</span>
+                {:else if cell.column.columnDef.meta?.isOrderStatus}
+                  {@const raw = String(cell.getContext().getValue() ?? '')}
+                  {@const lower = raw.toLowerCase()}
+                  <span class="order-status {lower === 'done' ? 'order-status--done' : lower === 'pending' ? 'order-status--pending' : ''}">
+                    {lower === 'done' ? 'Completada' : lower === 'pending' ? 'Pendiente' : raw}
+                  </span>
                 {:else if cell.column.columnDef.meta?.isStatus || cell.column.columnDef.meta?.isBadge}
                   {@const cellValue = cell.getContext().getValue()}
                   {@const colorClass = getStatusClass(cellValue)}
@@ -494,10 +548,21 @@
     background-color: #d1c4e9;
   }
 
+  /** Varias acciones de monitoreo/consolidado en una sola fila (lateral), para no alargar la altura de la fila. */
   .actions-cell-stack {
-    white-space: normal;
-    max-width: 140px;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .actions-cell-stack .mon-action-text {
+    flex: 0 0 auto;
+  }
+
+  .td-actions {
+    width: 1px;
+    white-space: nowrap;
   }
   /**
    * Acciones de monitoreo: texto neutro (sin colores de semáforo) para no confundir con celdas de estado.
@@ -524,6 +589,14 @@
     padding: 1px 6px;
     font-size: 10px;
     white-space: nowrap;
+  }
+  .mon-action-text--hist {
+    background: linear-gradient(to bottom, #d8eaff 0%, #b8d4f8 100%);
+    color: #1a3a6e;
+    border-color: #6a90c0;
+  }
+  .mon-action-text--hist:hover {
+    background: linear-gradient(to bottom, #e8f2ff 0%, #c8deff 100%);
   }
   .mon-action-text:hover {
     background: linear-gradient(to bottom, #fafafa 0%, #e4e4e4 100%);
@@ -693,6 +766,10 @@
     background-color: #c8e6c9;
     font-weight: bold;
   }
+  .btn-doc-history {
+    background-color: #d1c4e9;
+    font-weight: bold;
+  }
   .status-btn {
     font-weight: bold;
     color: #000;
@@ -725,6 +802,26 @@
   }
   .condition-optimo {
     color: #2e7d32;
+  }
+
+  .order-status {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: bold;
+    border: 1px solid #c0c0c0;
+    background: #e8e8e8;
+    color: #404040;
+  }
+  .order-status--done {
+    background: #c8f0c8;
+    color: #1b5e20;
+    border-color: #7bc97b;
+  }
+  .order-status--pending {
+    background: #fff3cd;
+    color: #7c5600;
+    border-color: #e0b000;
   }
 
   .status-optimo {
@@ -780,5 +877,13 @@
   :global(th.hydraulic-oil-cell),
   :global(td.hydraulic-oil-cell) {
     background-color: #e8f5e9 !important;
+  }
+  :global(th.soat-cell),
+  :global(td.soat-cell) {
+    background-color: #fff8e1 !important;
+  }
+  :global(th.tecno-cell),
+  :global(td.tecno-cell) {
+    background-color: #f3e5f5 !important;
   }
 </style>

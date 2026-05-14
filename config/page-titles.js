@@ -20,17 +20,15 @@ export function normalizeAppPath(path) {
 const ROUTE_TITLES = {
     "/": "Panel de Control — Estado de equipos",
     "/users": "Gestión de usuarios",
+    "/inventory": "Inventario — Maquinaria · Vehículos · Motos",
     "/machines": "Gestión de máquinas",
-    "/work-orders": "Gestión de órdenes de trabajo",
-    "/consolidado": "Consolidado de maquinaria",
+    "/work-orders": "Órdenes de Trabajo",
+    "/consolidado": "Consolidado de activos",
     "/oil-management": "Gestión de aceites",
-    "/vehicle-monitoring": "Monitoreo consolidado — Vehículos",
-    "/vehicle-inspections": "Inspecciones pre-operativas — Vehículos",
-    "/moto-monitoring": "Monitoreo de motocicletas",
-    "/moto-inspections": "Inspección diaria motos — último por placa",
-    "/moto-maintenance": "Historial de taller — Motos",
     "/vehicles": "Inventario de vehículos",
     "/moto-inventory": "Inventario de motocicletas",
+    "/vehicle-oil-history": "Historial de cambios de aceite — Vehículo",
+    "/maintenance": "Historial de mantenimiento — Vehículos · Motos",
 };
 
 /**
@@ -39,5 +37,8 @@ const ROUTE_TITLES = {
  */
 export function getPageTitle(rawPath) {
     const path = normalizeAppPath(rawPath);
-    return ROUTE_TITLES[path] ?? "Usochicamocha — Administración";
+    if (ROUTE_TITLES[path]) return ROUTE_TITLES[path];
+    // prefix match for routes with dynamic segments (e.g. /vehicle-oil-history/ABC123)
+    const prefix = Object.keys(ROUTE_TITLES).find(k => k !== '/' && path.startsWith(k + '/'));
+    return prefix ? ROUTE_TITLES[prefix] : "Usochicamocha — Administración";
 }

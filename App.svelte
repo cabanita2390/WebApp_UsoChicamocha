@@ -1,10 +1,11 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { get } from "svelte/store";
-  import Router, { replace, location } from "svelte-spa-router";
+  import Router, { location } from "svelte-spa-router";
   import { getPageTitle } from "./config/page-titles.js";
   import MainLayout from "./components/layouts/MainLayout.svelte";
   import WorkOrderModal from "./components/shared/WorkOrderModal.svelte";
+  import VehicleWorkOrderModal from "./components/shared/VehicleWorkOrderModal.svelte";
   import Login from "./components/views/Login.svelte";
   import UserManagement from "./components/views/UserManagement.svelte";
   import MachineManagement from "./components/views/MachineManagement.svelte";
@@ -12,14 +13,15 @@
   import Consolidado from "./components/views/Consolidado.svelte";
   import Loader from "./components/shared/Loader.svelte";
   import Dashboard from "./components/views/Dashboard.svelte";
+  import DashboardTabbed from "./components/views/DashboardTabbed.svelte";
+  import WorkOrdersTabbed from "./components/views/WorkOrdersTabbed.svelte";
+  import ConsolidadoTabbed from "./components/views/ConsolidadoTabbed.svelte";
   import OilManagement from "./components/views/OilManagement.svelte";
-  import VehicleMonitoring from "./components/views/VehicleMonitoring.svelte";
-  import VehicleInspections from "./components/views/VehicleInspections.svelte";
-  import MotoMonitoring from "./components/views/MotoMonitoring.svelte";
-  import MotoInspections from "./components/views/MotoInspections.svelte";
-  import MotoMaintenance from "./components/views/MotoMaintenance.svelte";
   import VehicleManagement from "./components/views/VehicleManagement.svelte";
   import MotoManagement from "./components/views/MotoManagement.svelte";
+  import VehicleOilHistory from "./components/views/VehicleOilHistory.svelte";
+  import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
+  import MaintenanceTabbed from "./components/views/MaintenanceTabbed.svelte";
   import { auth } from "./stores/auth.js";
   import {
     ui,
@@ -48,19 +50,17 @@
 
   // --- ROUTES DEFINITION ---
   const routes = {
-    "/": Dashboard,
+    "/": DashboardTabbed,
     "/users": UserManagement,
+    "/inventory": InventoryTabbed,
     "/machines": MachineManagement,
-    "/work-orders": WorkOrderManagement,
-    "/consolidado": Consolidado,
+    "/work-orders": WorkOrdersTabbed,
+    "/consolidado": ConsolidadoTabbed,
     "/oil-management": OilManagement,
-    "/vehicle-monitoring": VehicleMonitoring,
-    "/vehicle-inspections": VehicleInspections,
-    "/moto-monitoring": MotoMonitoring,
-    "/moto-inspections": MotoInspections,
-    "/moto-maintenance": MotoMaintenance,
     "/vehicles": VehicleManagement,
     "/moto-inventory": MotoManagement,
+    "/vehicle-oil-history/:placa": VehicleOilHistory,
+    "/maintenance": MaintenanceTabbed,
   };
 
   function handleActivateSound() {
@@ -162,6 +162,27 @@
     ui.closeWorkOrderModal();
   }
 
+  async function handleCreateVehicleWorkOrder(event) {
+    ui.setSaving(true);
+    try {
+      await data.createVehicleWorkOrder(event.detail);
+      ui.closeVehicleWorkOrderModal();
+      addNotification({ id: Date.now(), text: 'Orden de trabajo de vehículo creada.' });
+    } catch (err) {
+      console.error("Error creating vehicle work order:", err);
+      addNotification({
+        id: Date.now(),
+        text: `Error al crear orden de vehículo: ${err.message}`,
+      });
+    } finally {
+      ui.setSaving(false);
+    }
+  }
+
+  function handleCancelVehicleWorkOrder() {
+    ui.closeVehicleWorkOrderModal();
+  }
+
   // Handle route loaded event to fetch data
   $: browserTabTitle = getPageTitle($location);
 
@@ -176,42 +197,30 @@
     } else if (location.includes("/users")) {
       ui.setCurrentView("users");
       data.fetchUsers();
+    } else if (location.includes("/inventory")) {
+      ui.setCurrentView("inventory");
+      data.fetchMachines();
     } else if (location.includes("/machines")) {
       ui.setCurrentView("machines");
       data.fetchMachines();
     } else if (location.includes("/work-orders")) {
       ui.setCurrentView("work-orders");
       data.fetchWorkOrders();
+      data.fetchVehicleWorkOrders();
     } else if (location.includes("/consolidado")) {
       ui.setCurrentView("consolidado");
       data.fetchConsolidadoData();
     } else if (location.includes("/oil-management")) {
       ui.setCurrentView("oil-management");
       data.fetchOils();
-    } else if (location.includes("/vehicle-monitoring")) {
-      ui.setCurrentView("vehicle-monitoring");
-      data.fetchVehicleMonitoring();
-    } else if (location.includes("/vehicle-inspections")) {
-      ui.setCurrentView("vehicle-inspections");
-      data.fetchVehicleInspections(0, 20, { reload: true });
-    } else if (location.includes("/moto-monitoring")) {
-      ui.setCurrentView("moto-monitoring");
-      data.fetchMotoMonitoring();
     } else if (location.includes("/moto-inventory")) {
       ui.setCurrentView("moto-inventory");
       data.fetchMotos();
-    } else if (location.includes("/moto-inspections")) {
-      ui.setCurrentView("moto-inspections");
-      data.fetchMotoInspections();
-    } else if (location.includes("/moto-maintenance")) {
-      ui.setCurrentView("moto-maintenance");
-      data.fetchMotoMaintenance();
     } else if (location.includes("/vehicles")) {
       ui.setCurrentView("vehicles");
       data.fetchVehicles();
-    } else if (location.includes("/vehicle-workshop-history")) {
-      // Ruta retirada: el historial de taller aplica solo a motos.
-      replace("/moto-maintenance");
+    } else if (location.includes("/vehicle-oil-history")) {
+      ui.setCurrentView("vehicle-oil-history");
     }
   }
 </script>
@@ -273,6 +282,16 @@
       currentUser={$auth.currentUser?.name}
       on:createWorkOrder={handleCreateWorkOrder}
       on:cancel={handleCancelWorkOrder}
+    />
+  {/if}
+
+  {#if $ui.showVehicleWorkOrderModal}
+    <VehicleWorkOrderModal
+      rowData={$ui.selectedVehicleRowData}
+      columnDef={$ui.selectedVehicleColumnDef}
+      currentUser={$auth.currentUser?.name}
+      on:createVehicleOrder={handleCreateVehicleWorkOrder}
+      on:cancel={handleCancelVehicleWorkOrder}
     />
   {/if}
 

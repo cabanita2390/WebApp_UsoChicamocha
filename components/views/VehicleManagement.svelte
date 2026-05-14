@@ -2,12 +2,37 @@
   import { data } from "../../stores/data.js";
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
-  import { vehicleManagementColumns } from "../../config/table-definitions.js";
+  import { vehicleManagementColumns, curriculumColumns } from "../../config/table-definitions.js";
   import { onMount } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
+  import { formatVehiclePayload } from '@/lib/textFormat.js';
 
   let isSubmitting = false;
+  let isExporting = false;
   let errorMessage = "";
+
+  let showCvModal = false;
+  let isCvLoading = false;
+  let curriculumData = null;
+
+  async function openCurriculumModal(vehicle) {
+    showCvModal = true;
+    isCvLoading = true;
+    curriculumData = null;
+    try {
+      curriculumData = await data.fetchVehicleCurriculum(vehicle.id);
+    } catch (e) {
+      addNotification({ id: Date.now(), text: 'Error al cargar hoja de vida: ' + (e.message || 'Desconocido') });
+      showCvModal = false;
+    } finally {
+      isCvLoading = false;
+    }
+  }
+
+  function closeCurriculumModal() {
+    showCvModal = false;
+    curriculumData = null;
+  }
 
   /** Catálogo rápido sin salir de la vista (marca / tipo / área). */
   let quickModal = null; // 'brand' | 'type' | 'area' | null
@@ -19,10 +44,66 @@
     brand: 'Nueva marca',
     type: 'Nuevo tipo de vehículo',
     area: 'Nueva área organizacional',
+    location: 'Nueva ubicación',
   };
 
   function areaLabel(a) {
     return a?.name ?? a?.nombre ?? '';
+  }
+
+  function normLower(s) {
+    return String(s ?? '').trim().toLowerCase();
+  }
+
+  /** Usa id del API si existe; si no, busca por nombre de marca (sin distinguir mayúsculas). */
+  function resolveBrandIdFromVehicle(v) {
+    if (v?.idMarca != null && v.idMarca !== '') return Number(v.idMarca);
+    const name = v?.marca;
+    if (name == null || String(name).trim() === '') return null;
+    const nl = normLower(name);
+    const hit = brands.find((b) => normLower(b.descripcion) === nl);
+    return hit?.idMarca != null ? Number(hit.idMarca) : null;
+  }
+
+  /** Usa id del API si existe; si no, busca por nombre de tipo. */
+  function resolveTipoIdFromVehicle(v) {
+    if (v?.idTipoVehiculo != null && v.idTipoVehiculo !== '') return Number(v.idTipoVehiculo);
+    const name = v?.tipoVehiculo;
+    if (name == null || String(name).trim() === '') return null;
+    const nl = normLower(name);
+    const hit = types.find((t) => normLower(tipoCatalogName(t)) === nl);
+    return hit?.id != null ? Number(hit.id) : null;
+  }
+
+  function belongsToInAreasList(val) {
+    if (val == null || String(val).trim() === '') return true;
+    const t = String(val).trim();
+    return areas.some((a) => areaLabel(a) === t);
+  }
+
+  /** Alinea el texto de área con una entrada del catálogo si coincide (p. ej. mayúsculas). */
+  function normalizeBelongsTo(val) {
+    if (val == null || String(val).trim() === '') return '';
+    const t = String(val).trim();
+    const hit = areas.find((a) => normLower(areaLabel(a)) === normLower(t));
+    return hit ? String(areaLabel(hit)).trim() : t;
+  }
+
+  /** Texto mostrado en el control estilo “Examinar…” de documentos. */
+  function filePickLabel(fileList) {
+    if (!fileList || fileList.length === 0) return 'Ningún archivo';
+    return fileList[0].name;
+  }
+
+  /** Filas antiguas: a veces se persistió el toString() del principal (UserPrincipal[id=…, username=…]). */
+  function formatSubidoPor(val) {
+    if (val == null || String(val).trim() === '') return '—';
+    const s = String(val).trim();
+    if (s.startsWith('UserPrincipal[')) {
+      const m = s.match(/username=([^,\]]+)/);
+      if (m) return m[1];
+    }
+    return s;
   }
 
   function openQuickCatalog(kind) {
@@ -69,6 +150,15 @@
         if (showEditModal && vehicleInEditor) vehicleInEditor.belongsTo = label;
         else newVehicle.belongsTo = label;
         addNotification({ id: Date.now(), text: 'Área registrada.' });
+      } else if (quickModal === 'location') {
+        const created = await data.createCatalogItem('location', { name });
+        await data.fetchLocations();
+        const id = created?.id;
+        if (id != null) {
+          if (showEditModal && vehicleInEditor) vehicleInEditor.idUbicacionBase = id;
+          else newVehicle.idUbicacionBase = id;
+        }
+        addNotification({ id: Date.now(), text: 'Ubicación registrada.' });
       }
       closeQuickCatalog();
     } catch (e) {
@@ -83,31 +173,92 @@
     idMarca: null,
     idTipoVehiculo: null,
     kilometrajeActual: 0,
-    belongsTo: "distrito",
-    activo: true
+    belongsTo: "",
+    idUbicacionBase: null,
+    activo: true,
   };
   let newVehicle = { ...initialVehicleState };
-  /** Vigencias opcionales al alta (POST admin/documents tras crear el vehículo). */
+  /** Vigencias y archivos al alta. */
   let docSoatVencimiento = "";
   let docTecnoVencimiento = "";
+  let docLicenciaVencimiento = "";
+  let docExtintorMes = "";
+  let docSoatFile = null;
+  let docTecnoFile = null;
+  let docLicenciaFile = null;
+  let docExtintorFile = null;
+
+  async function persistVehicleDocument(vid, tipoDocumento, fechaVencimiento, fileList) {
+    if (!fechaVencimiento) return;
+    const f = fileList && fileList.length ? fileList[0] : null;
+    if (f) {
+      await data.uploadVehicleDocumentFile({
+        idVehiculo: vid,
+        tipoDocumento,
+        fechaVencimiento,
+        file: f,
+      });
+    } else {
+      await data.updateVehicleDocument({ idVehiculo: vid, tipoDocumento, fechaVencimiento });
+    }
+  }
 
   let vehicleInEditor = null;
   let showEditModal = false;
   let vehicleToDelete = null;
 
-  $: vehicles = $data.vehicles;
-  $: brands = $data.vehicleBrands;
-  $: types = $data.vehicleTypes;
-  $: areas = $data.areas;
+  let showDocHistoryModal = false;
+  let docHistoryVehicle = null;
+  let docHistory = null;
+  let docHistoryLoading = false;
+
+  /** Nombre de tipo en catálogo (CatalogDTO usa `name`; otros DTO pueden usar `nombreTipo`). */
+  function tipoCatalogName(t) {
+    return t?.name ?? t?.nombreTipo ?? '';
+  }
+
+  $: vehicleTypesList = Array.isArray($data.vehicleTypes) ? $data.vehicleTypes : [];
+  $: rawVehicles = Array.isArray($data.vehicles) ? $data.vehicles : [];
+  $: motoTypeIds = new Set(
+    vehicleTypesList
+      .filter((t) => String(tipoCatalogName(t)).toLowerCase().includes('moto'))
+      .map((t) => (t?.id != null && t.id !== '' ? Number(t.id) : NaN))
+      .filter((n) => !Number.isNaN(n)),
+  );
+
+  function vehicleRowIsMoto(v) {
+    const rawId = v?.idTipoVehiculo;
+    const tid = rawId != null && rawId !== '' ? Number(rawId) : NaN;
+    if (!Number.isNaN(tid) && motoTypeIds.has(tid)) return true;
+    return String(v?.tipoVehiculo ?? '')
+      .toLowerCase()
+      .includes('moto');
+  }
+
+  $: vehicles = rawVehicles.filter((v) => !vehicleRowIsMoto(v));
+  $: brands = Array.isArray($data.vehicleBrands) ? $data.vehicleBrands : [];
+  $: types = vehicleTypesList.filter((t) => {
+    const tid = t?.id != null && t.id !== '' ? Number(t.id) : NaN;
+    if (!Number.isNaN(tid) && motoTypeIds.has(tid)) return false;
+    if (String(tipoCatalogName(t)).toLowerCase().includes('moto')) return false;
+    return true;
+  });
+  $: areas = Array.isArray($data.areas) ? $data.areas : [];
+  $: locations = Array.isArray($data.locations) ? $data.locations : [];
   $: isLoading = $data.isLoading;
+
+  function locationLabel(loc) {
+    return loc?.name ?? loc?.nombre ?? '';
+  }
 
   onMount(async () => {
     try {
+      await data.fetchLocations().catch(e => console.warn('No se cargó ubicaciones:', e));
       await Promise.all([
         data.fetchVehicles(),
         data.fetchVehicleBrands(),
         data.fetchVehicleTypes(),
-        data.fetchAreas()
+        data.fetchAreas(),
       ]);
     } catch (e) {
       console.error("Error al cargar datos iniciales:", e);
@@ -119,36 +270,48 @@
     isSubmitting = true;
     errorMessage = "";
     try {
-      const created = await data.createVehicle(newVehicle);
+      const created = await data.createVehicle(formatVehiclePayload(newVehicle));
       const vid = created?.id;
       let docExtra = "";
-      if (vid != null && (docSoatVencimiento || docTecnoVencimiento)) {
+      if (vid != null) {
         try {
+          const parts = [];
           if (docSoatVencimiento) {
-            await data.updateVehicleDocument({
-              idVehiculo: vid,
-              tipoDocumento: "SOAT",
-              fechaVencimiento: docSoatVencimiento,
-            });
+            await persistVehicleDocument(vid, "SOAT", docSoatVencimiento, docSoatFile);
+            parts.push("SOAT");
           }
           if (docTecnoVencimiento) {
-            await data.updateVehicleDocument({
-              idVehiculo: vid,
-              tipoDocumento: "TECNOMECANICA",
-              fechaVencimiento: docTecnoVencimiento,
-            });
+            await persistVehicleDocument(vid, "TECNOMECANICA", docTecnoVencimiento, docTecnoFile);
+            parts.push("Tecnomecánica");
           }
-          docExtra = " Documentación (SOAT/Tecno) registrada.";
+          if (docLicenciaVencimiento) {
+            await persistVehicleDocument(vid, "LICENCIA DE CONDUCCION", docLicenciaVencimiento, docLicenciaFile);
+            parts.push("Licencia");
+          }
+          if (docExtintorMes && docExtintorMes.length >= 7) {
+            const [y, m] = docExtintorMes.split("-").map(Number);
+            const last = new Date(y, m, 0).getDate();
+            const fechaExt = `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+            await persistVehicleDocument(vid, "EXTINTOR", fechaExt, docExtintorFile);
+            parts.push("Extintor");
+          }
+          if (parts.length) docExtra = " Documentación: " + parts.join(", ") + ".";
         } catch (docErr) {
           docExtra =
             " " +
             (docErr.message ||
-              "No se pudieron guardar las fechas de documentos (¿rol ADMIN?).");
+              "No se pudieron guardar algunos documentos (¿rol ADMIN?).");
         }
       }
       newVehicle = { ...initialVehicleState };
       docSoatVencimiento = "";
       docTecnoVencimiento = "";
+      docLicenciaVencimiento = "";
+      docExtintorMes = "";
+      docSoatFile = null;
+      docTecnoFile = null;
+      docLicenciaFile = null;
+      docExtintorFile = null;
       addNotification({ id: Date.now(), text: "Vehículo creado con éxito." + docExtra });
     } catch (e) {
       errorMessage = e.message || "Error al crear vehículo.";
@@ -163,7 +326,7 @@
     isSubmitting = true;
     errorMessage = "";
     try {
-      await data.updateVehicle(vehicleInEditor.id, vehicleInEditor);
+      await data.updateVehicle(vehicleInEditor.id, formatVehiclePayload(vehicleInEditor));
       closeEditModal();
       addNotification({ id: Date.now(), text: 'Vehículo actualizado con éxito.' });
     } catch (e) {
@@ -191,21 +354,26 @@
       openEditModal(vehicleData);
     } else if (type === "delete") {
       vehicleToDelete = vehicleData;
+    } else if (type === "cv") {
+      openCurriculumModal(vehicleData);
+    } else if (type === "docHistory") {
+      openDocHistoryModal(vehicleData);
     }
   }
 
   function openEditModal(vehicle) {
-    // Buscamos los IDs correspondientes si el backend devuelve strings en la lista
-    // En VehicleResponse el backend devuelve 'marca' y 'tipoVehiculo' como strings
-    // Pero para el PUT necesitamos los IDs.
-    // Buscaremos en los catálogos por nombre para pre-seleccionar.
-    const brandObj = brands.find(b => b.descripcion === vehicle.marca);
-    const typeObj = types.find(t => t.name === vehicle.tipoVehiculo);
-
-    vehicleInEditor = { 
+    vehicleInEditor = {
       ...vehicle,
-      idMarca: brandObj?.idMarca || null,
-      idTipoVehiculo: typeObj?.id || null
+      idMarca: resolveBrandIdFromVehicle(vehicle),
+      idTipoVehiculo: resolveTipoIdFromVehicle(vehicle),
+      idUbicacionBase: (() => {
+        const raw = vehicle.idUbicacionBase;
+        if (raw == null || raw === '') return null;
+        const n = Number(raw);
+        return Number.isNaN(n) ? null : n;
+      })(),
+      belongsTo: normalizeBelongsTo(vehicle.belongsTo),
+      activo: vehicle.activo === true || vehicle.activo === 'true' || vehicle.activo === 1 || vehicle.activo === '1',
     };
     showEditModal = true;
   }
@@ -214,6 +382,53 @@
     showEditModal = false;
     vehicleInEditor = null;
     errorMessage = "";
+  }
+
+  function closeDocHistoryModal() {
+    showDocHistoryModal = false;
+    docHistoryVehicle = null;
+    docHistory = null;
+    docHistoryLoading = false;
+  }
+
+  async function openDocHistoryModal(vehicle) {
+    docHistoryVehicle = vehicle;
+    showDocHistoryModal = true;
+    docHistoryLoading = true;
+    docHistory = null;
+    try {
+      docHistory = await data.getVehicleDocumentHistory(vehicle.id);
+    } catch (e) {
+      addNotification({ id: Date.now(), text: e.message || "No se pudo cargar el historial." });
+      showDocHistoryModal = false;
+    } finally {
+      docHistoryLoading = false;
+    }
+  }
+
+  async function handleExportVehicles() {
+    isExporting = true;
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/curriculum/export/vehicles`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
+      });
+      if (!response.ok) throw new Error('Error al descargar el archivo');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'vehiculos_curriculum.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      addNotification({ id: Date.now(), text: 'Archivo de vehículos descargado con éxito.' });
+    } catch (e) {
+      addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
+    } finally {
+      isExporting = false;
+    }
   }
 </script>
 
@@ -229,72 +444,169 @@
     <div class="vehicle-module-inner">
       <div class="vehicle-toolbar">
         <button type="button" class="vehicle-btn" on:click={() => data.fetchVehicles()}>
-          Refrescar información
+          Refrescar
+        </button>
+        <button class="vehicle-btn vehicle-btn--export" on:click={handleExportVehicles} disabled={isExporting}>
+          {#if isExporting}<span class="spin">⟳</span>{/if}
+          {isExporting ? 'Descargando...' : 'Exportar Excel'}
         </button>
       </div>
 
     <div class="vehicle-form-section">
       <div class="vehicle-subpanel-head">Registrar nuevo vehículo</div>
-      <form class="create-form" on:submit={handleCreateVehicle}>
+      <form class="create-form create-form--compact" on:submit={handleCreateVehicle}>
         <div class="create-grid">
-          <label class="field span-2">
+          <label class="field">
             <span class="field-lab">Placa</span>
             <input type="text" bind:value={newVehicle.placa} placeholder="Ej: ABC123" required disabled={isSubmitting} />
           </label>
-          <label class="field span-2">
+          <label class="field">
             <span class="field-lab field-lab-row">
               Marca
               <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog('brand')}>+ Añadir</button>
             </span>
-            <select bind:value={newVehicle.idMarca} required disabled={isSubmitting}>
-              <option value={null}>Seleccione marca</option>
+            <select
+              required
+              disabled={isSubmitting}
+              value={newVehicle.idMarca == null ? '' : String(newVehicle.idMarca)}
+              on:change={(e) => {
+                const raw = e.currentTarget.value;
+                newVehicle.idMarca = raw === '' ? null : Number(raw);
+              }}
+            >
+              <option value="">— Seleccione marca —</option>
               {#each brands as brand}
-                <option value={brand.idMarca}>{brand.descripcion}</option>
+                <option value={String(brand.idMarca)}>{brand.descripcion}</option>
               {/each}
             </select>
           </label>
-          <label class="field span-2">
+          <label class="field">
             <span class="field-lab field-lab-row">
               Tipo
               <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog('type')}>+ Añadir</button>
             </span>
-            <select bind:value={newVehicle.idTipoVehiculo} required disabled={isSubmitting}>
-              <option value={null}>—</option>
+            <select
+              required
+              disabled={isSubmitting}
+              value={newVehicle.idTipoVehiculo == null ? '' : String(newVehicle.idTipoVehiculo)}
+              on:change={(e) => {
+                const raw = e.currentTarget.value;
+                newVehicle.idTipoVehiculo = raw === '' ? null : Number(raw);
+              }}
+            >
+              <option value="">—</option>
               {#each types as type}
-                <option value={type.id}>{type.name}</option>
+                <option value={String(type.id)}>{type.name}</option>
               {/each}
             </select>
           </label>
-          <label class="field span-2">
+          <label class="field">
             <span class="field-lab">Km inicial</span>
             <input type="number" bind:value={newVehicle.kilometrajeActual} min="0" required disabled={isSubmitting} />
           </label>
-          <label class="field span-2">
+          <label class="field">
             <span class="field-lab field-lab-row">
               Área
               <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog('area')}>+ Añadir</button>
             </span>
             <select bind:value={newVehicle.belongsTo} required disabled={isSubmitting}>
-              <option value="">Área</option>
+              <option value="">Seleccione área</option>
               {#each areas as area}
                 <option value={areaLabel(area)}>{areaLabel(area)}</option>
               {/each}
             </select>
           </label>
-          <label class="field span-2">
-            <span class="field-lab">Estado</span>
-            <select bind:value={newVehicle.activo} disabled={isSubmitting}>
-              <option value={true}>Activo</option>
-              <option value={false}>Inactivo</option>
+          <label class="field">
+            <span class="field-lab field-lab-row">
+              Ubicación
+              <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog('location')}>+ Añadir</button>
+            </span>
+            <select
+              disabled={isSubmitting}
+              value={newVehicle.idUbicacionBase != null && newVehicle.idUbicacionBase !== '' ? String(newVehicle.idUbicacionBase) : ''}
+              on:change={(e) => {
+                const v = e.currentTarget.value;
+                newVehicle.idUbicacionBase = v === "" ? null : Number(v);
+              }}
+              title="Ej.: Unidad Pantano, Unidad Ayalas, sede, represa…"
+            >
+              <option value="">Seleccione ubicación</option>
+              {#each locations as loc}
+                <option value={String(loc.id)}>{locationLabel(loc)}</option>
+              {/each}
             </select>
           </label>
-          <label class="field span-2">
-            <span class="field-lab">SOAT</span>
+          <label class="field">
+            <span class="field-lab">Estado</span>
+            <select
+              disabled={isSubmitting}
+              value={newVehicle.activo === true || newVehicle.activo === 'true' || newVehicle.activo === 1 || newVehicle.activo === '1' ? '1' : '0'}
+              on:change={(e) => {
+                newVehicle.activo = e.currentTarget.value === '1';
+              }}
+            >
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
+          </label>
+        </div>
+        <div class="create-docs-head">Documentación</div>
+        <div class="create-docs-grid">
+          <label class="field field-doc">
+            <span class="field-lab">SOAT — vence</span>
             <input type="date" bind:value={docSoatVencimiento} disabled={isSubmitting} />
           </label>
-          <label class="field span-2">
-            <span class="field-lab">Tecnomecánica</span>
+          <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
+            <span class="field-lab">Archivo SOAT</span>
+            <div class="file-upload-win__row" class:file-upload-win__row--disabled={isSubmitting}>
+              <div class="file-upload-win__inner">
+                <span class="file-upload-win__name" class:file-upload-win__name--empty={!docSoatFile?.length}>{filePickLabel(docSoatFile)}</span>
+                <span class="file-upload-win__btn">Examinar…</span>
+              </div>
+              <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docSoatFile} disabled={isSubmitting} />
+            </div>
+          </label>
+          <label class="field field-doc">
+            <span class="field-lab">Tecnomecánica — vence</span>
             <input type="date" bind:value={docTecnoVencimiento} disabled={isSubmitting} />
+          </label>
+          <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
+            <span class="field-lab">Archivo tecnomecánica</span>
+            <div class="file-upload-win__row" class:file-upload-win__row--disabled={isSubmitting}>
+              <div class="file-upload-win__inner">
+                <span class="file-upload-win__name" class:file-upload-win__name--empty={!docTecnoFile?.length}>{filePickLabel(docTecnoFile)}</span>
+                <span class="file-upload-win__btn">Examinar…</span>
+              </div>
+              <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docTecnoFile} disabled={isSubmitting} />
+            </div>
+          </label>
+          <label class="field field-doc">
+            <span class="field-lab">Licencia — vence</span>
+            <input type="date" bind:value={docLicenciaVencimiento} disabled={isSubmitting} />
+          </label>
+          <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
+            <span class="field-lab">Archivo licencia</span>
+            <div class="file-upload-win__row" class:file-upload-win__row--disabled={isSubmitting}>
+              <div class="file-upload-win__inner">
+                <span class="file-upload-win__name" class:file-upload-win__name--empty={!docLicenciaFile?.length}>{filePickLabel(docLicenciaFile)}</span>
+                <span class="file-upload-win__btn">Examinar…</span>
+              </div>
+              <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docLicenciaFile} disabled={isSubmitting} />
+            </div>
+          </label>
+          <label class="field field-doc">
+            <span class="field-lab">Extintor — mes</span>
+            <input type="month" bind:value={docExtintorMes} disabled={isSubmitting} />
+          </label>
+          <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
+            <span class="field-lab">Archivo extintor</span>
+            <div class="file-upload-win__row" class:file-upload-win__row--disabled={isSubmitting}>
+              <div class="file-upload-win__inner">
+                <span class="file-upload-win__name" class:file-upload-win__name--empty={!docExtintorFile?.length}>{filePickLabel(docExtintorFile)}</span>
+                <span class="file-upload-win__btn">Examinar…</span>
+              </div>
+              <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docExtintorFile} disabled={isSubmitting} />
+            </div>
           </label>
         </div>
         <div class="create-actions">
@@ -323,46 +635,99 @@
         <button class="close-btn" on:click={closeEditModal}>×</button>
       </div>
       <form class="modal-form" on:submit={handleUpdateVehicle}>
-        <label>Placa: <input type="text" bind:value={vehicleInEditor.placa} required /></label>
-        
-        <label>
-          <span class="modal-field-head">
-            Marca
-            <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('brand')}>+ Añadir</button>
-          </span>
-          <select bind:value={vehicleInEditor.idMarca} required>
-            {#each brands as brand}
-              <option value={brand.idMarca}>{brand.descripcion}</option>
-            {/each}
-          </select>
-        </label>
-
-        <label>
-          <span class="modal-field-head">
-            Tipo
-            <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('type')}>+ Añadir</button>
-          </span>
-          <select bind:value={vehicleInEditor.idTipoVehiculo} required>
-            {#each types as type}
-              <option value={type.id}>{type.name}</option>
-            {/each}
-          </select>
-        </label>
-
-        <label>Kilometraje Actual: <input type="number" bind:value={vehicleInEditor.kilometrajeActual} required /></label>
-        
-        <label>
-          <span class="modal-field-head">
-            Área
-            <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('area')}>+ Añadir</button>
-          </span>
-          <select bind:value={vehicleInEditor.belongsTo}>
-            <option value="">-- Seleccione área --</option>
-            {#each areas as area} 
-              <option value={areaLabel(area)}>{areaLabel(area)}</option>
-            {/each}
-          </select>
-        </label>
+        <div class="modal-form-grid">
+          <label class="field">
+            <span class="field-lab">Placa</span>
+            <input type="text" bind:value={vehicleInEditor.placa} required />
+          </label>
+          <label class="field">
+            <span class="field-lab field-lab-row">
+              Marca
+              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('brand')}>+ Añadir</button>
+            </span>
+            <select
+              required
+              value={vehicleInEditor.idMarca == null ? '' : String(vehicleInEditor.idMarca)}
+              on:change={(e) => {
+                const raw = e.currentTarget.value;
+                vehicleInEditor.idMarca = raw === '' ? null : Number(raw);
+              }}
+            >
+              <option value="">— Seleccione marca —</option>
+              {#each brands as brand}
+                <option value={String(brand.idMarca)}>{brand.descripcion}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-lab field-lab-row">
+              Tipo
+              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('type')}>+ Añadir</button>
+            </span>
+            <select
+              required
+              value={vehicleInEditor.idTipoVehiculo == null ? '' : String(vehicleInEditor.idTipoVehiculo)}
+              on:change={(e) => {
+                const raw = e.currentTarget.value;
+                vehicleInEditor.idTipoVehiculo = raw === '' ? null : Number(raw);
+              }}
+            >
+              <option value="">— Seleccione tipo —</option>
+              {#each types as type}
+                <option value={String(type.id)}>{type.name}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-lab">Km actual</span>
+            <input type="number" bind:value={vehicleInEditor.kilometrajeActual} required />
+          </label>
+          <label class="field">
+            <span class="field-lab field-lab-row">
+              Área
+              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('area')}>+ Añadir</button>
+            </span>
+            <select bind:value={vehicleInEditor.belongsTo}>
+              <option value="">Seleccione área</option>
+              {#if vehicleInEditor.belongsTo && !belongsToInAreasList(vehicleInEditor.belongsTo)}
+                <option value={vehicleInEditor.belongsTo}>{vehicleInEditor.belongsTo}</option>
+              {/if}
+              {#each areas as area}
+                <option value={areaLabel(area)}>{areaLabel(area)}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-lab field-lab-row">
+              Ubicación
+              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('location')}>+ Añadir</button>
+            </span>
+            <select
+              value={vehicleInEditor.idUbicacionBase != null && vehicleInEditor.idUbicacionBase !== '' ? String(vehicleInEditor.idUbicacionBase) : ''}
+              on:change={(e) => {
+                const v = e.currentTarget.value;
+                vehicleInEditor.idUbicacionBase = v === "" ? null : Number(v);
+              }}
+            >
+              <option value="">Seleccione ubicación</option>
+              {#each locations as loc}
+                <option value={String(loc.id)}>{locationLabel(loc)}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-lab">Estado</span>
+            <select
+              value={vehicleInEditor.activo === true || vehicleInEditor.activo === 'true' || vehicleInEditor.activo === 1 || vehicleInEditor.activo === '1' ? '1' : '0'}
+              on:change={(e) => {
+                vehicleInEditor.activo = e.currentTarget.value === '1';
+              }}
+            >
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
+          </label>
+        </div>
 
         <div class="modal-actions">
           <button type="button" class="btn-cancel" on:click={closeEditModal}>Cancelar</button>
@@ -386,6 +751,71 @@
       <div class="modal-actions">
         <button type="button" class="btn-cancel" on:click={() => vehicleToDelete = null}>Cancelar</button>
         <button type="button" class="btn-delete" on:click={handleDeleteVehicle}>Sí, Eliminar</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if showDocHistoryModal}
+  <div class="modal-overlay" on:click={closeDocHistoryModal}>
+    <div class="modal-content modal-doc-history" on:click|stopPropagation>
+      <div class="modal-header">
+        <h3>Historial de documentación — {docHistoryVehicle?.placa ?? ''}</h3>
+        <button class="close-btn" on:click={closeDocHistoryModal}>×</button>
+      </div>
+      {#if docHistoryLoading}
+        <div class="doc-history-loader"><Loader /></div>
+      {:else if docHistory && docHistory.length > 0}
+        <div class="doc-history-table-wrap">
+          <table class="doc-history-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Vence</th>
+                <th>Estado doc</th>
+                <th>Versión</th>
+                <th>Registrado</th>
+                <th>Por</th>
+                <th>Archivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each docHistory as row}
+                <tr class:doc-row-activa={row.vigente} class:doc-row-reemplazada={!row.vigente}>
+                  <td>{row.tipoDocumento}</td>
+                  <td>{row.fechaVigencia ?? '—'}</td>
+                  <td class="doc-estado-cell"
+                      class:doc-estado-vigente={row.estadoCalculado === 'Vigente'}
+                      class:doc-estado-vencido={row.estadoCalculado === 'Vencido'}
+                      class:doc-estado-proximo={row.estadoCalculado === 'Próximo a Vencer'}>
+                    {row.estadoCalculado ?? '—'}
+                  </td>
+                  <td class="doc-version-cell">
+                    {#if row.vigente}
+                      <span class="badge-activa">Activa</span>
+                    {:else}
+                      <span class="badge-reemplazada">Reemplazada</span>
+                    {/if}
+                  </td>
+                  <td class="doc-fecha-registro">{row.subidoEn ? new Date(row.subidoEn).toLocaleString('es-CO', { dateStyle:'short', timeStyle:'short' }) : '—'}</td>
+                  <td class="doc-col-por">{formatSubidoPor(row.subidoPor)}</td>
+                  <td>
+                    {#if row.urlArchivo}
+                      <a href={row.urlArchivo} target="_blank" rel="noopener noreferrer">Ver</a>
+                    {:else}
+                      —
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {:else if docHistory}
+        <p class="doc-history-empty">Sin registros de documentos para este vehículo.</p>
+      {/if}
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" on:click={closeDocHistoryModal}>Cerrar</button>
       </div>
     </div>
   </div>
@@ -421,13 +851,87 @@
   </div>
 {/if}
 
+{#if showCvModal}
+  <div class="modal-overlay">
+    <div class="modal-content large" on:click|stopPropagation>
+      <div class="modal-header">
+        <h3>Hoja de Vida: {curriculumData?.vehicle?.placa ?? 'Cargando...'}</h3>
+        <button class="close-btn" on:click={closeCurriculumModal}>×</button>
+      </div>
+      {#if isCvLoading}
+        <div class="loader-container"><Loader /></div>
+      {:else if curriculumData?.results?.length > 0}
+        <div class="table-wrapper modal-table">
+          <DataGrid columns={curriculumColumns} data={curriculumData.results} />
+        </div>
+      {:else}
+        <p style="padding:16px">No hay registros en la hoja de vida para este vehículo.</p>
+      {/if}
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" on:click={closeCurriculumModal}>Cerrar</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .create-form {
     padding: 8px 10px 10px;
   }
+  .create-form--compact {
+    padding: 6px 8px 8px;
+  }
+  .create-form--compact .create-grid {
+    gap: 4px 8px;
+  }
+  .create-form--compact .field {
+    font-size: 10px;
+    gap: 1px;
+  }
+  .create-form--compact .field-lab {
+    font-size: 9px;
+  }
+  .create-form--compact .field-add-btn {
+    padding: 0 4px;
+    font-size: 9px;
+  }
+  .create-form--compact .field input,
+  .create-form--compact .field select {
+    padding: 2px 4px;
+    font-size: 10px;
+    min-height: 22px;
+    line-height: 1.2;
+  }
+  .create-docs-head {
+    margin: 6px 0 2px;
+    padding: 2px 0;
+    font-size: 10px;
+    font-weight: bold;
+    color: #202020;
+    border-bottom: 1px solid #b0b0b0;
+  }
+  .create-docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr));
+    gap: 4px 8px;
+    margin-top: 4px;
+    align-items: end;
+  }
+  .create-docs-grid .field-doc {
+    min-width: 0;
+  }
+  .create-form--compact .create-docs-grid {
+    gap: 3px 6px;
+    margin-top: 3px;
+  }
+  .create-form--compact .create-docs-head {
+    font-size: 9px;
+    margin: 4px 0 1px;
+    padding: 1px 0;
+  }
   .create-grid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.25rem), 1fr));
     gap: 6px 10px;
     align-items: end;
   }
@@ -467,20 +971,28 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
-  .modal-field-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 4px;
-    font-weight: bold;
+  .modal-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr));
+    gap: 8px 10px;
+    align-items: end;
+  }
+  .modal-form-grid .field {
+    min-width: 0;
+  }
+  .modal-form-grid .field input,
+  .modal-form-grid .field select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 3px 4px;
+    border: 1px inset #c0c0c0;
+    font-family: inherit;
+    font-size: 11px;
+    background: #fff;
+    min-height: 24px;
   }
   .modal-overlay-front {
     z-index: 1100;
-  }
-  .modal-quick {
-    min-width: 320px;
-    max-width: 90vw;
   }
   .quick-help {
     margin: 0 0 10px;
@@ -509,16 +1021,11 @@
     font-family: inherit;
     font-size: 11px;
     background: #fff;
+    min-height: 24px;
   }
-  .field.span-2 {
-    grid-column: span 2;
-  }
-  @media (max-width: 900px) {
+  @media (max-width: 360px) {
     .create-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .field.span-2 {
-      grid-column: span 1;
+      grid-template-columns: 1fr;
     }
   }
   .create-actions {
@@ -557,8 +1064,16 @@
     background: #e0e0e0;
     padding: 20px;
     border: 2px outset #ffffff;
-    min-width: 350px;
+    width: min(96vw, 760px);
+    max-width: 96vw;
+    box-sizing: border-box;
     box-shadow: 4px 4px 10px rgba(0,0,0,0.3);
+  }
+  .modal-content.confirmation,
+  .modal-content.modal-quick {
+    width: auto;
+    max-width: min(440px, 96vw);
+    min-width: min(280px, 100vw - 16px);
   }
   .modal-header {
     display: flex;
@@ -593,4 +1108,94 @@
   .btn-cancel { background: #d0d0d0; border: 1px outset #fff; padding: 4px 10px; cursor: pointer; }
   .btn-save { background: #90ee90; border: 1px outset #fff; padding: 4px 10px; cursor: pointer; }
   .btn-delete { background: #ff6b6b; color: white; border: 1px outset #fff; padding: 4px 10px; cursor: pointer; }
+  .modal-content.large {
+    width: min(1200px, 96vw);
+    min-width: min(80%, 600px);
+    max-width: 96vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .table-wrapper { overflow: hidden; }
+  .modal-table { flex: 1; min-height: 0; margin-top: 16px; }
+  .loader-container { display: flex; justify-content: center; align-items: center; flex: 1; }
+  .modal-content.modal-doc-history {
+    width: fit-content;
+    min-width: min(720px, 96vw);
+    max-width: min(96vw, 1200px);
+    max-height: min(92vh, 900px);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+  .doc-history-loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 32px 0;
+  }
+  .doc-history-table-wrap {
+    flex: 1;
+    min-height: 0;
+    max-height: min(72vh, 640px);
+    overflow: auto;
+    border: 1px solid #a0a0a0;
+    background: #fff;
+    margin-bottom: 4px;
+  }
+  .doc-history-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .doc-history-table th,
+  .doc-history-table td {
+    border: 1px solid #c0c0c0;
+    padding: 6px 10px;
+    text-align: left;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .doc-history-table td.doc-col-por {
+    white-space: normal;
+    max-width: 12rem;
+  }
+  .doc-history-table th {
+    background: #d8d8d8;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+  }
+  .doc-row-activa td { background: #f5fff5; }
+  .doc-row-reemplazada td { background: #fafafa; color: #707070; }
+  .doc-version-cell { white-space: nowrap; }
+  .badge-activa {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #1a7a1a;
+    color: #fff;
+    font-size: 9px;
+    font-weight: bold;
+    border-radius: 2px;
+  }
+  .badge-reemplazada {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #909090;
+    color: #fff;
+    font-size: 9px;
+    border-radius: 2px;
+  }
+  .doc-estado-cell { font-weight: bold; }
+  .doc-estado-vigente { color: #1a7a1a; }
+  .doc-estado-vencido { color: #b00000; }
+  .doc-estado-proximo { color: #b06000; }
+  .doc-fecha-registro { white-space: nowrap; font-size: 10px; }
+  .doc-history-empty {
+    padding: 16px;
+    font-size: 11px;
+    color: #606060;
+    text-align: center;
+  }
 </style>

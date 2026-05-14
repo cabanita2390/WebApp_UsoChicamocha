@@ -93,101 +93,42 @@
   }
 </script>
 
-{#if isLoading}
-  <div class="loader-container">
-    <Loader />
-    <p>Cargando inspecciones...</p>
+<div class="vehicle-module">
+  <div class="vehicle-module-inner">
+    {#if isLoading}
+      <div class="vehicle-loader">
+        <Loader />
+        <p>Cargando inspecciones...</p>
+      </div>
+    {:else}
+      <div class="vehicle-toolbar">
+        <button type="button" class="vehicle-btn" on:click={() => data.fetchDashboardData()}>
+          Refrescar
+        </button>
+        <button
+          type="button"
+          class="vehicle-btn vehicle-btn--export"
+          on:click={handleExportInspections}
+          disabled={isExporting}
+        >
+          {#if isExporting}<span class="spin">⟳</span>{/if}
+          {isExporting ? "Descargando..." : "Exportar Excel"}
+        </button>
+      </div>
+      <div class="vehicle-table-wrap vehicle-table-wrap--inset">
+        <DataGrid
+          columns={dashboardColumns}
+          data={dashboardInfo.data}
+          totalElements={dashboardInfo.totalElements}
+          totalPages={dashboardInfo.totalPages}
+          currentPage={dashboardInfo.currentPage}
+          pageSize={dashboardInfo.pageSize}
+          on:action={handleGridAction}
+          on:cellContextMenu={handleCellContextMenu}
+          on:pageChange={handlePageChange}
+          on:sizeChange={handleSizeChange}
+        />
+      </div>
+    {/if}
   </div>
-{:else}
-  <div class="refresh-container">
-    <button class="btn-refresh" on:click={() => data.fetchDashboardData()}>
-      Refrescar información
-    </button>
-    <button
-      class="btn-export"
-      on:click={handleExportInspections}
-      disabled={isExporting}
-    >
-      {#if isExporting}
-        <span class="loading-icon">⟳</span>
-      {/if}
-      {isExporting ? "Descargando..." : "Exportar Excel"}
-    </button>
-  </div>
-  <div class="grid-wrapper">
-    <DataGrid
-      columns={dashboardColumns}
-      data={dashboardInfo.data}
-      totalElements={dashboardInfo.totalElements}
-      totalPages={dashboardInfo.totalPages}
-      currentPage={dashboardInfo.currentPage}
-      pageSize={dashboardInfo.pageSize}
-      on:action={handleGridAction}
-      on:cellContextMenu={handleCellContextMenu}
-      on:pageChange={handlePageChange}
-      on:sizeChange={handleSizeChange}
-    />
-  </div>
-{/if}
-
-<style>
-  .loader-container {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  .grid-wrapper {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .refresh-container {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .btn-refresh {
-    padding: 2px 8px;
-    background: linear-gradient(to bottom, #e0e0e0 0%, #c0c0c0 100%);
-    border: 1px outset #c0c0c0;
-    cursor: pointer;
-    font-size: 10px;
-    font-family: inherit;
-  }
-  .btn-refresh:hover {
-    background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%);
-  }
-  .btn-export {
-    padding: 2px 8px;
-    background: linear-gradient(to bottom, #90ee90 0%, #7bc97b 100%);
-    border: 1px outset #7bc97b;
-    cursor: pointer;
-    font-size: 10px;
-    font-family: inherit;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .btn-export:hover:not(:disabled) {
-    background: linear-gradient(to bottom, #a0ffa0 0%, #8bd98b 100%);
-  }
-  .btn-export:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-  .loading-icon {
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-</style>
+</div>

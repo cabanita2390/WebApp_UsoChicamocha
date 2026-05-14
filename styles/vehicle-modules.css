@@ -32,6 +32,8 @@
 .vehicle-toolbar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -50,6 +52,33 @@
 
 .vehicle-btn:active {
   border-style: inset;
+}
+
+.vehicle-btn--export {
+  background: linear-gradient(to bottom, #90ee90 0%, #7bc97b 100%);
+  border-color: #7bc97b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vehicle-btn--export:hover:not(:disabled) {
+  background: linear-gradient(to bottom, #a0ffa0 0%, #8bd98b 100%);
+}
+
+.vehicle-btn--export:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.vehicle-btn--export .spin {
+  display: inline-block;
+  animation: vehicle-spin 1s linear infinite;
+}
+
+@keyframes vehicle-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 .vehicle-tab-bar {
@@ -259,4 +288,113 @@
   background: #e0e0e0;
   border: 2px outset #c0c0c0;
   overflow: hidden;
+  min-width: 0;
+}
+
+/**
+ * Subida de archivo — aspecto tipo diálogo clásico (campo + “Examinar…”),
+ * alineado con botones .vehicle-btn / .field-add-btn (grises, relieve).
+ */
+.file-upload-win {
+  min-width: 0;
+}
+
+.file-upload-win--stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-upload-win__label {
+  font-weight: bold;
+  font-size: 11px;
+  color: #202020;
+}
+
+.file-upload-win__row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-height: 24px;
+  border: 1px inset #c0c0c0;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.create-form--compact .file-upload-win__row {
+  min-height: 22px;
+}
+
+.file-upload-win__row--disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.file-upload-win__inner {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: stretch;
+  pointer-events: none;
+}
+
+.file-upload-win__name {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid #a0a0a0;
+}
+
+.file-upload-win__name--empty {
+  color: #505050;
+  font-style: italic;
+}
+
+.file-upload-win__btn {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  font-size: 10px;
+  font-family: inherit;
+  background: linear-gradient(to bottom, #e8e8e8 0%, #c0c0c0 100%);
+  border: none;
+  border-left: 1px solid #f0f0f0;
+  box-shadow: inset 1px 0 0 #e8e8e8;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.file-upload-win:not(.file-upload-win--disabled):hover .file-upload-win__btn {
+  background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%);
+}
+
+.file-upload-win--disabled .file-upload-win__btn {
+  color: #505050;
+}
+
+.file-upload-win__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+  margin: 0;
+  padding: 0;
+  z-index: 2;
+}
+
+.file-upload-win--disabled .file-upload-win__input {
+  cursor: not-allowed;
+  pointer-events: none;
 }

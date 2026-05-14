@@ -10,9 +10,11 @@ async function fetchWithAuth(endpoint, options = {}) {
         throw new Error('Sesión no válida. Por favor, inicie sesión de nuevo.');
     }
 
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
     const defaultHeaders = {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' })
     };
 
     const BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -35,12 +37,25 @@ async function fetchWithAuth(endpoint, options = {}) {
     const responseText = await response.text();
 
     if (!response.ok) {
-        try {
-            const errorJson = JSON.parse(responseText);
-            throw { status: response.status, message: errorJson.message || responseText };
-        } catch (e) {
-            throw { status: response.status, message: responseText || `Error ${response.status}: ${response.statusText}` };
+        let message = (responseText && responseText.trim()) || `Error ${response.status}: ${response.statusText}`;
+        if (responseText && responseText.trim()) {
+            try {
+                const parsed = JSON.parse(responseText);
+                if (parsed && typeof parsed === 'object') {
+                    if (typeof parsed.message === 'string' && parsed.message.trim()) {
+                        message = parsed.message.trim();
+                    } else if (typeof parsed.error === 'string' && parsed.error.trim()) {
+                        message = parsed.error.trim();
+                    }
+                }
+            } catch {
+                // Cuerpo plano (p. ej. Spring devuelve texto con el motivo del 400/409)
+                message = responseText.trim();
+            }
         }
+        const err = new Error(message);
+        err.status = response.status;
+        throw err;
     }
 
     if (response.status === 204 || !responseText) {

@@ -1,65 +1,125 @@
+/**
+ * Descripción con pipes: Origen|Sector|Condición|Detalle|Tarea (5+ segmentos).
+ * Texto libre: intenta partir por " — " / raya (títulos tipo seed); si no, el resumen va en Origen
+ * y el texto completo en Detalle (Sector/Condición/Tarea como N/A si no aplica).
+ */
+export function parseWorkOrderDescription(description) {
+  const raw = description == null ? '' : String(description).trim();
+  const NA = 'N/A';
+
+  if (!raw) {
+    return {
+      origen: '',
+      sector: '',
+      condicion: '',
+      detalle: '',
+      tareaAsignada: '',
+      structured: false,
+    };
+  }
+
+  const parts = raw.split('|').map((p) => (p == null ? '' : String(p).trim()));
+  if (parts.length >= 5) {
+    return {
+      origen: parts[0] !== '' ? parts[0] : NA,
+      sector: parts[1] !== '' ? parts[1] : NA,
+      condicion: parts[2] !== '' ? parts[2] : NA,
+      detalle: parts[3] !== '' ? parts[3] : NA,
+      tareaAsignada: parts[4] !== '' ? parts[4] : NA,
+      structured: true,
+    };
+  }
+
+  // Texto libre: partir por raya larga / em dash entre espacios (muy habitual en descripciones del sistema)
+  const dashPieces = raw.split(/\s+[—\u2014\u2013]\s+/).map((s) => s.trim()).filter(Boolean);
+  if (dashPieces.length >= 2) {
+    return {
+      origen: dashPieces[0] || NA,
+      sector: dashPieces[1] || NA,
+      condicion: dashPieces.length > 2 ? dashPieces[2] : NA,
+      detalle: raw,
+      tareaAsignada: dashPieces.length > 3 ? dashPieces.slice(3).join(' — ') : NA,
+      structured: false,
+    };
+  }
+
+  // Una sola frase: mostrar en Origen (visible en columna estrecha) y repetir en Detalle para lectura cómoda
+  const short = raw.length > 72 ? `${raw.slice(0, 69)}…` : raw;
+  return {
+    origen: short,
+    sector: NA,
+    condicion: NA,
+    detalle: raw,
+    tareaAsignada: NA,
+    structured: false,
+  };
+}
+
 export const workOrderColumns = [
  {
   accessorFn: (row) => (row.order.date ? new Date(row.order.date).toLocaleDateString('es-CO') : "N/A"),
   id: "fecha",
   header: "Fecha",
-  
+  size: 95,
  },
  {
   accessorFn: (row) => (row.machine ? `${row.machine.name} - ${row.machine.model} - ${row.machine.numInterIdentification}` : "N/A"),
   id: "maquina",
   header: "Máquina",
-
+  size: 200,
  },
  {
-  accessorFn: (row) => (row.order.description ? row.order.description.split('|')[0] : ''),
+  accessorFn: (row) => parseWorkOrderDescription(row.order?.description).origen,
   id: 'origen',
   header: 'Origen',
-
+  size: 95,
   meta: { isOrigin: true },
  },
  {
-  accessorFn: (row) => (row.order.description ? row.order.description.split('|')[1] : ''),
+  accessorFn: (row) => parseWorkOrderDescription(row.order?.description).sector,
   id: 'sector',
   header: 'Sector',
-
+  size: 110,
  },
  {
-  accessorFn: (row) => (row.order.description ? row.order.description.split('|')[2] : ''),
+  accessorFn: (row) => parseWorkOrderDescription(row.order?.description).condicion,
   id: 'condicion',
   header: 'Condición',
-
+  size: 90,
   meta: { isCondition: true },
  },
  {
-  accessorFn: (row) => (row.order.description ? row.order.description.split('|')[3] : ''),
+  accessorFn: (row) => parseWorkOrderDescription(row.order?.description).detalle,
   id: 'detalle',
   header: 'Detalle',
+  size: 220,
   meta: { isMultiline: true },
  },
  {
-  accessorFn: (row) => (row.order.description ? row.order.description.split('|')[4] : ''),
+  accessorFn: (row) => parseWorkOrderDescription(row.order?.description).tareaAsignada,
   id: 'tarea_asignada_a',
   header: 'Tarea Asignada a',
-
+  size: 150,
  },
  {
   accessorFn: (row) => row.order.status,
   id: "status",
   header: "Estado",
-
+  size: 110,
+  meta: { isOrderStatus: true },
  },
  {
   accessorFn: (row) => (row.order.assignerUser ? row.order.assignerUser.fullName : "N/A"),
   id: "asignado_por",
   header: "Asignado por",
-
+  size: 140,
  },
-{
-    id: "execute",
-    header: "Ejecutar Orden",
-    meta: { isExecuteAction: true }, // Identificador para el nuevo botón
-  },
+ {
+  id: "execute",
+  header: "Ejecutar Orden",
+  size: 120,
+  meta: { isExecuteAction: true },
+ },
 ];
 export const machineColumns = [
  { accessorKey: "name", header: "Nombre", size: 150 },
@@ -244,6 +304,18 @@ function formatDate(utcDateString) {
  });
 }
 
+/** Formatea un LocalDate del backend, que puede llegar como array [y,m,d] o string "yyyy-mm-dd". */
+function formatLocalDate(raw) {
+ if (!raw) return 'N/A';
+ let s = raw;
+ if (Array.isArray(raw) && raw.length >= 3) {
+  s = `${raw[0]}-${String(raw[1]).padStart(2, '0')}-${String(raw[2]).padStart(2, '0')}`;
+ }
+ const d = new Date(typeof s === 'string' ? `${s}T12:00:00` : s);
+ if (Number.isNaN(d.getTime())) return String(raw);
+ return d.toLocaleDateString('es-CO');
+}
+
 /** Fecha-hora sin forzar Z (LocalDateTime del backend). */
 function formatDateTimeLocal(value) {
  if (!value) return 'N/A';
@@ -288,7 +360,7 @@ export const createConsolidadoColumns = (owner) => [
    { header: 'Marca', size: 60, accessorFn: row => row.consolidateMotorOil?.brand?.name ?? 'N/A', id: 'motor_marca', meta: { cellClass: 'motor-oil-cell' } },
    { header: 'Cant.', size: 60, accessorFn: row => row.consolidateMotorOil?.quantity ?? 'N/A', id: 'motor_cantidad', meta: { cellClass: 'motor-oil-cell' } },
    { header: 'Prom. Cambio', size: 80, accessorFn: row => row.consolidateMotorOil?.averageChangeHours ?? 'N/A', id: 'motor_promedio_cambio', meta: { cellClass: 'motor-oil-cell' } },
-   { header: 'Fecha Últ. Cambio', size: 100, accessorFn: row => formatDate(row.consolidateMotorOil?.dateLastUpdate), id: 'motor_fecha_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
+   { header: 'Fecha Últ. Cambio', size: 100, accessorFn: row => formatLocalDate(row.consolidateMotorOil?.dateLastUpdate), id: 'motor_fecha_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
    { header: 'Horómetro Últ. Cambio', size: 100, accessorFn: row => row.consolidateMotorOil?.hourMeterLastUpdate ?? 'N/A', id: 'motor_horometro_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
    { header: 'Próximo Cambio', size: 80, accessorFn: row => row.consolidateMotorOil?.hourMeterNextUpdate ?? 'N/A', id: 'motor_proximo_cambio', meta: { cellClass: 'motor-oil-cell' } },
    { header: 'Tiempo Últ. Cambio', size: 100, accessorFn: row => row.consolidateMotorOil?.timeLastUpdateMouths ?? 'N/A', id: 'motor_tiempo_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
@@ -301,7 +373,7 @@ export const createConsolidadoColumns = (owner) => [
    { header: 'Marca', size: 60, accessorFn: row => row.consolidateHydraulicOil?.brand?.name ?? 'N/A', id: 'hidraulico_marca', meta: { cellClass: 'hydraulic-oil-cell' } },
    { header: 'Cant.', size: 60, accessorFn: row => row.consolidateHydraulicOil?.quantity ?? 'N/A', id: 'hidraulico_cantidad', meta: { cellClass: 'hydraulic-oil-cell' } },
    { header: 'Prom. Cambio', size: 80, accessorFn: row => row.consolidateHydraulicOil?.averageChangeHours ?? 'N/A', id: 'hidraulico_promedio_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
-   { header: 'Fecha Últ. Cambio', size: 100, accessorFn: row => formatDate(row.consolidateHydraulicOil?.dateLastUpdate), id: 'hidraulico_fecha_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
+   { header: 'Fecha Últ. Cambio', size: 100, accessorFn: row => formatLocalDate(row.consolidateHydraulicOil?.dateLastUpdate), id: 'hidraulico_fecha_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
    { header: 'Horómetro Últ. Cambio', size: 100, accessorFn: row => row.consolidateHydraulicOil?.hourMeterLastUpdate ?? 'N/A', id: 'hidraulico_horometro_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
    { header: 'Próximo Cambio', size: 80, accessorFn: row => row.consolidateHydraulicOil?.hourMeterNextUpdate ?? 'N/A', id: 'hidraulico_proximo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
    { header: 'Tiempo Últ. Cambio', size: 100, accessorFn: row => row.consolidateHydraulicOil?.timeLastUpdateMouths ?? 'N/A', id: 'hidraulico_tiempo_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
@@ -557,7 +629,7 @@ export const monitoringVehicleDocumentColumns = [
         id: 'doc_actions',
         header: 'Acciones',
         accessorFn: () => '',
-        size: 138,
+        size: 128,
         meta: { isMonitoringDocsAction: true },
     },
 ];
@@ -600,7 +672,7 @@ export const monitoringVehicleOilColumns = [
         id: 'oil_actions',
         header: 'Acciones',
         accessorFn: () => '',
-        size: 108,
+        size: 218,
         meta: { isMonitoringOilAction: true },
     },
 ];
@@ -638,7 +710,7 @@ export const monitoringMotoDocumentColumns = [
         id: 'moto_doc_actions',
         header: 'Acciones',
         accessorFn: () => '',
-        size: 138,
+        size: 128,
         meta: { isMonitoringDocsAction: true },
     },
 ];
@@ -688,11 +760,107 @@ export const monitoringMotoOilColumns = [
         id: 'moto_oil_actions',
         header: 'Acciones',
         accessorFn: () => '',
-        size: 108,
+        size: 198,
         meta: { isMonitoringOilAction: true },
     },
 ];
 
+
+/** Consolidado vehículos (tab Consolidado → Vehículos). Mismo estilo que maquinaria: fondos por grupo. */
+export const consolidadoVehicleColumns = [
+    {
+        header: 'Vehículo',
+        columns: [
+            { header: 'Área', accessorKey: 'area', size: 130 },
+            { header: 'Placa', accessorKey: 'placa', size: 90 },
+            { header: 'Km Actual', accessorFn: row => formatKm(row.kmActual), id: 'cv_km', size: 90 },
+            { header: 'Días sin reporte', accessorKey: 'diasUltimoReporte', id: 'cv_dias_rep', size: 95 },
+            { header: 'Fecha Último Reporte', accessorFn: row => formatDateTime(row.fechaUltimoReporte), id: 'cv_fecha_rep', size: 150 },
+        ],
+    },
+    {
+        header: 'Aceite Motor',
+        columns: [
+            { header: 'Tipo', accessorFn: row => row.maintenance?.tipoAceite ?? 'N/A', id: 'cv_oil_tipo', size: 100, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Fecha Últ. Cambio', accessorFn: row => formatLocalDate(row.maintenance?.fechaUltimoCambio), id: 'cv_oil_fecha', size: 105, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.maintenance?.kmUltimoCambio), id: 'cv_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km Próximo', accessorFn: row => formatKm(row.maintenance?.kmProximoCambio), id: 'cv_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km Restantes', accessorFn: row => row.maintenance?.kmParaCambio ?? 'N/A', id: 'cv_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Estado', accessorFn: row => row.maintenance?.estado ?? 'N/A', id: 'cv_oil_estado', size: 110, meta: { cellClass: 'motor-oil-cell' } },
+        ],
+    },
+    {
+        header: 'SOAT',
+        columns: [
+            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento), id: 'cv_soat_venc', size: 100, meta: { cellClass: 'soat-cell' } },
+            { header: 'Días Restantes', accessorFn: row => row.soat?.diasRestantes ?? 'N/A', id: 'cv_soat_dias', size: 90, meta: { cellClass: 'soat-cell' } },
+            { header: 'Estado', accessorFn: row => row.soat?.estado ?? 'N/A', id: 'cv_soat_est', size: 100, meta: { cellClass: 'soat-cell' } },
+        ],
+    },
+    {
+        header: 'Tecno',
+        columns: [
+            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento), id: 'cv_tecno_venc', size: 100, meta: { cellClass: 'tecno-cell' } },
+            { header: 'Días Restantes', accessorFn: row => row.tecno?.diasRestantes ?? 'N/A', id: 'cv_tecno_dias', size: 90, meta: { cellClass: 'tecno-cell' } },
+            { header: 'Estado', accessorFn: row => row.tecno?.estado ?? 'N/A', id: 'cv_tecno_est', size: 100, meta: { cellClass: 'tecno-cell' } },
+        ],
+    },
+    {
+        id: 'cv_actions',
+        header: 'Acciones',
+        accessorFn: () => '',
+        size: 252,
+        meta: { isConsolidadoVehicleActions: true },
+    },
+];
+
+/** Consolidado motos (tab Consolidado → Motos). Mismo estilo que maquinaria: fondos por grupo. */
+export const consolidadoMotoColumns = [
+    {
+        header: 'Moto',
+        columns: [
+            { header: 'Área', accessorKey: 'departamento', size: 130 },
+            { header: 'Ubicación', accessorFn: row => motoMonitoringUbicacionCell(row), id: 'cm_ubicacion', size: 150 },
+            { header: 'Placa', accessorKey: 'placa', size: 90 },
+            { header: 'Km Actual', accessorFn: row => formatKm(row.kmActual), id: 'cm_km', size: 90 },
+            { header: 'Días sin reporte', accessorKey: 'diasUltimoReporte', id: 'cm_dias_rep', size: 95 },
+            { header: 'Fecha Último Reporte', accessorFn: row => formatDateTime(row.fechaUltimoReporte), id: 'cm_fecha_rep', size: 150 },
+            { header: 'Estado Moto', accessorKey: 'estadoMoto', id: 'cm_estado_moto', size: 90 },
+        ],
+    },
+    {
+        header: 'Aceite',
+        columns: [
+            { header: 'Fecha Últ. Cambio', accessorFn: row => formatLocalDate(row.oil?.fechaUltimoCambio), id: 'cm_oil_fecha', size: 110, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.oil?.kmCambio), id: 'cm_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km Próximo', accessorFn: row => formatKm(row.oil?.kmProximoCambio), id: 'cm_oil_km_prox', size: 90, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km Restantes', accessorFn: row => row.oil?.kmParaProximo ?? 'N/A', id: 'cm_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Estado', accessorFn: row => row.oil?.estado ?? 'N/A', id: 'cm_oil_estado', size: 110, meta: { cellClass: 'motor-oil-cell' } },
+        ],
+    },
+    {
+        header: 'SOAT',
+        columns: [
+            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento), id: 'cm_soat_venc', size: 100, meta: { cellClass: 'soat-cell' } },
+            { header: 'Días Restantes', accessorFn: row => row.soat?.diasRestantes ?? 'N/A', id: 'cm_soat_dias', size: 90, meta: { cellClass: 'soat-cell' } },
+            { header: 'Estado', accessorFn: row => row.soat?.estado ?? 'N/A', id: 'cm_soat_est', size: 100, meta: { cellClass: 'soat-cell' } },
+        ],
+    },
+    {
+        header: 'Tecno',
+        columns: [
+            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento), id: 'cm_tecno_venc', size: 100, meta: { cellClass: 'tecno-cell' } },
+            { header: 'Días Restantes', accessorFn: row => row.tecno?.diasRestantes ?? 'N/A', id: 'cm_tecno_dias', size: 90, meta: { cellClass: 'tecno-cell' } },
+            { header: 'Estado', accessorFn: row => row.tecno?.estado ?? 'N/A', id: 'cm_tecno_est', size: 100, meta: { cellClass: 'tecno-cell' } },
+        ],
+    },
+    {
+        id: 'cm_actions',
+        header: 'Acciones',
+        accessorFn: () => '',
+        meta: { isConsolidadoVehicleActions: true },
+    },
+];
 
 export const reportMotoColumns = [
     { header: 'Marca temporal', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'moto_ts', size: 140 },
@@ -720,26 +888,106 @@ export const maintenanceMotoColumns = [
     { header: 'Observaciones', accessorKey: 'observaciones', size: 200, meta: { isMultiline: true } }
 ];
 
+export const maintenanceVehicleColumns = [
+    { header: 'Fecha', accessorFn: row => formatDateTime(row.fecha), id: 'fecha', size: 140 },
+    { header: 'Placa', accessorKey: 'placa', size: 90 },
+    { header: 'Ubicación', accessorKey: 'ubicacion', size: 150 },
+    { header: 'Responsable', accessorKey: 'responsableAsignado', size: 150 },
+    { header: 'Km', accessorKey: 'kilometraje', size: 90 },
+    { header: 'Tipo', accessorKey: 'tipoMantenimiento', size: 100 },
+    { header: 'Repuestos / Trabajo', accessorKey: 'repuestosMantenimiento', size: 250, meta: { isMultiline: true } },
+    { header: 'Taller / Mecánico', accessorKey: 'tallerResponsable', size: 150 },
+    { header: 'Observaciones', accessorKey: 'observaciones', size: 200, meta: { isMultiline: true } }
+];
+
 // --- GESTIÓN ADMINISTRATIVA ---
 
 export const vehicleManagementColumns = [
     { header: 'Placa', accessorKey: 'placa', size: 100 },
     { header: 'Marca', accessorKey: 'marca', size: 150 },
     { header: 'Tipo', accessorKey: 'tipoVehiculo', size: 120 },
-    { 
-        header: 'Km Base', 
-        accessorFn: row => formatKm(row.kilometrajeActual), 
-        id: 'km_actual', 
-        size: 100 
+    {
+        header: 'Km Base',
+        accessorFn: row => formatKm(row.kilometrajeActual),
+        id: 'km_actual',
+        size: 100,
     },
     { header: 'Área', accessorKey: 'belongsTo', size: 150 },
-  
+    {
+        header: 'Ubicación',
+        accessorFn: row => (row.ubicacionBase != null && String(row.ubicacionBase).trim() !== '' ? String(row.ubicacionBase).trim() : '—'),
+        id: 'veh_inv_ubic',
+        size: 160,
+    },
+    {
+        id: "curriculum",
+        header: "Hoja de Vida",
+        size: 110,
+        meta: { isCvAction: true },
+    },
+    {
+        id: "doc_history_action",
+        header: "Historial Docs",
+        size: 115,
+        meta: { isDocHistoryAction: true },
+    },
     {
         id: "actions",
         header: "Acciones",
         size: 100,
-        meta: { isAction: true }, 
+        meta: { isAction: true },
     }
+];
+
+/** Órdenes de trabajo vinculadas a inspecciones pre-operativas de vehículos. DTO: OrderWithVehicleDTO. */
+export const vehicleWorkOrderColumns = [
+    {
+        accessorFn: (row) => row.order?.date ? new Date(row.order.date).toLocaleDateString('es-CO') : 'N/A',
+        id: 'vo_fecha', header: 'Fecha', size: 95,
+    },
+    {
+        accessorFn: (row) => {
+            const v = row.vehicle;
+            if (!v) return 'N/A';
+            return [v.placa, v.marca, v.tipoVehiculo].filter(Boolean).join(' - ') || 'N/A';
+        },
+        id: 'vo_vehiculo', header: 'Vehículo', size: 200,
+    },
+    {
+        accessorFn: (row) => parseWorkOrderDescription(row.order?.description).origen,
+        id: 'vo_origen', header: 'Origen', size: 95, meta: { isOrigin: true },
+    },
+    {
+        accessorFn: (row) => parseWorkOrderDescription(row.order?.description).sector,
+        id: 'vo_sector', header: 'Sector', size: 110,
+    },
+    {
+        accessorFn: (row) => parseWorkOrderDescription(row.order?.description).condicion,
+        id: 'vo_condicion', header: 'Condición', size: 90, meta: { isCondition: true },
+    },
+    {
+        accessorFn: (row) => parseWorkOrderDescription(row.order?.description).detalle,
+        id: 'vo_detalle', header: 'Detalle', size: 220, meta: { isMultiline: true },
+    },
+    {
+        accessorFn: (row) => parseWorkOrderDescription(row.order?.description).tareaAsignada,
+        id: 'vo_asignado_a', header: 'Tarea Asignada a', size: 150,
+    },
+    {
+        accessorFn: (row) => row.order?.status,
+        id: 'vo_status', header: 'Estado', size: 110,
+        meta: { isOrderStatus: true },
+    },
+    {
+        accessorFn: (row) => row.order?.assignerUser ? row.order.assignerUser.fullName : 'N/A',
+        id: 'vo_asignado_por', header: 'Asignado por', size: 140,
+    },
+    {
+        id: 'vo_execute',
+        header: 'Ejecutar Orden',
+        size: 120,
+        meta: { isExecuteAction: true },
+    },
 ];
 
 /** Inventario motos — mismo {@link VehicleResponse} que vehículos; sin columna tipo (fijado en servidor). */
@@ -760,9 +1008,66 @@ export const motoInventoryColumns = [
         size: 160,
     },
     {
+        id: 'curriculum',
+        header: 'Hoja de Vida',
+        size: 110,
+        meta: { isCvAction: true },
+    },
+    {
+        id: 'doc_history_action',
+        header: 'Historial Docs',
+        size: 115,
+        meta: { isDocHistoryAction: true },
+    },
+    {
         id: 'actions',
         header: 'Acciones',
         size: 100,
         meta: { isAction: true },
+    },
+];
+
+/** Historial completo de cambios de aceite para un vehículo específico. */
+export const vehicleOilHistoryColumns = [
+    {
+        header: 'Fecha',
+        accessorFn: (row) => formatDateTime(row.dateStamp),
+        id: 'oil_h_fecha',
+        size: 140,
+    },
+    {
+        header: 'Km en cambio',
+        accessorFn: (row) => (row.kmAtChange != null ? formatKm(row.kmAtChange) : 'N/A'),
+        id: 'oil_h_km',
+        size: 110,
+    },
+    {
+        header: 'Próximo cambio (km)',
+        accessorFn: (row) =>
+            row.kmAtChange != null && row.intervalKm != null
+                ? formatKm(row.kmAtChange + row.intervalKm)
+                : 'N/A',
+        id: 'oil_h_proximo',
+        size: 130,
+    },
+    {
+        header: 'Intervalo (km)',
+        accessorFn: (row) => (row.intervalKm != null ? formatKm(row.intervalKm) : 'N/A'),
+        id: 'oil_h_intervalo',
+        size: 110,
+    },
+    { header: 'Tipo / Viscosidad', accessorKey: 'oilType', size: 120 },
+    { header: 'Marca', accessorKey: 'brandName', size: 120 },
+    {
+        header: 'Cantidad (L)',
+        accessorFn: (row) => (row.quantity != null ? row.quantity : 'N/A'),
+        id: 'oil_h_cantidad',
+        size: 90,
+    },
+    {
+        header: 'Filtro de aire',
+        accessorFn: (row) => (row.airFilterChanged ? 'Sí' : 'No'),
+        id: 'oil_h_filtro',
+        size: 90,
     },
 ];
