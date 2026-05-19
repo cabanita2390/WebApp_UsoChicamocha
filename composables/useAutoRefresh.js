@@ -35,6 +35,8 @@ export function startAutoRefresh() {
                  if (isDashboard) {
                      console.log('🔄 [AUTO-REFRESH] Actualizando Inspecciones...');
                      await data.fetchDashboardData($data.dashboard.currentPage, $data.dashboard.pageSize);
+                     await data.fetchVehicleInspections($data.vehicleInspections.currentPage, $data.vehicleInspections.pageSize, { reload: true });
+                     await data.fetchMotoInspections();
                  } else if (isVehicles) {
                      console.log('🔄 [AUTO-REFRESH] Actualizando Vehículos...');
                      await data.fetchVehicles();

@@ -564,6 +564,18 @@ function handleDataUpdate(currentView, message) {
         data.fetchConsolidadoData();
       }
       break;
+    case 'vehicle-inspections-updated':
+      if (currentView === 'dashboard') {
+        console.log('🔄 [DATA_UPDATE] Recargando inspecciones de vehículos...');
+        data.fetchVehicleInspections(dataState.vehicleInspections.currentPage, dataState.vehicleInspections.pageSize, { reload: true });
+      }
+      break;
+    case 'moto-inspections-updated':
+      if (currentView === 'dashboard') {
+        console.log('🔄 [DATA_UPDATE] Recargando inspecciones de motos...');
+        data.fetchMotoInspections();
+      }
+      break;
     default:
       console.log("⚠️ [DATA_UPDATE] Mensaje no reconocido:", message);
   }
