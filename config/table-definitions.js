@@ -380,6 +380,12 @@ export const createConsolidadoColumns = (owner) => [
    { header: 'Horas Restantes', size: 80, accessorFn: row => row.consolidateHydraulicOil?.remainingHoursNextUpdateMouths ?? 'N/A', id: 'hidraulico_horas_restantes', meta: { cellClass: 'hydraulic-oil-cell' } },
   ]
  },
+ {
+  id: 'acciones_maq',
+  header: 'Acciones',
+  size: 140,
+  meta: { isConsolidadoMaqActions: true },
+ },
 ];
 
 export const userColumns = [

@@ -302,6 +302,7 @@
                   cell.column.columnDef.meta?.isMonitoringDocsAction ||
                   cell.column.columnDef.meta?.isMonitoringOilAction ||
                   cell.column.columnDef.meta?.isConsolidadoVehicleActions ||
+                  cell.column.columnDef.meta?.isConsolidadoMaqActions ||
                   cell.column.columnDef.meta?.isDocHistoryAction}
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
@@ -374,6 +375,17 @@
                       on:click={() => handleAction("monitoring_oil_history", row.original)}
                     >
                       Ver historial aceite
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isConsolidadoMaqActions}
+                  <div class="actions-cell">
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact"
+                      title="Corregir el valor del horómetro de la última inspección"
+                      on:click={() => handleAction("edit_hourmeter", row.original)}
+                    >
+                      Corregir Horómetro
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isMonitoringDocsAction}

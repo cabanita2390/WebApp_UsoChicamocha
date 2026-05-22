@@ -330,6 +330,12 @@ function createDataStore() {
             form.append('fechaVencimiento', fechaVencimiento);
             await fetchWithAuth('admin/documents/upload', { method: 'POST', body: form });
         },
+        updateInspectionHourMeter: async (machineId, newHourMeter) => {
+            await fetchWithAuth(`inspection/machine/${machineId}/hour-meter`, {
+                method: 'PATCH',
+                body: JSON.stringify(newHourMeter),
+            });
+        },
         getVehicleDocuments: (idVehiculo) => fetchWithAuth(`vehicle-inspection/documentos/${idVehiculo}`),
         getVehicleDocumentHistory: (idVehiculo) =>
             fetchWithAuth(`vehicle-inspection/documentos/${idVehiculo}/history`),
