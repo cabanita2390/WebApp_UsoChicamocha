@@ -124,37 +124,52 @@
 </div>
 
 {#if hourmeterModalOpen && hourmeterRow}
-  <div class="modal-overlay" on:click|self={closeHourmeterModal}>
-    <div class="modal-win" role="dialog" aria-modal="true" aria-labelledby="hm-title">
-      <div class="modal-title-bar">
+  <div class="hm-overlay" role="presentation" on:click|self={closeHourmeterModal}>
+    <div
+      class="vehicle-form-section hm-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="hm-title"
+      on:click|stopPropagation
+    >
+      <div class="vehicle-subpanel-head hm-dialog-head">
         <span id="hm-title">Corregir Horómetro — {hourmeterRow.machine?.name ?? ''}</span>
-        <button class="modal-close-btn" on:click={closeHourmeterModal} aria-label="Cerrar">✕</button>
+        <button type="button" class="hm-close" on:click={closeHourmeterModal} aria-label="Cerrar">×</button>
       </div>
-      <div class="modal-body">
-        <p class="modal-hint">
-          Valor actual: <strong>{hourmeterRow.currentData?.currentHourMeter ?? 'N/A'}</strong>
-          &nbsp;·&nbsp; Última inspección: {hourmeterRow.currentData?.lastUpdate
-            ? new Date(hourmeterRow.currentData.lastUpdate).toLocaleDateString('es-CO')
-            : 'N/A'}
-        </p>
-        <label class="modal-label" for="hm-input">Nuevo valor de horómetro</label>
-        <input
-          id="hm-input"
-          class="modal-input"
-          type="number"
-          min="0"
-          step="0.1"
-          bind:value={hourmeterValue}
-          disabled={hourmeterSubmitting}
-        />
-      </div>
-      <div class="modal-footer">
-        <button class="vehicle-btn" on:click={closeHourmeterModal} disabled={hourmeterSubmitting}>
-          Cancelar
-        </button>
-        <button class="vehicle-btn vehicle-btn--export" on:click={submitHourmeter} disabled={hourmeterSubmitting}>
-          {hourmeterSubmitting ? 'Guardando...' : 'Guardar'}
-        </button>
+      <div class="hm-dialog-body">
+        <div class="empty-state hm-info">
+          <p>
+            Valor actual: <strong>{hourmeterRow.currentData?.currentHourMeter ?? 'N/A'}</strong>
+            &nbsp;·&nbsp; Última inspección:
+            {hourmeterRow.currentData?.lastUpdate
+              ? new Date(hourmeterRow.currentData.lastUpdate).toLocaleDateString('es-CO')
+              : 'N/A'}
+          </p>
+        </div>
+        <label class="hm-field" for="hm-input">
+          <span class="hm-field-label">Nuevo valor de horómetro</span>
+          <input
+            id="hm-input"
+            type="number"
+            min="0"
+            step="0.1"
+            bind:value={hourmeterValue}
+            disabled={hourmeterSubmitting}
+          />
+        </label>
+        <div class="vehicle-toolbar hm-dialog-foot">
+          <button type="button" class="vehicle-btn" on:click={closeHourmeterModal} disabled={hourmeterSubmitting}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="vehicle-btn vehicle-btn--export"
+            on:click={submitHourmeter}
+            disabled={hourmeterSubmitting}
+          >
+            {hourmeterSubmitting ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -170,74 +185,72 @@
     color: #202020;
   }
 
-  /* Modal */
-  .modal-overlay {
+  /* Diálogo horómetro: cromática del módulo vehicle-*, no de modales flotantes */
+  .hm-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.45);
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 1200;
+    padding: 16px;
   }
-  .modal-win {
-    background: #fff;
-    border: 2px solid #888;
-    border-radius: 4px;
-    min-width: 340px;
+  .hm-dialog {
+    min-width: 320px;
     max-width: 420px;
     width: 100%;
-    box-shadow: 4px 4px 16px rgba(0,0,0,0.35);
-    font-family: "MS Sans Serif", "Tahoma", sans-serif;
-    font-size: 11px;
+    box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.3);
   }
-  .modal-title-bar {
-    background: #000080;
-    color: #fff;
-    padding: 5px 8px;
+  .hm-dialog-head {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    font-weight: bold;
-    font-size: 11px;
+    align-items: center;
+    gap: 8px;
   }
-  .modal-close-btn {
-    background: none;
+  .hm-close {
     border: none;
-    color: #fff;
-    cursor: pointer;
-    font-size: 13px;
+    background: transparent;
+    font-size: 18px;
     line-height: 1;
-    padding: 0 2px;
+    cursor: pointer;
+    padding: 0 4px;
+    color: inherit;
   }
-  .modal-body {
-    padding: 16px;
+  .hm-dialog-body {
+    padding: 10px 12px 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    background: #c0c0c0;
   }
-  .modal-hint {
-    font-size: 11px;
-    color: #444;
+  .hm-info {
     margin: 0;
   }
-  .modal-label {
-    font-size: 11px;
-    font-weight: bold;
-    color: #222;
+  .hm-info p {
+    margin: 0;
   }
-  .modal-input {
-    width: 100%;
+  .hm-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .hm-field-label {
+    font-weight: bold;
+    font-size: 11px;
+    color: #202020;
+  }
+  .hm-field input {
     padding: 4px 6px;
-    border: 1px solid #888;
-    font-size: 12px;
+    border: 1px inset #c0c0c0;
+    font-family: inherit;
+    font-size: 11px;
+    background: #fff;
     box-sizing: border-box;
   }
-  .modal-footer {
-    padding: 10px 16px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    border-top: 1px solid #ccc;
+  .hm-dialog-foot {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid #808080;
   }
 </style>
