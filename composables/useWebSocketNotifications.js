@@ -23,7 +23,8 @@ const NOTIFICATION_TOPICS = {
   DATA_UPDATE: '/topic/notifications/data-update',
   OIL_CHANGE: '/topic/notifications/oil-change',
   CONNECTION: '/topic/notifications/connection',
-  SOAT_RUNT: '/topic/notifications/soat-runt'
+  SOAT_RUNT: '/topic/notifications/soat-runt',
+  ALERTS: '/topic/alerts'
 };
 
 // Notification types
@@ -266,6 +267,11 @@ function subscribeToAllTopics() {
       topic: NOTIFICATION_TOPICS.CONNECTION,
       type: 'connection',
       handler: handleConnectionMessage
+    },
+    {
+      topic: NOTIFICATION_TOPICS.ALERTS,
+      type: 'alert',
+      handler: handleAlertMessage
     }
   ];
   
@@ -468,10 +474,23 @@ function handleSoatRuntMessage(message) {
 
 function handleConnectionMessage(message) {
   console.log("🔗 [CONNECTION] Mensaje de conexión WebSocket:", message);
-  
+
   if (message.type === 'connection_status') {
     console.log(`📊 [CONNECTION] Estado de conexión: ${message.status}`);
   }
+}
+
+function handleAlertMessage(message) {
+  if (message.type === 'stream_open' || message === 'stream_open') return;
+
+  const text = typeof message === 'string'
+    ? message
+    : message.message || message.text || 'Alerta del sistema';
+
+  addNotification({
+    id: message.id || Date.now(),
+    text,
+  });
 }
 
 // Heartbeat to maintain connection
@@ -562,6 +581,13 @@ function handleDataUpdate(currentView, message) {
       if (currentView === 'consolidado') {
         console.log('🔄 [DATA_UPDATE] Recargando tabla de consolidado...');
         data.fetchConsolidadoData();
+      }
+      break;
+    case 'fuel-updated':
+      if (currentView === 'fuel') {
+        console.log('🔄 [DATA_UPDATE] Recargando registros de combustible...');
+        data.fetchFuelLogs(null, null);
+        data.fetchFuelDashboard(null, null);
       }
       break;
     case 'vehicle-inspections-updated':

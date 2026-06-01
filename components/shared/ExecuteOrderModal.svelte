@@ -7,7 +7,8 @@
 
   const dispatch = createEventDispatcher();
 
-  let timeSpent = "";
+  let hoursSpent = "";
+  let minutesSpent = "";
   let description = "";
 
   let labor = {
@@ -30,7 +31,8 @@
         contractor: workOrder.labor?.contractor || "",
         observations: workOrder.labor?.observations || "",
       };
-      timeSpent = "";
+      hoursSpent = "";
+      minutesSpent = "";
       description = "";
       spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "" }];
       nextSparePartId = 2;
@@ -47,7 +49,9 @@
   let isProcessing = false;
 
   $: isFormValid =
-    timeSpent.trim() !== "" &&
+    hoursSpent !== "" && Number(hoursSpent) >= 0 &&
+    minutesSpent !== "" && Number(minutesSpent) >= 0 && Number(minutesSpent) < 60 &&
+    (Number(hoursSpent) > 0 || Number(minutesSpent) > 0) &&
     description.trim() !== "" &&
     (labor.sameMecanic || labor.contractor.trim() !== "") &&
     (labor.price === "" || labor.price === null || Number(labor.price) >= 0) &&
@@ -96,7 +100,8 @@
 
     const finalPayload = {
       orderId: workOrder.order.id,
-      timeSpent,
+      hoursSpent: Number(hoursSpent) || 0,
+      minutesSpent: Number(minutesSpent) || 0,
       description,
       labor: laborPayload,
       sparePart: sparePartPayload,
@@ -175,8 +180,14 @@
 
       <form on:submit|preventDefault={handleSubmit}>
         <div class="form-section">
-          <label>Tiempo Empleado (ej. 2 horas, 30 mins):</label>
-          <input type="text" bind:value={timeSpent} required />
+          <div class="form-grid">
+            <label>Horas empleadas:
+              <input type="number" min="0" bind:value={hoursSpent} required placeholder="0" />
+            </label>
+            <label>Minutos empleados:
+              <input type="number" min="0" max="59" bind:value={minutesSpent} required placeholder="0" />
+            </label>
+          </div>
 
           <label>Descripción / Detalles del Trabajo Realizado:</label>
           <textarea bind:value={description} rows="4" required></textarea>

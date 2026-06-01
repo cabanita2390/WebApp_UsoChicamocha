@@ -58,6 +58,7 @@ export function formatVehiclePayload(v) {
     belongsTo: normalizeTitleWords(v.belongsTo) ?? '',
     idUbicacionBase: v.idUbicacionBase ?? null,
     activo: v.activo === true || v.activo === 'true' || v.activo === 1 || v.activo === '1',
+    fuelTankCapacityGallons: v.fuelTankCapacityGallons != null && v.fuelTankCapacityGallons !== '' ? Number(v.fuelTankCapacityGallons) : null,
   };
 }
 
@@ -79,6 +80,7 @@ export function formatMachinePayload(m) {
     runt: m.runt || null,
     numEngine: normalizeIdCode(m.numEngine) ?? '',
     numInterIdentification: normalizeIdCode(m.numInterIdentification) ?? '',
+    fuelTankCapacityGallons: m.fuelTankCapacityGallons != null && m.fuelTankCapacityGallons !== '' ? Number(m.fuelTankCapacityGallons) : null,
   };
 }
 

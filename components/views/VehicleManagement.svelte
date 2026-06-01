@@ -1,11 +1,15 @@
 <script>
   import { data } from "../../stores/data.js";
+  import { auth } from "../../stores/auth.js";
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
+  import DocumentUpdateModal from "../shared/DocumentUpdateModal.svelte";
   import { vehicleManagementColumns, curriculumColumns } from "../../config/table-definitions.js";
   import { onMount } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
   import { formatVehiclePayload } from '@/lib/textFormat.js';
+
+  $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
 
   let isSubmitting = false;
   let isExporting = false;
@@ -34,8 +38,8 @@
     curriculumData = null;
   }
 
-  /** Catálogo rápido sin salir de la vista (marca / tipo / área). */
-  let quickModal = null; // 'brand' | 'type' | 'area' | null
+  /** Catálogo rápido sin salir de la vista (marca / tipo / ubicación). */
+  let quickModal = null; // 'brand' | 'type' | 'location' | null
   let quickName = '';
   let quickError = '';
   let quickSubmitting = false;
@@ -43,13 +47,8 @@
   const quickModalTitles = {
     brand: 'Nueva marca',
     type: 'Nuevo tipo de vehículo',
-    area: 'Nueva área organizacional',
     location: 'Nueva ubicación',
   };
-
-  function areaLabel(a) {
-    return a?.name ?? a?.nombre ?? '';
-  }
 
   function normLower(s) {
     return String(s ?? '').trim().toLowerCase();
@@ -73,20 +72,6 @@
     const nl = normLower(name);
     const hit = types.find((t) => normLower(tipoCatalogName(t)) === nl);
     return hit?.id != null ? Number(hit.id) : null;
-  }
-
-  function belongsToInAreasList(val) {
-    if (val == null || String(val).trim() === '') return true;
-    const t = String(val).trim();
-    return areas.some((a) => areaLabel(a) === t);
-  }
-
-  /** Alinea el texto de área con una entrada del catálogo si coincide (p. ej. mayúsculas). */
-  function normalizeBelongsTo(val) {
-    if (val == null || String(val).trim() === '') return '';
-    const t = String(val).trim();
-    const hit = areas.find((a) => normLower(areaLabel(a)) === normLower(t));
-    return hit ? String(areaLabel(hit)).trim() : t;
   }
 
   /** Texto mostrado en el control estilo “Examinar…” de documentos. */
@@ -144,12 +129,6 @@
           else newVehicle.idTipoVehiculo = id;
         }
         addNotification({ id: Date.now(), text: 'Tipo registrado.' });
-      } else if (quickModal === 'area') {
-        const created = await data.createCatalogItem('area', { name });
-        const label = created?.name ?? created?.nombre ?? name;
-        if (showEditModal && vehicleInEditor) vehicleInEditor.belongsTo = label;
-        else newVehicle.belongsTo = label;
-        addNotification({ id: Date.now(), text: 'Área registrada.' });
       } else if (quickModal === 'location') {
         const created = await data.createCatalogItem('location', { name });
         await data.fetchLocations();
@@ -176,6 +155,7 @@
     belongsTo: "",
     idUbicacionBase: null,
     activo: true,
+    fuelTankCapacityGallons: null,
   };
   let newVehicle = { ...initialVehicleState };
   /** Vigencias y archivos al alta. */
@@ -206,6 +186,47 @@
   let vehicleInEditor = null;
   let showEditModal = false;
   let vehicleToDelete = null;
+
+  // ── Modal actualizar documentos ──────────────────────────────────────────────
+  let docModalOpen = false;
+  let docModalRow = null;
+  let docVehicleId = null;
+  let docModalSubmitting = false;
+
+  function resetDocModal() {
+    docModalOpen = false; docModalRow = null; docVehicleId = null; docModalSubmitting = false;
+  }
+
+  async function openDocModal(row) {
+    try {
+      const v = await data.getVehicleByPlaca(row.placa);
+      docVehicleId = v?.id ?? null;
+      if (docVehicleId == null) throw new Error('No se encontró el vehículo.');
+      docModalRow = row;
+      docModalOpen = true;
+    } catch (e) {
+      addNotification({ id: Date.now(), text: e.message || 'No se pudo cargar el vehículo.' });
+    }
+  }
+
+  async function handleDocSubmit(ev) {
+    const { tipoDocumento, fechaVencimiento, file } = ev.detail;
+    if (!docVehicleId || !fechaVencimiento) return;
+    docModalSubmitting = true;
+    try {
+      if (file) {
+        await data.uploadVehicleDocumentFile({ idVehiculo: docVehicleId, tipoDocumento, fechaVencimiento, file });
+      } else {
+        await data.updateVehicleDocument({ idVehiculo: docVehicleId, tipoDocumento, fechaVencimiento });
+      }
+      addNotification({ id: Date.now(), text: 'Documentación actualizada.' });
+      resetDocModal();
+      await data.fetchVehicles();
+    } catch (e) {
+      addNotification({ id: Date.now(), text: e.message || 'Error al guardar.' });
+      docModalSubmitting = false;
+    }
+  }
 
   let showDocHistoryModal = false;
   let docHistoryVehicle = null;
@@ -243,7 +264,6 @@
     if (String(tipoCatalogName(t)).toLowerCase().includes('moto')) return false;
     return true;
   });
-  $: areas = Array.isArray($data.areas) ? $data.areas : [];
   $: locations = Array.isArray($data.locations) ? $data.locations : [];
   $: isLoading = $data.isLoading;
 
@@ -253,12 +273,11 @@
 
   onMount(async () => {
     try {
-      await data.fetchLocations().catch(e => console.warn('No se cargó ubicaciones:', e));
       await Promise.all([
         data.fetchVehicles(),
         data.fetchVehicleBrands(),
         data.fetchVehicleTypes(),
-        data.fetchAreas(),
+        data.fetchLocations().catch(e => console.warn('No se cargó ubicaciones:', e)),
       ]);
     } catch (e) {
       console.error("Error al cargar datos iniciales:", e);
@@ -358,6 +377,8 @@
       openCurriculumModal(vehicleData);
     } else if (type === "docHistory") {
       openDocHistoryModal(vehicleData);
+    } else if (type === "update_docs") {
+      openDocModal(vehicleData);
     }
   }
 
@@ -372,7 +393,7 @@
         const n = Number(raw);
         return Number.isNaN(n) ? null : n;
       })(),
-      belongsTo: normalizeBelongsTo(vehicle.belongsTo),
+      belongsTo: vehicle.belongsTo ?? '',
       activo: vehicle.activo === true || vehicle.activo === 'true' || vehicle.activo === 1 || vehicle.activo === '1',
     };
     showEditModal = true;
@@ -505,15 +526,11 @@
             <input type="number" bind:value={newVehicle.kilometrajeActual} min="0" required disabled={isSubmitting} />
           </label>
           <label class="field">
-            <span class="field-lab field-lab-row">
-              Área
-              <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog('area')}>+ Añadir</button>
-            </span>
+            <span class="field-lab">Pertenece a</span>
             <select bind:value={newVehicle.belongsTo} required disabled={isSubmitting}>
-              <option value="">Seleccione área</option>
-              {#each areas as area}
-                <option value={areaLabel(area)}>{areaLabel(area)}</option>
-              {/each}
+              <option value="">— Seleccionar —</option>
+              <option value="distrito">Distrito</option>
+              <option value="asociacion">Asociación</option>
             </select>
           </label>
           <label class="field">
@@ -549,6 +566,33 @@
               <option value="0">Inactivo</option>
             </select>
           </label>
+          {#if isAdmin}
+          <label class="field">
+            <span class="field-lab">Capacidad del tanque (Gal)</span>
+            <input
+              type="number" step="0.001" min="0.1"
+              bind:value={newVehicle.fuelTankCapacityGallons}
+              placeholder="Ej: 18.5"
+              disabled={isSubmitting}
+            />
+          </label>
+          <label class="field">
+            <span class="field-lab">Eficiencia de fábrica</span>
+            <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+              <input
+                type="number" step="0.01" min="0"
+                bind:value={newVehicle.factoryEfficiencyKmPerGallon}
+                placeholder="Ej: 42.5"
+                disabled={isSubmitting}
+               
+              />
+              <select bind:value={newVehicle.factoryEfficiencyUnit} disabled={isSubmitting} style="width:130px">
+                <option value="KM_PER_GALLON">km/Gal</option>
+                <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
+              </select>
+            </div>
+          </label>
+          {/if}
         </div>
         <div class="create-docs-head">Documentación</div>
         <div class="create-docs-grid">
@@ -683,18 +727,11 @@
             <input type="number" bind:value={vehicleInEditor.kilometrajeActual} required />
           </label>
           <label class="field">
-            <span class="field-lab field-lab-row">
-              Área
-              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('area')}>+ Añadir</button>
-            </span>
+            <span class="field-lab">Pertenece a</span>
             <select bind:value={vehicleInEditor.belongsTo}>
-              <option value="">Seleccione área</option>
-              {#if vehicleInEditor.belongsTo && !belongsToInAreasList(vehicleInEditor.belongsTo)}
-                <option value={vehicleInEditor.belongsTo}>{vehicleInEditor.belongsTo}</option>
-              {/if}
-              {#each areas as area}
-                <option value={areaLabel(area)}>{areaLabel(area)}</option>
-              {/each}
+              <option value="">— Seleccionar —</option>
+              <option value="distrito">Distrito</option>
+              <option value="asociacion">Asociación</option>
             </select>
           </label>
           <label class="field">
@@ -727,6 +764,31 @@
               <option value="0">Inactivo</option>
             </select>
           </label>
+          {#if isAdmin}
+          <label class="field">
+            <span class="field-lab">Capacidad del tanque (Gal)</span>
+            <input
+              type="number" step="0.001" min="0.1"
+              bind:value={vehicleInEditor.fuelTankCapacityGallons}
+              placeholder="Ej: 18.5"
+            />
+          </label>
+          <label class="field">
+            <span class="field-lab">Eficiencia de fábrica</span>
+            <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+              <input
+                type="number" step="0.01" min="0"
+                bind:value={vehicleInEditor.factoryEfficiencyKmPerGallon}
+                placeholder="Ej: 42.5"
+               
+              />
+              <select bind:value={vehicleInEditor.factoryEfficiencyUnit} style="width:130px">
+                <option value="KM_PER_GALLON">km/Gal</option>
+                <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
+              </select>
+            </div>
+          </label>
+          {/if}
         </div>
 
         <div class="modal-actions">
@@ -872,6 +934,19 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if docModalOpen && docModalRow}
+  {#key docModalRow.placa}
+    <DocumentUpdateModal
+      placa={docModalRow.placa}
+      soatVencimiento={docModalRow.soat?.fechaVencimiento ?? null}
+      tecnoVencimiento={docModalRow.tecno?.fechaVencimiento ?? null}
+      isSubmitting={docModalSubmitting}
+      on:submit={handleDocSubmit}
+      on:cancel={resetDocModal}
+    />
+  {/key}
 {/if}
 
 <style>

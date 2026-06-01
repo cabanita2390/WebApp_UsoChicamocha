@@ -20,6 +20,9 @@ function createDataStore() {
         motoInspectionsHistory: [],
         motoMaintenance: [],
         vehicleMaintenance: [],
+        // Combustibles
+        fuelLogs: [],
+        fuelDashboard: null,
         // Gestión Administrativa
         vehicles: [],
         motos: [],
@@ -281,6 +284,120 @@ function createDataStore() {
                 setError(err.message);
                 throw err;
             }
+        },
+        // Combustibles
+        fetchFuelLogs: async (from, to) => {
+            setLoading(true);
+            try {
+                let endpoint = 'fuel';
+                const params = [];
+                if (from) params.push(`from=${from}`);
+                if (to) params.push(`to=${to}`);
+                if (params.length) endpoint += '?' + params.join('&');
+                const result = await fetchWithAuth(endpoint);
+                const raw = Array.isArray(result) ? result : [];
+                const seen = new Set();
+                const logs = raw.filter(l => { if (seen.has(l.id)) return false; seen.add(l.id); return true; });
+                update(s => ({ ...s, fuelLogs: logs, isLoading: false, error: null }));
+                return logs;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
+        fetchFuelDashboard: async (from, to) => {
+            try {
+                let endpoint = 'fuel/dashboard';
+                const params = [];
+                if (from) params.push(`from=${from}`);
+                if (to) params.push(`to=${to}`);
+                if (params.length) endpoint += '?' + params.join('&');
+                const result = await fetchWithAuth(endpoint);
+                update(s => ({ ...s, fuelDashboard: result, isLoading: false, error: null }));
+                return result;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
+        fetchFuelHistoryByAsset: async (assetType, assetId) => {
+            try {
+                const result = await fetchWithAuth(`fuel/asset/${assetType}/${assetId}`);
+                return Array.isArray(result) ? result : [];
+            } catch (err) {
+                throw err;
+            }
+        },
+        fetchFuelRanking: async (from, to) => {
+            try {
+                let endpoint = 'fuel/ranking';
+                const params = [];
+                if (from) params.push(`from=${from}`);
+                if (to) params.push(`to=${to}`);
+                if (params.length) endpoint += '?' + params.join('&');
+                const result = await fetchWithAuth(endpoint);
+                return Array.isArray(result) ? result : [];
+            } catch (err) {
+                throw err;
+            }
+        },
+        fetchFuelAnomalies: async () => {
+            try {
+                const result = await fetchWithAuth('fuel/anomalies');
+                return Array.isArray(result) ? result : [];
+            } catch (err) {
+                throw err;
+            }
+        },
+        updateFuelInvoiceStatus: async (id, status) => {
+            const updated = await fetchWithAuth(`fuel/${id}/invoice`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status }),
+            });
+            update(s => ({ ...s, fuelLogs: s.fuelLogs.map(l => l.id === id ? updated : l) }));
+            return updated;
+        },
+        uploadFuelInvoice: async (id, file) => {
+            const form = new FormData();
+            form.append('file', file);
+            const updated = await fetchWithAuth(`fuel/${id}/invoice/upload`, { method: 'POST', body: form });
+            update(s => ({ ...s, fuelLogs: s.fuelLogs.map(l => l.id === id ? updated : l) }));
+            return updated;
+        },
+        fetchFuelMonthlyStats: async (from, to) => {
+            const params = new URLSearchParams();
+            if (from) params.append('from', from + 'T00:00:00');
+            if (to)   params.append('to',   to   + 'T23:59:59');
+            const qs = params.toString() ? `?${params}` : '';
+            return await fetchWithAuth(`fuel/stats/monthly${qs}`);
+        },
+        createFuelLog: async (fuelData) => {
+            const saved = await fetchWithAuth('fuel', { method: 'POST', body: JSON.stringify(fuelData) });
+            update(s => {
+                const exists = s.fuelLogs.some(l => l.id === saved.id);
+                return { ...s, fuelLogs: exists ? s.fuelLogs : [saved, ...s.fuelLogs] };
+            });
+            return saved;
+        },
+        dismissFuelAnomaly: async (id, reason, correctedCost) => {
+            const body = { reason };
+            if (correctedCost != null) body.totalCostActual = correctedCost;
+            const updated = await fetchWithAuth(`fuel/${id}/anomaly`, { method: 'PATCH', body: JSON.stringify(body) });
+            update(s => ({ ...s, fuelLogs: s.fuelLogs.map(l => l.id === id ? updated : l) }));
+            return updated;
+        },
+        // Estaciones de combustible
+        fetchFuelStations: async () => {
+            return await fetchWithAuth('fuel/stations');
+        },
+        createFuelStation: async (name) => {
+            return await fetchWithAuth('fuel/stations', { method: 'POST', body: JSON.stringify({ name }) });
+        },
+        updateFuelStation: async (id, name) => {
+            return await fetchWithAuth(`fuel/stations/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
+        },
+        deleteFuelStation: async (id) => {
+            await fetchWithAuth(`fuel/stations/${id}`, { method: 'DELETE' });
         },
         // Aceites
         fetchOils: () => fetchAll('oils', 'oil/brand'),

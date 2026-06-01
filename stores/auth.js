@@ -99,8 +99,7 @@ function createAuthStore() {
 
         const userRole = (decodedPayload.role || '').replace(/[\[\]']+/g, '').replace('ROLE_', '');
 
-        // Only allow ADMIN and MECANIC roles to log in
-        const allowedRoles = ['ADMIN', 'MECANIC'];
+        const allowedRoles = ['ADMIN', 'OPERARIO', 'ACEITE', 'MECANIC'];
         if (!allowedRoles.includes(userRole)) {
           return { success: false, error: 'Acceso denegado' };
         }

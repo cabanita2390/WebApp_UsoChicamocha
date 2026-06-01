@@ -29,7 +29,7 @@
     }
   }
 
-  let workOrderForm = { asignadoA: '', detalles: '' };
+  let workOrderForm = { asignadoA: '', detalles: '', orderType: 'MECANICO', maintenanceType: '' };
   let showConfirmation = false;
 
   function getStatusClass(status) {
@@ -58,6 +58,8 @@
     dispatch('createVehicleOrder', {
       vehicleInspectionId: rowData.idInspeccion,
       description,
+      orderType: workOrderForm.maintenanceType || null,
+      maintenanceType: workOrderForm.orderType || null,
     });
     showConfirmation = false;
   }
@@ -86,6 +88,24 @@
       </div>
 
       <form class="work-order-form" on:submit={handleSubmit}>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="orderType">Tipo de Orden:</label>
+            <select bind:value={workOrderForm.orderType} id="orderType">
+              <option value="MECANICO">Mecánico</option>
+              <option value="ELECTRICO">Eléctrico</option>
+              <option value="ESTRUCTURAL">Estructural</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="maintenanceType">Tipo de Mantenimiento (opcional):</label>
+            <select bind:value={workOrderForm.maintenanceType} id="maintenanceType">
+              <option value="">— Sin especificar —</option>
+              <option value="PREVENTIVO">Preventivo</option>
+              <option value="CORRECTIVO">Correctivo</option>
+            </select>
+          </div>
+        </div>
         <div class="form-group full-width">
           <label for="detalles">Detalles de la Orden de Trabajo:</label>
           <textarea
@@ -186,11 +206,11 @@
   .form-group { flex: 1; display: flex; flex-direction: column; }
   .form-group.full-width { width: 100%; }
   .form-group label { margin-bottom: 4px; font-weight: bold; color: #000; font-size: 10px; }
-  .form-group input, .form-group textarea {
+  .form-group input, .form-group select, .form-group textarea {
     padding: 4px 6px; border: 1px inset #c0c0c0; font-size: 10px;
     font-family: 'MS Sans Serif', 'Tahoma', sans-serif; background-color: #fff;
   }
-  .form-group input:focus, .form-group textarea:focus { outline: 1px dotted #000; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: 1px dotted #000; }
   .modal-footer {
     display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px;
     background: linear-gradient(to bottom, #e0e0e0 0%, #d0d0d0 100%);

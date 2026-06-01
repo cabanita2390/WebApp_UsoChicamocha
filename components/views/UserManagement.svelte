@@ -32,7 +32,8 @@
   let isSubmitting = false;
   let errorMessage = "";
   const initialUserState = {
-    username: "", email: "", fullName: "", password: "", role: "MECANIC",
+    username: "", email: "", fullName: "", password: "", role: "OPERARIO",
+    licenseNumber: "", licenseExpiry: "",
   };
   let newUser = { ...initialUserState };
 
@@ -74,10 +75,18 @@
       const updatePromises = [];
       const originalUser = users.find((u) => u.id === userToEdit.id);
       
-      if (originalUser.username !== userToEdit.username || originalUser.email !== userToEdit.email) {
+      const hasInfoChange =
+        originalUser.username !== userToEdit.username ||
+        originalUser.email !== userToEdit.email ||
+        (originalUser.licenseNumber ?? '') !== (userToEdit.licenseNumber ?? '') ||
+        (originalUser.licenseExpiry ?? '') !== (userToEdit.licenseExpiry ?? '');
+
+      if (hasInfoChange) {
         updatePromises.push(data.updateUser(userToEdit.id, {
           username: userToEdit.username,
           email: userToEdit.email,
+          licenseNumber: userToEdit.licenseNumber || null,
+          licenseExpiry: userToEdit.licenseExpiry || null,
         }));
       }
 
@@ -183,9 +192,13 @@
         </button>
       </div>
       
+      <input type="text" placeholder="N° Licencia (opcional)" bind:value={newUser.licenseNumber} disabled={isSubmitting} />
+      <input type="date" title="Venc. licencia (opcional)" bind:value={newUser.licenseExpiry} disabled={isSubmitting} />
       <select bind:value={newUser.role} required disabled={isSubmitting}>
         <option value="ADMIN">ADMIN</option>
-        <option value="MECANIC">MECANIC</option>
+        <option value="OPERARIO">OPERARIO</option>
+        <option value="ACEITE">ACEITE</option>
+        <option value="MECANIC">MECANIC (legacy)</option>
       </select>
       <button type="submit" class="btn-create" disabled={isSubmitting}>
         {isSubmitting ? "Creando..." : "Crear"}
@@ -212,6 +225,8 @@
       <form class="modal-form" on:submit={handleUpdateUser}>
         <label>Usuario: <input type="text" bind:value={userToEdit.username} required /></label>
         <label>Gmail: <input type="email" bind:value={userToEdit.email} /></label>
+        <label>N° Licencia: <input type="text" bind:value={userToEdit.licenseNumber} placeholder="Opcional" /></label>
+        <label>Venc. Licencia: <input type="date" bind:value={userToEdit.licenseExpiry} /></label>
         <label>Nueva Contraseña:
             <div class="password-wrapper">
                 {#if showEditNewPassword}

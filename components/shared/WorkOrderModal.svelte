@@ -57,6 +57,8 @@
   let workOrderForm = {
     asignadoA: '',
     detalles: '',
+    orderType: 'MECANICO',
+    maintenanceType: '',
   };
   let showConfirmation = false;
   
@@ -88,6 +90,8 @@
     dispatch('createWorkOrder', {
       inspectionId: rowData.id,
       description: description,
+      orderType: workOrderForm.maintenanceType || null,
+      maintenanceType: workOrderForm.orderType || null,
     });
 
     showConfirmation = false;
@@ -121,6 +125,25 @@
       </div>
       
       <form class="work-order-form" on:submit={handleSubmit}>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="orderType">Tipo de Orden:</label>
+            <select bind:value={workOrderForm.orderType} id="orderType">
+              <option value="MECANICO">Mecánico</option>
+              <option value="ELECTRICO">Eléctrico</option>
+              <option value="ESTRUCTURAL">Estructural</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="maintenanceType">Tipo de Mantenimiento (opcional):</label>
+            <select bind:value={workOrderForm.maintenanceType} id="maintenanceType">
+              <option value="">— Sin especificar —</option>
+              <option value="PREVENTIVO">Preventivo</option>
+              <option value="CORRECTIVO">Correctivo</option>
+            </select>
+          </div>
+        </div>
+
         <div class="form-group full-width">
           <label for="detalles">Detalles de la Orden de Trabajo:</label>
           <textarea bind:value={workOrderForm.detalles} id="detalles" rows="6" 

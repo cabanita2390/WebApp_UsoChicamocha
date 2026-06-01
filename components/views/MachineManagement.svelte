@@ -1,5 +1,6 @@
 <script>
   import { data } from "../../stores/data.js";
+  import { auth } from "../../stores/auth.js";
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
   import {
@@ -9,6 +10,8 @@
   import { onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
   import { formatMachinePayload } from '@/lib/textFormat.js';
+
+  $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
 
   let isDeleteMachineEnabled = false;
   let deleteMachineTimer;
@@ -26,6 +29,7 @@
     soat: "",
     runt: "",
     belongsTo: "distrito",
+    fuelTankCapacityGallons: null,
   };
   let newMachine = { ...initialMachineState };
 
@@ -192,55 +196,59 @@
       </div>
       <div class="vehicle-form-section">
         <div class="vehicle-subpanel-head">Registrar nueva máquina</div>
-      <form class="create-form" on:submit={handleCreateMachine}>
-        <input
-          type="text"
-          placeholder="Nombre"
-          bind:value={newMachine.name}
-          required
-          disabled={isSubmitting}
-        />
-        <input
-          type="text"
-          placeholder="Marca"
-          bind:value={newMachine.brand}
-          disabled={isSubmitting}
-        />
-        <input
-          type="text"
-          placeholder="Modelo"
-          bind:value={newMachine.model}
-          required
-          disabled={isSubmitting}
-        />
-        <input
-          type="text"
-          placeholder="Núm. Motor"
-          bind:value={newMachine.numEngine}
-          disabled={isSubmitting}
-        />
-        <input
-          type="text"
-          placeholder="Núm. Identificación"
-          bind:value={newMachine.numInterIdentification}
-          disabled={isSubmitting}
-        />
-
-        <div class="form-group">
-          <label for="belongsTo">Pertenece a:</label>
-          <select id="belongsTo" bind:value={newMachine.belongsTo} disabled={isSubmitting}>
-            <option value="distrito">Distrito</option>
-            <option value="asociacion">Asociación</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="newSoat">SOAT:</label>
-          <input type="date" id="newSoat" bind:value={newMachine.soat} disabled={isSubmitting} />
-        </div>
-        <div class="form-group">
-          <label for="newRunt">RUNT:</label>
-          <input type="date" id="newRunt" bind:value={newMachine.runt} disabled={isSubmitting} />
+      <form class="create-form create-form--compact" on:submit={handleCreateMachine}>
+        <div class="create-grid">
+          <label class="field">
+            <span class="field-lab">Nombre *</span>
+            <input type="text" bind:value={newMachine.name} required disabled={isSubmitting} placeholder="Ej: Excavadora CAT" />
+          </label>
+          <label class="field">
+            <span class="field-lab">Marca</span>
+            <input type="text" bind:value={newMachine.brand} disabled={isSubmitting} placeholder="Ej: Caterpillar" />
+          </label>
+          <label class="field">
+            <span class="field-lab">Modelo *</span>
+            <input type="text" bind:value={newMachine.model} required disabled={isSubmitting} placeholder="Ej: 320D" />
+          </label>
+          <label class="field">
+            <span class="field-lab">Núm. Motor</span>
+            <input type="text" bind:value={newMachine.numEngine} disabled={isSubmitting} placeholder="Ej: MOT-00123" />
+          </label>
+          <label class="field">
+            <span class="field-lab">Núm. Identificación</span>
+            <input type="text" bind:value={newMachine.numInterIdentification} disabled={isSubmitting} placeholder="Ej: ID-00456" />
+          </label>
+          <label class="field">
+            <span class="field-lab">Pertenece a</span>
+            <select bind:value={newMachine.belongsTo} disabled={isSubmitting}>
+              <option value="distrito">Distrito</option>
+              <option value="asociacion">Asociación</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-lab">SOAT — vence</span>
+            <input type="date" bind:value={newMachine.soat} disabled={isSubmitting} />
+          </label>
+          <label class="field">
+            <span class="field-lab">Seguro todo riesgo — vence</span>
+            <input type="date" bind:value={newMachine.runt} disabled={isSubmitting} />
+          </label>
+          {#if isAdmin}
+          <label class="field">
+            <span class="field-lab">Capacidad del tanque (Gal)</span>
+            <input type="number" step="0.001" min="0.1" bind:value={newMachine.fuelTankCapacityGallons} placeholder="Ej: 10.5" disabled={isSubmitting} />
+          </label>
+          <label class="field">
+            <span class="field-lab">Eficiencia de fábrica</span>
+            <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+              <input type="number" step="0.01" min="0" bind:value={newMachine.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" disabled={isSubmitting} />
+              <select bind:value={newMachine.factoryEfficiencyUnit} disabled={isSubmitting}>
+                <option value="GAL_PER_HOUR">Gal/h</option>
+                <option value="M3_PER_HOUR">m³/h (gas)</option>
+              </select>
+            </div>
+          </label>
+          {/if}
         </div>
         <button type="submit" class="btn-create" disabled={isSubmitting}>
           {isSubmitting ? "Registrando..." : "Registrar máquina"}
@@ -265,21 +273,60 @@
         <h3>Editar Máquina</h3>
         <button class="close-btn" on:click={closeEditModal}>×</button>
       </div>
-      <form class="modal-form" on:submit={handleUpdateMachine}>
-        <label>Nombre: <input type="text" bind:value={machineInEditor.name} required /></label>
-        <label>Marca: <input type="text" bind:value={machineInEditor.brand} /></label>
-        <label>Modelo: <input type="text" bind:value={machineInEditor.model} required /></label>
-        <label>
-          Pertenece a:
-          <select bind:value={machineInEditor.belongsTo}>
-            <option value="distrito">Distrito</option>
-            <option value="asociacion">Asociación</option>
-          </select>
-        </label>
-        <label>Núm. Motor: <input type="text" bind:value={machineInEditor.numEngine} /></label>
-        <label>Núm. Identificación: <input type="text" bind:value={machineInEditor.numInterIdentification} /></label>
-        <label>SOAT: <input type="date" bind:value={machineInEditor.soat} /></label>
-        <label>RUNT: <input type="date" bind:value={machineInEditor.runt} /></label>
+      <form on:submit={handleUpdateMachine}>
+        <div class="modal-form-grid">
+          <label class="field">
+            <span class="field-lab">Nombre *</span>
+            <input type="text" bind:value={machineInEditor.name} required />
+          </label>
+          <label class="field">
+            <span class="field-lab">Marca</span>
+            <input type="text" bind:value={machineInEditor.brand} />
+          </label>
+          <label class="field">
+            <span class="field-lab">Modelo *</span>
+            <input type="text" bind:value={machineInEditor.model} required />
+          </label>
+          <label class="field">
+            <span class="field-lab">Pertenece a</span>
+            <select bind:value={machineInEditor.belongsTo}>
+              <option value="distrito">Distrito</option>
+              <option value="asociacion">Asociación</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-lab">Núm. Motor</span>
+            <input type="text" bind:value={machineInEditor.numEngine} />
+          </label>
+          <label class="field">
+            <span class="field-lab">Núm. Identificación</span>
+            <input type="text" bind:value={machineInEditor.numInterIdentification} />
+          </label>
+          <label class="field">
+            <span class="field-lab">SOAT — vence</span>
+            <input type="date" bind:value={machineInEditor.soat} />
+          </label>
+          <label class="field">
+            <span class="field-lab">Seguro todo riesgo — vence</span>
+            <input type="date" bind:value={machineInEditor.runt} />
+          </label>
+          {#if isAdmin}
+          <label class="field">
+            <span class="field-lab">Capacidad del tanque (Gal)</span>
+            <input type="number" step="0.001" min="0.1" bind:value={machineInEditor.fuelTankCapacityGallons} placeholder="Ej: 10.5" />
+          </label>
+          <label class="field">
+            <span class="field-lab">Eficiencia de fábrica</span>
+            <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+              <input type="number" step="0.01" min="0" bind:value={machineInEditor.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" />
+              <select bind:value={machineInEditor.factoryEfficiencyUnit}>
+                <option value="GAL_PER_HOUR">Gal/h</option>
+                <option value="M3_PER_HOUR">m³/h (gas)</option>
+              </select>
+            </div>
+          </label>
+          {/if}
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn-cancel" on:click={closeEditModal}>Cancelar</button>
           <button type="submit" class="btn-save" disabled={isSubmitting}>
@@ -349,6 +396,57 @@
   </div>
 {/if}
 <style>
+  /* ── Grid layout compartido (igual que Vehicle/Moto) ─────────────────── */
+  .create-form--compact { padding: 6px 8px 8px; }
+  .create-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.25rem), 1fr));
+    gap: 6px 10px;
+    align-items: end;
+    margin-bottom: 10px;
+  }
+  .create-form--compact .create-grid { gap: 4px 8px; }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    font-size: 11px;
+  }
+  .create-form--compact .field { font-size: 10px; gap: 1px; }
+  .field-lab {
+    font-weight: bold;
+    font-size: 10px;
+    color: #303030;
+    white-space: nowrap;
+  }
+  .create-form--compact .field-lab { font-size: 9px; }
+  .create-form--compact .field input,
+  .create-form--compact .field select {
+    padding: 2px 4px;
+    font-size: 10px;
+    min-height: 22px;
+  }
+  .modal-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr));
+    gap: 8px 10px;
+    align-items: end;
+    margin-bottom: 12px;
+  }
+  .modal-form-grid .field { min-width: 0; }
+  .modal-form-grid .field input,
+  .modal-form-grid .field select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 3px 4px;
+    border: 1px inset #c0c0c0;
+    font-family: inherit;
+    font-size: 11px;
+    background: #fff;
+    min-height: 24px;
+  }
+  /* ───────────────────────────────────────────────────────────────────── */
   .modal-content.large {
     min-width: 80%;
     max-width: 1200px;
@@ -368,20 +466,8 @@
     flex: 1;
   }
   .create-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+    display: block;
     padding: 10px 16px 14px;
-  }
-  .create-form input,
-  .create-form select {
-    padding: 4px 6px;
-    border: 1px inset #c0c0c0;
-    font-size: 11px;
-    font-family: inherit;
-    flex: 1;
-    min-width: 150px;
   }
   .btn-create {
     padding: 4px 12px;

@@ -57,6 +57,12 @@ export function parseWorkOrderDescription(description) {
 
 export const workOrderColumns = [
  {
+  accessorFn: (row) => row.order.consecutive ?? '—',
+  id: "consecutive",
+  header: "Consecutivo",
+  size: 130,
+ },
+ {
   accessorFn: (row) => (row.order.date ? new Date(row.order.date).toLocaleDateString('es-CO') : "N/A"),
   id: "fecha",
   header: "Fecha",
@@ -143,7 +149,7 @@ export const machineColumns = [
  {
   accessorFn: (row) => (row.runt ? new Date(row.runt + 'T00:00:00').toLocaleDateString('es-CO') : 'N/A'),
   id: "runt",
-  header: "RUNT",
+  header: "Seguro todo riesgo",
   size: 100,
  },
   {
@@ -537,7 +543,7 @@ export const vehicleInspectionReportColumns = [
         size: 150,
       },
       {
-        header: 'Área',
+        header: 'Pertenece a',
         accessorKey: 'areaOrganizacional',
         id: 'vi_area',
         size: 130,
@@ -610,7 +616,7 @@ export const vehicleInspectionReportColumns = [
 
 /** Tabla 1 del Excel de control: documentación (Tecno + SOAT). Semáforo en fechas/días como el dashboard. */
 export const monitoringVehicleDocumentColumns = [
-    { header: 'Área', accessorKey: 'area', size: 140 },
+    { header: 'Pertenece a', accessorKey: 'area', size: 140 },
     { header: 'Placa', accessorKey: 'placa', size: 90 },
     { header: 'Km Actual', accessorFn: row => formatKm(row.kmActual), id: 'doc_km_actual', size: 90 },
     { header: 'Fecha Último Reporte', accessorFn: row => formatDateTime(row.fechaUltimoReporte), id: 'doc_fecha_reporte', size: 140 },
@@ -642,7 +648,7 @@ export const monitoringVehicleDocumentColumns = [
 
 /** Tabla 2 del Excel: aceite. Semáforo en km restante alineado al servicio de monitoreo. */
 export const monitoringVehicleOilColumns = [
-    { header: 'Área', accessorKey: 'area', size: 140 },
+    { header: 'Pertenece a', accessorKey: 'area', size: 140 },
     { header: 'Placa', accessorKey: 'placa', size: 90 },
     { header: 'Km Actual', accessorFn: row => formatKm(row.kmActual), id: 'oil_km_actual', size: 90 },
     { header: 'Fecha Último Reporte', accessorFn: row => formatDateTime(row.fechaUltimoReporte), id: 'oil_fecha_reporte', size: 140 },
@@ -685,7 +691,7 @@ export const monitoringVehicleOilColumns = [
 
 /** Monitoreo motos — pestaña documentación (misma UX que vehículos livianos). DTO: MotoMonitoringDTO. */
 export const monitoringMotoDocumentColumns = [
-    { header: 'Área', accessorKey: 'departamento', size: 140 },
+    { header: 'Pertenece a', accessorKey: 'departamento', size: 140 },
     {
         header: 'Ubicación',
         accessorFn: (row) => motoMonitoringUbicacionCell(row),
@@ -723,7 +729,7 @@ export const monitoringMotoDocumentColumns = [
 
 /** Monitoreo motos — pestaña aceite. DTO: campo anidado `oil` (MotoMonitoringDTO.OilStatus). */
 export const monitoringMotoOilColumns = [
-    { header: 'Área', accessorKey: 'departamento', size: 140 },
+    { header: 'Pertenece a', accessorKey: 'departamento', size: 140 },
     {
         header: 'Ubicación',
         accessorFn: (row) => motoMonitoringUbicacionCell(row),
@@ -777,7 +783,7 @@ export const consolidadoVehicleColumns = [
     {
         header: 'Vehículo',
         columns: [
-            { header: 'Área', accessorKey: 'area', size: 130 },
+            { header: 'Pertenece a', accessorKey: 'area', size: 130 },
             { header: 'Placa', accessorKey: 'placa', size: 90 },
             { header: 'Km Actual', accessorFn: row => formatKm(row.kmActual), id: 'cv_km', size: 90 },
             { header: 'Días sin reporte', accessorKey: 'diasUltimoReporte', id: 'cv_dias_rep', size: 95 },
@@ -825,7 +831,7 @@ export const consolidadoMotoColumns = [
     {
         header: 'Moto',
         columns: [
-            { header: 'Área', accessorKey: 'departamento', size: 130 },
+            { header: 'Pertenece a', accessorKey: 'departamento', size: 130 },
             { header: 'Ubicación', accessorFn: row => motoMonitoringUbicacionCell(row), id: 'cm_ubicacion', size: 150 },
             { header: 'Placa', accessorKey: 'placa', size: 90 },
             { header: 'Km Actual', accessorFn: row => formatKm(row.kmActual), id: 'cm_km', size: 90 },
@@ -871,7 +877,7 @@ export const consolidadoMotoColumns = [
 export const reportMotoColumns = [
     { header: 'Marca temporal', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'moto_ts', size: 140 },
     { header: 'PLACA', accessorKey: 'placa', size: 100 },
-    { header: 'Área', accessorKey: 'areaOrganizacional', id: 'moto_area', size: 140 },
+    { header: 'Pertenece a', accessorKey: 'areaOrganizacional', id: 'moto_area', size: 140 },
     { header: 'Ubicación', accessorKey: 'ubicacion', id: 'moto_ubic', size: 150 },
     { header: 'KILOMETRAJE Actual', accessorFn: (row) => formatKm(row.kilometraje), id: 'moto_km', size: 96 },
     { header: `DOCUMENTACIÓN  SOAT`, accessorKey: 'checkSoat', size: 160, meta: { isStatus: true, isMultilineHeader: true } },
@@ -918,7 +924,7 @@ export const vehicleManagementColumns = [
         id: 'km_actual',
         size: 100,
     },
-    { header: 'Área', accessorKey: 'belongsTo', size: 150 },
+    { header: 'Pertenece a', accessorKey: 'belongsTo', size: 150 },
     {
         header: 'Ubicación',
         accessorFn: row => (row.ubicacionBase != null && String(row.ubicacionBase).trim() !== '' ? String(row.ubicacionBase).trim() : '—'),
@@ -938,6 +944,12 @@ export const vehicleManagementColumns = [
         meta: { isDocHistoryAction: true },
     },
     {
+        id: "update_docs_action",
+        header: "Documentos",
+        size: 120,
+        meta: { isUpdateDocsAction: true },
+    },
+    {
         id: "actions",
         header: "Acciones",
         size: 100,
@@ -947,6 +959,10 @@ export const vehicleManagementColumns = [
 
 /** Órdenes de trabajo vinculadas a inspecciones pre-operativas de vehículos. DTO: OrderWithVehicleDTO. */
 export const vehicleWorkOrderColumns = [
+    {
+        accessorFn: (row) => row.order?.consecutive ?? '—',
+        id: 'vo_consecutive', header: 'Consecutivo', size: 130,
+    },
     {
         accessorFn: (row) => row.order?.date ? new Date(row.order.date).toLocaleDateString('es-CO') : 'N/A',
         id: 'vo_fecha', header: 'Fecha', size: 95,
@@ -1006,7 +1022,7 @@ export const motoInventoryColumns = [
         id: 'moto_km_actual',
         size: 100,
     },
-    { header: 'Área', accessorKey: 'belongsTo', size: 150 },
+    { header: 'Pertenece a', accessorKey: 'belongsTo', size: 150 },
     {
         header: 'Ubicación',
         accessorFn: (row) => (row.ubicacionBase != null && String(row.ubicacionBase).trim() !== '' ? String(row.ubicacionBase).trim() : '—'),
@@ -1024,6 +1040,12 @@ export const motoInventoryColumns = [
         header: 'Historial Docs',
         size: 115,
         meta: { isDocHistoryAction: true },
+    },
+    {
+        id: 'update_docs_action',
+        header: 'Documentos',
+        size: 120,
+        meta: { isUpdateDocsAction: true },
     },
     {
         id: 'actions',

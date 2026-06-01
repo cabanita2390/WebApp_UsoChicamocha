@@ -285,6 +285,7 @@
           <tr
             key={row.id}
             class:unexpected-row={row.original.isUnexpected}
+            class:anomaly-row={row.original.isAnomaly}
             class:pending-row={row.original.order?.status?.toLowerCase() ===
               "pending"}
           >
@@ -303,7 +304,8 @@
                   cell.column.columnDef.meta?.isMonitoringOilAction ||
                   cell.column.columnDef.meta?.isConsolidadoVehicleActions ||
                   cell.column.columnDef.meta?.isConsolidadoMaqActions ||
-                  cell.column.columnDef.meta?.isDocHistoryAction}
+                  cell.column.columnDef.meta?.isDocHistoryAction ||
+                  cell.column.columnDef.meta?.isFuelHistorial}
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
@@ -359,15 +361,7 @@
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isConsolidadoVehicleActions}
-                  <div class="actions-cell actions-cell-stack">
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact"
-                      title="Actualizar fechas y archivos de documentación (SOAT, tecnomecánica, licencia, extintor)"
-                      on:click={() => handleAction("monitoring_update_docs", row.original)}
-                    >
-                      Actualizar Documentos
-                    </button>
+                  <div class="actions-cell">
                     <button
                       type="button"
                       class="mon-action-text mon-action-text--compact mon-action-text--hist"
@@ -375,6 +369,17 @@
                       on:click={() => handleAction("monitoring_oil_history", row.original)}
                     >
                       Ver historial aceite
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isUpdateDocsAction}
+                  <div class="actions-cell">
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact"
+                      title="Actualizar fechas y archivos de documentación"
+                      on:click={() => handleAction("update_docs", row.original)}
+                    >
+                      Actualizar Docs
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isConsolidadoMaqActions}
@@ -386,6 +391,16 @@
                       on:click={() => handleAction("edit_hourmeter", row.original)}
                     >
                       Corregir Horómetro
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isFuelHistorial}
+                  <div class="actions-cell">
+                    <button
+                      type="button"
+                      class="btn-action mon-action-text mon-action-text--compact mon-action-text--hist"
+                      on:click={() => handleAction("fuel_historial", row.original)}
+                    >
+                      Ver historial
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isMonitoringDocsAction}
@@ -717,6 +732,10 @@
   }
   .unexpected-row td {
     background-color: #ffdddd !important;
+  }
+  .anomaly-row td {
+    background-color: #fff0d0 !important;
+    border-left: 3px solid #e8a000 !important;
   }
   .pending-row td {
     background-color: #fffacd !important;

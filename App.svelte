@@ -22,6 +22,7 @@
   import VehicleOilHistory from "./components/views/VehicleOilHistory.svelte";
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import MaintenanceTabbed from "./components/views/MaintenanceTabbed.svelte";
+  import FuelManagement from "./components/views/FuelManagement.svelte";
   import { auth } from "./stores/auth.js";
   import {
     ui,
@@ -61,6 +62,7 @@
     "/moto-inventory": MotoManagement,
     "/vehicle-oil-history/:placa": VehicleOilHistory,
     "/maintenance": MaintenanceTabbed,
+    "/fuel": FuelManagement,
   };
 
   function handleActivateSound() {
@@ -221,6 +223,10 @@
       data.fetchVehicles();
     } else if (location.includes("/vehicle-oil-history")) {
       ui.setCurrentView("vehicle-oil-history");
+    } else if (location.includes("/fuel")) {
+      ui.setCurrentView("fuel");
+      data.fetchFuelLogs();
+      data.fetchFuelDashboard();
     }
   }
 </script>

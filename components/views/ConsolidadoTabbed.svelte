@@ -59,7 +59,6 @@
   import Consolidado from './Consolidado.svelte';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
-  import DocumentUpdateModal from '../shared/DocumentUpdateModal.svelte';
   import { consolidadoVehicleColumns, consolidadoMotoColumns } from '../../config/table-definitions.js';
   import { normalizePlaca } from '@/lib/textFormat.js';
 
@@ -74,61 +73,9 @@
   $: motoData    = $data.motoMonitoring    ?? [];
   $: isLoading   = $data.isLoading;
 
-  // --- modal state ---
-  let docModalOpen = false;
-  let actionRow = null;
-  let docVehicleId = null;
-  let modalSubmitting = false;
-
-  function resetModal() {
-    docModalOpen = false;
-    actionRow = null;
-    docVehicleId = null;
-    modalSubmitting = false;
-  }
-
-  async function openDocModal(row) {
-    actionRow = row;
-    try {
-      const v = await data.getVehicleByPlaca(row.placa);
-      docVehicleId = v?.id ?? null;
-      if (docVehicleId == null) throw new Error('No se encontró el vehículo.');
-      docModalOpen = true;
-    } catch (e) {
-      addNotification({ id: Date.now(), text: e.message || 'No se pudo cargar el vehículo.' });
-      actionRow = null;
-    }
-  }
-
-  async function handleDocSubmit(ev) {
-    const { tipoDocumento, fechaVencimiento, file } = ev.detail;
-    if (!docVehicleId || !fechaVencimiento) return;
-    modalSubmitting = true;
-    try {
-      if (file) {
-        await data.uploadVehicleDocumentFile({
-          idVehiculo: docVehicleId,
-          tipoDocumento,
-          fechaVencimiento,
-          file,
-        });
-      } else {
-        await data.updateVehicleDocument({ idVehiculo: docVehicleId, tipoDocumento, fechaVencimiento });
-      }
-      addNotification({ id: Date.now(), text: 'Documentación actualizada.' });
-      resetModal();
-      if (activeTab === 'vehiculos') await data.fetchVehicleMonitoring();
-      else if (activeTab === 'motos') await data.fetchMotoMonitoring();
-    } catch (e) {
-      addNotification({ id: Date.now(), text: e.message || 'Error al guardar.' });
-      modalSubmitting = false;
-    }
-  }
-
   function handleGridAction(ev) {
     const { type, data: row } = ev.detail;
-    if (type === 'monitoring_update_docs') openDocModal(row);
-    else if (type === 'monitoring_oil_history')
+    if (type === 'monitoring_oil_history')
       push(`/vehicle-oil-history/${encodeURIComponent(normalizePlaca(row.placa))}`);
   }
 
@@ -221,18 +168,6 @@
   </TabPanel>
 </div>
 
-{#if docModalOpen && actionRow}
-  {#key actionRow.placa}
-    <DocumentUpdateModal
-      placa={actionRow.placa}
-      soatVencimiento={actionRow.soat?.fechaVencimiento}
-      tecnoVencimiento={actionRow.tecno?.fechaVencimiento}
-      isSubmitting={modalSubmitting}
-      on:submit={handleDocSubmit}
-      on:cancel={resetModal}
-    />
-  {/key}
-{/if}
 
 <style>
   .tabbed-wrap {
