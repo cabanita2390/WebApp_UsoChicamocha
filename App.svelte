@@ -20,6 +20,8 @@
   import VehicleManagement from "./components/views/VehicleManagement.svelte";
   import MotoManagement from "./components/views/MotoManagement.svelte";
   import VehicleOilHistory from "./components/views/VehicleOilHistory.svelte";
+  import MotoCambioAceiteHistorial from "./components/views/MotoCambioAceiteHistorial.svelte";
+  import MotoCambioAceiteForm from "./components/views/MotoCambioAceiteForm.svelte";
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import MaintenanceTabbed from "./components/views/MaintenanceTabbed.svelte";
   import FuelManagement from "./components/views/FuelManagement.svelte";
@@ -61,6 +63,8 @@
     "/vehicles": VehicleManagement,
     "/moto-inventory": MotoManagement,
     "/vehicle-oil-history/:placa": VehicleOilHistory,
+    "/moto-oil-history/:placa": MotoCambioAceiteHistorial,
+    "/moto-oil-change": MotoCambioAceiteForm,
     "/maintenance": MaintenanceTabbed,
     "/fuel": FuelManagement,
   };
@@ -223,6 +227,12 @@
       data.fetchVehicles();
     } else if (location.includes("/vehicle-oil-history")) {
       ui.setCurrentView("vehicle-oil-history");
+    } else if (location.includes("/moto-oil-history")) {
+      ui.setCurrentView("moto-oil-history");
+    } else if (location.includes("/moto-oil-change")) {
+      ui.setCurrentView("moto-oil-change");
+      data.fetchMotos();
+      data.fetchOils();
     } else if (location.includes("/fuel")) {
       ui.setCurrentView("fuel");
       data.fetchFuelLogs();

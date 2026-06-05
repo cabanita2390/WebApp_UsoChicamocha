@@ -17,7 +17,6 @@
   let totalCostActual = '';
   let fuelType = 'DIESEL';
   let serviceStation = '';
-  let isFullTank = false;
   let discountAmount = '';
   let voucherNumber = '';
   let notes = '';
@@ -25,11 +24,97 @@
   let saving = false;
   let formError = '';
 
+  // Activos cargados según tipo
+  let assets = [];
+  let assetsLoading = false;
+  let searchQuery = '';
+
   // Estaciones de combustible (catálogo del servidor)
   let stations = [];
+
   onMount(async () => {
     try { stations = await dataStore.fetchFuelStations(); } catch (_) {}
+    await loadAssets('MACHINE');
   });
+
+  async function loadAssets(type) {
+    assetsLoading = true;
+    try {
+      if (type === 'MACHINE') {
+        const machinesData = await dataStore.fetchMachines();
+        assets = machinesData.data || machinesData || [];
+      } else if (type === 'VEHICLE') {
+        const vehiclesData = await dataStore.fetchVehicles();
+        let allVehicles = vehiclesData.data || vehiclesData || [];
+        // Filtrar solo vehículos (excluir motos)
+        assets = allVehicles.filter(v => {
+          const allFields = JSON.stringify(v).toUpperCase();
+          return !allFields.includes('MOTOCICLETA') && !allFields.includes('MOTO');
+        });
+      } else if (type === 'MOTO') {
+        const motosData = await dataStore.fetchMotos();
+        assets = motosData.data || motosData || [];
+      }
+      assetId = '';
+      assetPlate = '';
+      searchQuery = '';
+    } catch (_) {
+      assets = [];
+    } finally {
+      assetsLoading = false;
+    }
+  }
+
+  function handleAssetTypeChange(newType) {
+    assetType = newType;
+    loadAssets(newType);
+  }
+
+  function handleAssetSelect() {
+    const selected = assets.find(a => a.id === Number(assetId));
+    if (selected) {
+      assetPlate = selected.plate || selected.placa || selected.name || '';
+      searchQuery = '';
+    }
+  }
+
+  function getAssetLabel(asset) {
+    if (assetType === 'MACHINE') {
+      return `${asset.name || ''}`.trim();
+    } else if (assetType === 'VEHICLE') {
+      return `${asset.placa || ''} — ${asset.marca || ''}`.trim();
+    } else if (assetType === 'MOTO') {
+      return `${asset.placa || ''} — ${asset.marca || ''}`.trim();
+    }
+    return asset.name || asset.placa || `#${asset.id}`;
+  }
+
+  function getAssetDetails(asset) {
+    if (assetType === 'MACHINE') {
+      return `${asset.brand || asset.marca || ''} · ${asset.modelo || ''}`.trim();
+    } else if (assetType === 'VEHICLE') {
+      return `${asset.tipoVehiculo || ''} · ${asset.modelo || ''}`.trim();
+    } else if (assetType === 'MOTO') {
+      return `${asset.modelo || ''}`.trim();
+    }
+    return '';
+  }
+
+  $: filteredAssets = (() => {
+    if (!searchQuery.trim()) return assets;
+    const q = searchQuery.toLowerCase();
+    return assets.filter(a => {
+      const labels = [];
+      if (assetType === 'MACHINE') {
+        labels.push((a.name || '').toLowerCase(), (a.brand || a.marca || '').toLowerCase());
+      } else if (assetType === 'VEHICLE') {
+        labels.push((a.placa || '').toLowerCase(), (a.marca || '').toLowerCase());
+      } else if (assetType === 'MOTO') {
+        labels.push((a.placa || '').toLowerCase(), (a.marca || '').toLowerCase());
+      }
+      return labels.some(l => l.includes(q));
+    });
+  })();
 
   // GAS_NATURAL siempre usa m³
   $: isGas = fuelType === 'GAS_NATURAL';
@@ -88,7 +173,6 @@
         totalCostActual: totalCostActual ? parseFloat(totalCostActual.replace(/\./g, '').replace(',', '.')) : null,
         fuelType,
         serviceStation: serviceStation || null,
-        isFullTank,
         discountAmount: discountAmount ? Number(discountAmount) : null,
         voucherNumber: voucherNumber || null,
         notes: notes || null,
@@ -116,6 +200,12 @@
     padding: 4px 5px; border: 1px inset #808080; background: #fff;
     font-size: 11px; font-family: inherit;
   }
+  .asset-picker-wrapper { position: relative; }
+  .asset-list { position: absolute; top: 100%; left: 0; right: 0; max-height: 240px; overflow-y: auto; border: 1px inset #808080; background: #fff; z-index: 10; box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+  .asset-option { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+  .asset-option:hover { background: #f5f5f5; }
+  .asset-primary { font-weight: bold; font-size: 11px; color: #000; }
+  .asset-secondary { font-size: 10px; color: #666; margin-top: 1px; }
   .form-field textarea { resize: vertical; min-height: 48px; }
   .quantity-row { display: flex; gap: 4px; }
   .quantity-row input { flex: 1; }
@@ -144,7 +234,7 @@
 
         <div class="form-field">
           <label for="fuel-asset-type">Tipo de Activo:</label>
-          <select id="fuel-asset-type" bind:value={assetType}>
+          <select id="fuel-asset-type" value={assetType} on:change={(e) => handleAssetTypeChange(e.target.value)}>
             <option value="MACHINE">Maquinaria</option>
             <option value="VEHICLE">Vehículo</option>
             <option value="MOTO">Motocicleta</option>
@@ -152,13 +242,46 @@
         </div>
 
         <div class="form-field">
-          <label for="fuel-asset-id">ID del Activo:</label>
-          <input id="fuel-asset-id" type="number" bind:value={assetId} placeholder="ID en sistema" required />
-        </div>
-
-        <div class="form-field">
-          <label for="fuel-asset-plate">Placa / Nombre:</label>
-          <input id="fuel-asset-plate" type="text" bind:value={assetPlate} placeholder="Para referencia rápida" />
+          <label>Seleccionar {assetType === 'MACHINE' ? 'Máquina' : assetType === 'VEHICLE' ? 'Vehículo' : 'Motocicleta'} *</label>
+          {#if assetsLoading}
+            <span style="font-size:10px; color:#666;">Cargando activos...</span>
+          {:else}
+            <div class="asset-picker-wrapper">
+              <input
+                type="text"
+                placeholder="Buscar por nombre, placa, marca..."
+                bind:value={searchQuery}
+                style="font-size:11px; padding:4px 5px; border:1px inset #808080; width:100%; box-sizing:border-box;"
+              />
+              {#if searchQuery || assetId === ''}
+                <div class="asset-list">
+                  {#if filteredAssets.length === 0}
+                    <div style="padding:6px 8px; color:#999; font-size:10px;">
+                      {assets.length === 0 ? 'Sin activos disponibles' : 'No se encontraron resultados'}
+                    </div>
+                  {:else}
+                    {#each filteredAssets as asset}
+                      <div
+                        class="asset-option"
+                        on:click={() => { assetId = asset.id; handleAssetSelect(); }}
+                        style="background-color: {assetId == asset.id ? '#e8e8e8' : 'transparent'}"
+                      >
+                        <div class="asset-primary">{getAssetLabel(asset)}</div>
+                        {#if getAssetDetails(asset)}
+                          <div class="asset-secondary">{getAssetDetails(asset)}</div>
+                        {/if}
+                      </div>
+                    {/each}
+                  {/if}
+                </div>
+              {/if}
+            </div>
+            {#if assetId}
+              <div style="margin-top:4px; padding:3px 5px; background:#f5f5f5; border:1px solid #d0d0d0; font-size:10px; color:#666;">
+                ✓ {getAssetLabel(assets.find(a => a.id == assetId))}
+              </div>
+            {/if}
+          {/if}
         </div>
 
         <div class="form-field">
@@ -244,13 +367,6 @@
         <div class="form-field">
           <label for="fuel-discount">Descuento ($):</label>
           <input id="fuel-discount" type="number" step="0.01" bind:value={discountAmount} placeholder="0.00" />
-        </div>
-
-        <div class="form-field full-width">
-          <div class="checkbox-row">
-            <input id="fuel-full-tank" type="checkbox" bind:checked={isFullTank} />
-            <label for="fuel-full-tank">Llenado completo (necesario para calcular eficiencia)</label>
-          </div>
         </div>
 
         <div class="form-field full-width">

@@ -12,6 +12,7 @@
   import { formatMachinePayload } from '@/lib/textFormat.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
+  $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
 
   let isDeleteMachineEnabled = false;
   let deleteMachineTimer;
@@ -116,10 +117,10 @@
     errorMessage = "";
   }
 
-  function handleAction(event) {
+  async function handleAction(event) {
     const { type, data: machineData } = event.detail;
     if (type === "edit") {
-      openEditModal(machineData);
+      await openEditModal(machineData);
     } else if (type === "delete") {
       machineToDelete = machineData;
     } else if (type === "cv") {
@@ -127,9 +128,23 @@
     }
   }
 
-  function openEditModal(machine) {
-    machineInEditor = { ...machine };
-    showEditModal = true;
+  async function openEditModal(machine) {
+    try {
+      const fullMachine = await data.getMachineById(machine.id);
+      console.log("🔍 fullMachine cargado:", fullMachine);
+      machineInEditor = {
+        ...fullMachine,
+        belongsTo: (fullMachine.belongsTo && fullMachine.belongsTo.trim()) ? fullMachine.belongsTo.trim().toLowerCase() : 'distrito',
+        fuelTankCapacityGallons: fullMachine.fuelTankCapacityGallons ?? null,
+        factoryEfficiencyGalPerHour: fullMachine.factoryEfficiencyGalPerHour ?? null,
+        factoryEfficiencyUnit: fullMachine.factoryEfficiencyUnit ?? 'GAL_PER_HOUR',
+      };
+      console.log("✏️ machineInEditor.belongsTo asignado a:", machineInEditor.belongsTo);
+      showEditModal = true;
+    } catch (e) {
+      errorMessage = 'No se pudo cargar la máquina para editar.';
+      addNotification({ id: Date.now(), text: e.message || 'Error al cargar máquina.' });
+    }
   }
 
   function closeEditModal() {
@@ -194,6 +209,7 @@
           {isExporting ? 'Descargando...' : 'Exportar Excel'}
         </button>
       </div>
+      {#if isAdmin || isSupervisorOperativo}
       <div class="vehicle-form-section">
         <div class="vehicle-subpanel-head">Registrar nueva máquina</div>
       <form class="create-form create-form--compact" on:submit={handleCreateMachine}>
@@ -258,14 +274,16 @@
         <p class="error-message">{errorMessage}</p>
       {/if}
       </div>
+      {/if}
 
       <div class="vehicle-table-wrap vehicle-table-wrap--inset">
-        <DataGrid columns={machineColumns} data={machines} on:action={handleAction} />
+        <DataGrid columns={machineColumns} data={machines} on:action={handleAction} showDeleteButton={isAdmin} />
       </div>
     {/if}
   </div>
 </div>
 
+{#if isAdmin || isSupervisorOperativo}
 {#if showEditModal}
   <div class="modal-overlay">
     <div class="modal-content" on:click|stopPropagation>
@@ -340,7 +358,9 @@
     </div>
   </div>
 {/if}
+{/if}
 
+{#if isAdmin}
 {#if machineToDelete}
   <div class="modal-overlay" on:click={closeDeleteMachineModal}>
     <div class="modal-content confirmation" on:click|stopPropagation>
@@ -365,6 +385,7 @@
       </div>
     </div>
   </div>
+{/if}
 {/if}
 
 {#if showCvModal}

@@ -6,6 +6,7 @@
   import FuelRegistrationModal from '../shared/FuelRegistrationModal.svelte';
   import FuelAssetHistorialModal from '../shared/FuelAssetHistorialModal.svelte';
   import { auth } from '../../stores/auth.js';
+  import { addNotification } from '../../stores/ui.js';
 
   // ── store state ──────────────────────────────────────────────────────────────
   let fuelLogs = [];
@@ -37,9 +38,10 @@
   let filterTo = '';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
+  $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
 
   // ── tabs ─────────────────────────────────────────────────────────────────────
-  let activeTab = 'registros'; // 'registros' | 'ranking' | 'anomalias' | 'facturas' | 'estadisticas' | 'estaciones'
+  let activeTab = 'estadisticas'; // 'registros' | 'ranking' | 'anomalias' | 'facturas' | 'estadisticas' | 'estaciones'
 
   // ── ranking ──────────────────────────────────────────────────────────────────
   let rankingData = [];
@@ -51,25 +53,48 @@
   let anomaliesLoading = false;
   let anomaliesLoaded = false;
 
+  let statsPageSize = 12;
+  let statsCurrentPage = 0;
+
   // ── estadísticas ─────────────────────────────────────────────────────────────
   let statsData = [];
   let statsLoading = false;
-  let statsLoaded = false;
+  let statsLoaded  = false;
+  // 'historico' | 'anio' | 'semestre' | 'trimestre' | 'periodo'
+  let statsMode    = 'historico';
 
   async function loadStats() {
     if (statsLoading) return;
     statsLoading = true;
-    try {
-      statsData = await dataStore.fetchFuelMonthlyStats(filterFrom || null, filterTo || null);
-      statsLoaded = true;
-    } catch (e) {
-      error = e.message;
-    } finally {
-      statsLoading = false;
+    let from = null, to = null;
+    if (statsMode === 'periodo') {
+      from = filterFrom || null; to = filterTo || null;
+    } else if (statsMode === 'anio') {
+      to = new Date().toISOString().slice(0, 10);
+      const d = new Date(); d.setFullYear(d.getFullYear() - 1); from = d.toISOString().slice(0, 10);
+    } else if (statsMode === 'semestre') {
+      to = new Date().toISOString().slice(0, 10);
+      const d = new Date(); d.setMonth(d.getMonth() - 6); from = d.toISOString().slice(0, 10);
+    } else if (statsMode === 'trimestre') {
+      to = new Date().toISOString().slice(0, 10);
+      const d = new Date(); d.setMonth(d.getMonth() - 3); from = d.toISOString().slice(0, 10);
     }
+    // statsMode === 'historico' → from=null, to=null → carga todo
+    try {
+      statsData  = await dataStore.fetchFuelMonthlyStats(from, to);
+      statsLoaded = true;
+    } catch (e) { error = e.message; }
+    finally { statsLoading = false; }
   }
 
-  // Derivados para los gráficos
+  async function setStatsMode(mode) {
+    statsMode   = mode;
+    statsLoaded = false;
+    statsData   = [];
+    await loadStats();
+  }
+
+  // ── Derivados base ────────────────────────────────────────────────────────────
   $: totalMachineCost  = statsData.reduce((a, m) => a + (m.machineCost  ?? 0), 0);
   $: totalVehicleCost  = statsData.reduce((a, m) => a + (m.vehicleCost  ?? 0), 0);
   $: totalMotoCost     = statsData.reduce((a, m) => a + (m.motoCost     ?? 0), 0);
@@ -78,80 +103,229 @@
   $: avgMonthlyCost    = statsData.length ? grandTotalCost / statsData.length : 0;
   $: peakMonth         = statsData.reduce((best, m) =>
       (m.totalCost ?? 0) > (best?.totalCost ?? 0) ? m : best, null);
-  $: maxMonthCost      = Math.max(...statsData.map(m => m.totalCost ?? 0), 1);
+  $: minMonth          = statsData.length > 1
+      ? statsData.reduce((min, m) => (m.totalCost ?? 0) < (min?.totalCost ?? Infinity) ? m : min, null)
+      : null;
+  $: maxMonthCost      = Math.max(...statsData.map(m => m.totalCost    ?? 0), 1);
   $: maxMonthGallons   = Math.max(...statsData.map(m => m.totalGallons ?? 0), 1);
   $: totalAnomalies    = statsData.reduce((a, m) => a + (m.anomalyCount ?? 0), 0);
 
-  // constantes de layout para los gráficos SVG
-  $: BAR_W       = statsData.length > 0 ? Math.max(32, Math.floor(680 / statsData.length) - 8) : 40;
+  // ── Derivados enriquecidos por mes ────────────────────────────────────────────
+  $: statsWithDerived = statsData.map((m, i) => ({
+    ...m,
+    changeVsPrev:        (i > 0 && (statsData[i-1].totalCost ?? 0) > 0)
+                           ? ((m.totalCost - statsData[i-1].totalCost) / statsData[i-1].totalCost * 100) : null,
+    gallonChangeVsPrev:  (i > 0 && (statsData[i-1].totalGallons ?? 0) > 0)
+                           ? ((m.totalGallons - statsData[i-1].totalGallons) / statsData[i-1].totalGallons * 100) : null,
+  }));
+
+  $: lastMonthStat      = statsWithDerived.length > 0 ? statsWithDerived[statsWithDerived.length - 1] : null;
+  $: costTrendPct       = lastMonthStat?.changeVsPrev ?? null;
+
+  $: statsTotalPages = Math.max(1, Math.ceil(statsWithDerived.length / statsPageSize));
+  $: statsPagedData = statsWithDerived.slice(statsCurrentPage * statsPageSize, (statsCurrentPage + 1) * statsPageSize);
+
+  $: statsWithDerived, statsCurrentPage = 0;
+  $: projectedNextMonth = statsData.length >= 3
+      ? statsData.slice(-3).reduce((a,m) => a + (m.totalCost ?? 0), 0) / 3
+      : (statsData.length > 0 ? (statsData[statsData.length-1].totalCost ?? 0) : 0);
+  $: projectedVsAvgPct  = avgMonthlyCost > 0 ? ((projectedNextMonth - avgMonthlyCost) / avgMonthlyCost * 100) : 0;
+
+  // Sparklines para los KPI cards
+  $: sparkCostPts = (() => {
+    const v = statsData.slice(-10).map(m => m.totalCost ?? 0);
+    const mx = Math.max(...v, 1);
+    return v.map((vv,i) => `${v.length>1?(i/(v.length-1)*60).toFixed(1):'30'},${(18-vv/mx*16).toFixed(1)}`).join(' ');
+  })();
+
+  $: sparkCostDots = (() => {
+    const v = statsData.slice(-10).map(m => m.totalCost ?? 0);
+    const mx = Math.max(...v, 1);
+    const avg = v.reduce((a,b)=>a+b,0) / (v.length||1);
+    const avgY = (18-avg/mx*16).toFixed(1);
+    return { vals: v, max: mx, avgY };
+  })();
+
+  $: sparkAnomalyBars = statsData.slice(-10).map(m => m.anomalyCount ?? 0);
+  $: sparkAnomalyMax  = Math.max(...sparkAnomalyBars, 1);
+
+  // Línea de promedio en el gráfico de barras
+  $: barAvgY = maxMonthCost > 0 ? BAR_PAD.top + CHART_H * (1 - avgMonthlyCost / maxMonthCost) : 0;
+
+  // Últimos meses para el timeline
+  $: recentMonths = statsWithDerived.slice(-8);
+
+  // ── Insights automáticos ─────────────────────────────────────────────────────
+  $: statsInsights = (() => {
+    if (statsData.length === 0) return [];
+    const ins = [];
+    const totalLoads = statsData.reduce((a,m) => a + m.totalLoads, 0);
+
+    if (costTrendPct !== null && Math.abs(costTrendPct) > 5)
+      ins.push({ type: costTrendPct > 0 ? 'warn' : 'good', icon: costTrendPct > 0 ? '↑' : '↓',
+        text: `El gasto ${costTrendPct > 0 ? 'aumentó' : 'bajó'} ${Math.abs(costTrendPct).toFixed(1)}% en el último mes` });
+
+    if (grandTotalCost > 0) {
+      const dom = [['Maquinaria',totalMachineCost],['Vehículos',totalVehicleCost],['Motos',totalMotoCost]]
+        .reduce((mx,f) => f[1] > mx[1] ? f : mx);
+      if (dom[1] / grandTotalCost > 0.5)
+        ins.push({ type: 'info', icon: '⚡', text: `${dom[0]} concentra el ${((dom[1]/grandTotalCost)*100).toFixed(1)}% del presupuesto de combustible` });
+    }
+
+    if (totalAnomalies > 0 && totalLoads > 0)
+      ins.push({ type: totalAnomalies > 5 ? 'alert' : 'warn', icon: '⚠',
+        text: `${totalAnomalies} anomalía${totalAnomalies>1?'s':''} detectada${totalAnomalies>1?'s':''} (${(totalAnomalies/totalLoads*100).toFixed(1)}% de cargas) — revisar tab Anomalías` });
+
+    if (statsData.length >= 3) {
+      const vsAvg = ((projectedNextMonth - avgMonthlyCost) / avgMonthlyCost * 100);
+      ins.push({ type: 'proj', icon: '→',
+        text: `Proyección próximo mes: ${fmtCurrency(projectedNextMonth)}${Math.abs(vsAvg)>5?` (${vsAvg>0?'+':''}${vsAvg.toFixed(1)}% vs promedio histórico)`:''}` });
+    }
+
+    return ins;
+  })();
+
+  // ── Constantes SVG ───────────────────────────────────────────────────────────
+  $: BAR_W       = statsData.length > 0 ? Math.max(28, Math.floor(680 / statsData.length) - 8) : 40;
   $: CHART_H     = 220;
   $: BAR_PAD     = { top: 24, right: 16, bottom: 44, left: 68 };
   $: BAR_GAP     = 10;
   $: BAR_TOTAL_W = statsData.length * (BAR_W + BAR_GAP) + BAR_PAD.left + BAR_PAD.right;
-  $: LINE_H      = 170;
-  $: LINE_P      = { top: 20, right: 24, bottom: 40, left: 68 };
+  $: LINE_H      = 200;
+  $: LINE_P      = { top: 20, right: 24, bottom: 50, left: 90 };
   $: LINE_W      = Math.max(500, statsData.length * 90);
 
   // ── paginación cliente por tab ────────────────────────────────────────────────
   let regPage = 0;    let regPageSize = 20;
-  let rankPage = 0;   let rankPageSize = 20;
-  let anomPage = 0;   let anomPageSize = 20;
   let invPage = 0;    let invPageSize = 20;
 
-  $: regTotalPages  = Math.max(1, Math.ceil(latestFuelLogs.length / regPageSize));
-  $: rankTotalPages = Math.max(1, Math.ceil(rankingData.length   / rankPageSize));
-  $: anomTotalPages = Math.max(1, Math.ceil(anomaliesData.length / anomPageSize));
+  // ── datos enriquecidos para anomalías (DataGrid) ─────────────────────────────
+  $: anomaliesEnriched = anomaliesData.map(r => ({
+    ...r,
+    _effLabel:          fmtEfficiency(r),
+    _costLabel:         fmtCurrency(r.totalCostCalculated),
+    _costMismatchLabel: fmtCurrency(r.totalCostActual),
+    _gallonsLabel:      `${fmtNum(r.quantityGallons, 3)} Gal`,
+    _dateLabel:         fmtDate(r.fuelDateTime),
+  }));
 
-  $: regPagedData  = latestFuelLogs.slice(regPage  * regPageSize,  (regPage  + 1) * regPageSize);
-  $: rankPagedData = rankingData.slice(rankPage * rankPageSize, (rankPage + 1) * rankPageSize);
-  $: anomPagedData = anomaliesData.slice(anomPage * anomPageSize, (anomPage + 1) * anomPageSize);
+  $: anomalyColumns = [
+    { id: 'date',     header: 'Fecha',           accessorFn: r => r.fuelDateTime ? new Date(r.fuelDateTime).getTime() : 0,
+                                                  cell: info => info.row.original._dateLabel,   size: 120 },
+    { accessorKey: 'assetType',  header: 'Tipo',             size: 80  },
+    { id: 'plate', header: 'Placa / Nombre', accessorFn: getAssetLabel, size: 200 },
+    { accessorKey: 'fuelType',   header: 'Combustible',      size: 130 },
+    { id: 'gallons',  header: 'Galones',          accessorFn: r => Number(r.quantityGallons ?? 0),
+                                                  cell: info => info.row.original._gallonsLabel, size: 90 },
+    { id: 'cost',     header: 'Total',            accessorFn: r => Number(r.totalCostCalculated ?? 0),
+                                                  size: 120, meta: { isAnomalyCost: true } },
+    { id: 'eff',      header: 'Eficiencia',       accessorFn: r => Number(r.efficiencyValue ?? -Infinity),
+                                                  size: 110, meta: { isAnomalyEfficiency: true } },
+    { accessorKey: 'odometerKm',  header: 'Odómetro km',   size: 100 },
+    { accessorKey: 'hourMeter',   header: 'Horómetro h',    size: 100 },
+    { accessorKey: 'serviceStation', header: 'Estación',    size: 90  },
+    { accessorKey: 'registeredBy',   header: 'Registrado por', size: 100 },
+    { id: 'receipt',  header: 'Recibo',           enableSorting: false, size: 80,
+                                                  meta: { isInvoicePhotoLink: true } },
+    ...($auth?.currentUser?.role === 'ADMIN'
+      ? [{ id: 'dismiss', header: 'Acciones', enableSorting: false, size: 130,
+           meta: { isAnomDismissAction: true } }]
+      : []),
+  ];
 
-  // Resetear página al cambiar datos o filtros
-  $: latestFuelLogs, regPage  = 0;
-  $: rankingData,    rankPage = 0;
-  $: anomaliesData,  anomPage = 0;
+  // ── datos enriquecidos para el ranking (DataGrid) ─────────────────────────────
+  $: rankMaxGallons = Math.max(...rankingData.map(r => Number(r.quantityGallons ?? 0)), 1);
 
-  // ── facturas ─────────────────────────────────────────────────────────────────
-  let invoiceFilter = 'ALL'; // 'ALL' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
-  let invoiceActionLoading = null; // id del registro en proceso
-  $: invoiceRows = fuelLogs.filter(r =>
-    invoiceFilter === 'ALL' ? true : r.invoiceStatus === invoiceFilter
-  );
-  $: invTotalPages = Math.max(1, Math.ceil(invoiceRows.length / invPageSize));
-  $: invPagedData  = invoiceRows.slice(invPage * invPageSize, (invPage + 1) * invPageSize);
-  $: invoiceRows, invPage = 0;
+  $: rankingEnriched = rankingData.map(r => {
+    const factoryUnit = r.factoryEfficiencyUnit === 'KM_PER_GALLON' ? 'km/Gal'
+      : r.factoryEfficiencyUnit === 'KM_PER_CUBIC_METER' ? 'km/m³'
+      : r.factoryEfficiencyUnit === 'GAL_PER_HOUR' ? 'Gal/h'
+      : r.factoryEfficiencyUnit === 'M3_PER_HOUR' ? 'm³/h' : '';
+    return {
+      ...r,
+      _barPct:       Number(r.quantityGallons ?? 0) / rankMaxGallons * 100,
+      _effLabel:     fmtEfficiency(r),
+      _factoryLabel: r.factoryEfficiency != null ? `${fmtNum(r.factoryEfficiency, 2)} ${factoryUnit}` : '—',
+      _gallonsLabel: fmtNum(r.quantityGallons, 3) + ' Gal',
+      _costLabel:    fmtCurrency(r.totalCostCalculated),
+      _dateLabel:    fmtDate(r.fuelDateTime),
+    };
+  });
 
-  async function handleInvoiceAction(id, status) {
-    invoiceActionLoading = id;
-    try {
-      await dataStore.updateFuelInvoiceStatus(id, status);
-    } catch (e) { error = e.message; }
-    finally { invoiceActionLoading = null; }
+  const rankingColumns = [
+    { id: 'pos',     header: '#',                accessorFn: () => 0,                      size: 45,  enableSorting: false, meta: { isRankPosition: true } },
+    { accessorKey: 'assetType',  header: 'Tipo',          size: 80 },
+    { id: 'plate', header: 'Placa / Nombre', accessorFn: getAssetLabel, size: 200 },
+    { id: 'gallons', header: 'Galones totales',  accessorFn: r => Number(r.quantityGallons ?? 0), size: 120,
+      cell: info => info.row.original._gallonsLabel },
+    { id: 'bar',     header: 'Consumo relativo', accessorFn: r => r._barPct,               size: 160, enableSorting: false, meta: { isRankBar: true } },
+    { id: 'cost',    header: 'Costo total',      accessorFn: r => Number(r.totalCostCalculated ?? 0), size: 110,
+      cell: info => info.row.original._costLabel },
+    { id: 'factEff', header: 'Efic. Fábrica',    accessorFn: r => r.factoryEfficiency != null ? Number(r.factoryEfficiency) : null, size: 100,
+      cell: info => info.row.original._factoryLabel },
+    { id: 'estEff',  header: 'Efic. Estimada',   accessorFn: r => r.efficiencyValue != null ? Number(r.efficiencyValue) : null,  size: 130,
+      meta: { isEfficiencyRank: true },
+      cell: info => info.row.original._effLabel },
+    { id: 'date',    header: 'Últ. carga',       accessorFn: r => r.fuelDateTime ? new Date(r.fuelDateTime).getTime() : 0, size: 130,
+      cell: info => info.row.original._dateLabel },
+  ];
+
+  // ── helpers de sorting compartidos (anomalías / facturas) ────────────────────
+  function sortIcon(activeCol, activeDir, col) {
+    if (activeCol !== col) return '';
+    return activeDir === 'asc' ? ' ▲' : ' ▼';
   }
 
-  async function handleInvoiceUpload(id, event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    invoiceActionLoading = id;
-    try {
-      await dataStore.uploadFuelInvoice(id, file);
-    } catch (e) { error = e.message; }
-    finally { invoiceActionLoading = null; event.target.value = ''; }
+  function sortRows(rows, sortCol, sortDir, valFn) {
+    if (sortCol == null) return rows;
+    return [...rows].sort((a, b) => {
+      const va = valFn(a, sortCol), vb = valFn(b, sortCol);
+      const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
   }
 
-  function invoiceUrl(path) {
-    if (!path) return null;
-    // si ya es URL absoluta la devuelve tal cual, si es ruta local agrega base
-    if (path.startsWith('http')) return path;
-    const base = window.location.origin;
-    return `${base}/${path}`;
+
+  // ── sorting de facturas ───────────────────────────────────────────────────────
+  let invSortCol = null;
+  let invSortDir = 'asc';
+
+  function invVal(row, col) {
+    switch (col) {
+      case 'date':    return row.fuelDateTime ? new Date(row.fuelDateTime).getTime() : 0;
+      case 'type':    return (row.assetType ?? '').toLowerCase();
+      case 'plate':   return (row.assetPlate ?? '').toLowerCase();
+      case 'gallons': return Number(row.quantityGallons ?? 0);
+      case 'cost':    return Number(row.totalCostCalculated ?? 0);
+      case 'status':  return (row.invoiceStatus ?? '').toLowerCase();
+      case 'voucher': return (row.voucherNumber ?? '').toLowerCase();
+      default:        return 0;
+    }
   }
+
+  function toggleInvSort(col) {
+    if (invSortCol === col) {
+      if (invSortDir === 'asc') invSortDir = 'desc';
+      else { invSortCol = null; invSortDir = 'asc'; }
+    } else { invSortCol = col; invSortDir = 'asc'; }
+    invPage = 0;
+  }
+
+  // ── paginación ────────────────────────────────────────────────────────────────
+  $: regTotalPages = Math.max(1, Math.ceil(latestFuelLogs.length / regPageSize));
+  $: regPagedData  = latestFuelLogs.slice(regPage * regPageSize, (regPage + 1) * regPageSize);
+
+  // Resetear página al cambiar datos
+  $: latestFuelLogs, regPage = 0;
+
+
 
   // ── modals ───────────────────────────────────────────────────────────────────
   let showCreateModal = false;
   let historialRow = null;
   let historialLogs = [];
   let historialLoading = false;
+
 
   // ── anomaly dismiss ──────────────────────────────────────────────────────────
   let dismissRow = null;
@@ -244,22 +418,40 @@
   }
 
   // ── lifecycle ─────────────────────────────────────────────────────────────────
-  onMount(() => applyFilter());
+  onMount(async () => {
+    await Promise.all([
+      dataStore.fetchMachines().catch(() => {}),
+      dataStore.fetchVehicles().catch(() => {}),
+      dataStore.fetchMotos().catch(() => {})
+    ]);
+    applyFilter();
+  });
 
   // ── funciones ─────────────────────────────────────────────────────────────────
+  function formatDateForApi(dateStr) {
+    if (!dateStr) return null;
+    return `${dateStr}T00:00:00`;
+  }
+
+  function formatDateToForApi(dateStr) {
+    if (!dateStr) return null;
+    return `${dateStr}T23:59:59`;
+  }
+
   async function applyFilter() {
     error = '';
     rankingLoaded = false;
     statsLoaded   = false;
-    const from = filterFrom || null;
-    const to   = filterTo   || null;
+    const from = filterFrom ? formatDateForApi(filterFrom) : null;
+    const to   = filterTo ? formatDateToForApi(filterTo) : null;
     try {
       await Promise.all([
         dataStore.fetchFuelLogs(from, to),
         dataStore.fetchFuelDashboard(from, to),
       ]);
-      // si el tab activo es ranking, recargarlo también
       if (activeTab === 'ranking') await loadRanking();
+      // El filtro principal fuerza modo 'periodo' en estadísticas
+      if (activeTab === 'estadisticas') { statsMode = 'periodo'; await loadStats(); }
     } catch (err) {
       error = err.message;
     }
@@ -275,7 +467,9 @@
     if (rankingLoading) return;
     rankingLoading = true;
     try {
-      rankingData = await dataStore.fetchFuelRanking(filterFrom || null, filterTo || null);
+      const from = filterFrom ? formatDateForApi(filterFrom) : null;
+      const to   = filterTo ? formatDateToForApi(filterTo) : null;
+      rankingData = await dataStore.fetchFuelRanking(from, to);
       rankingLoaded = true;
     } catch (e) {
       error = e.message;
@@ -326,9 +520,39 @@
     }
   }
 
+
+  async function handleInvoiceUpload(id, event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await dataStore.uploadFuelInvoice(id, file);
+      addNotification({
+        id: Date.now(),
+        text: `Factura "${file.name}" subida exitosamente.`
+      });
+    } catch (e) {
+      error = e.message;
+      addNotification({
+        id: Date.now(),
+        text: `Error al subir factura: ${e.message}`
+      });
+    }
+    finally { event.target.value = ''; }
+  }
+
+  function invoiceUrl(path) {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+    return `${apiBase}/${path}`;
+  }
+
   function handleGridAction(event) {
-    const { type, data: row } = event.detail;
+    const { type, data: row, extraData: eventData } = event.detail;
     if (type === 'fuel_historial') openHistorial(row);
+    if (type === 'fuel_invoice_upload' && eventData) {
+      handleInvoiceUpload(row.id, eventData);
+    }
   }
 
   // ── helpers de formato ────────────────────────────────────────────────────────
@@ -352,11 +576,34 @@
     return `${fmtNum(r.efficiencyValue, 2)} ${unit}`;
   }
 
+  function getAssetLabel(r) {
+    if (r.assetType === 'MACHINE') {
+      const machine = $dataStore.machines?.find(m => m.id === r.assetId);
+      if (machine) {
+        const parts = [machine.name, machine.model, r.assetPlate].filter(p => p && p.trim());
+        return parts.join(' · ');
+      }
+    } else if (r.assetType === 'VEHICLE') {
+      const vehicle = $dataStore.vehicles?.find(v => v.id === r.assetId);
+      if (vehicle) {
+        const parts = [r.assetPlate, vehicle.marca].filter(p => p && p.trim());
+        return parts.join(' — ');
+      }
+    } else if (r.assetType === 'MOTO') {
+      const moto = $dataStore.motos?.find(m => m.id === r.assetId);
+      if (moto) {
+        const parts = [r.assetPlate, moto.marca].filter(p => p && p.trim());
+        return parts.join(' — ');
+      }
+    }
+    return r.assetPlate || `ID ${r.assetId}`;
+  }
+
   // ── columnas tabla registros ──────────────────────────────────────────────────
   const columns = [
     { header: 'Fecha', accessorFn: r => r.fuelDateTime ? new Date(r.fuelDateTime).toLocaleDateString('es-CO') : '—' },
     { header: 'Tipo Activo', accessorKey: 'assetType' },
-    { header: 'Placa / Nombre', accessorKey: 'assetPlate' },
+    { header: 'Placa / Nombre', accessorFn: getAssetLabel, size: 200 },
     { header: 'Tipo Combustible', accessorKey: 'fuelType' },
     { header: 'Cantidad', accessorFn: r => r.quantity != null ? `${r.quantity} ${r.quantityUnit ?? ''}` : '—' },
     { header: 'Galones', accessorFn: r => r.quantityGallons != null ? Number(r.quantityGallons).toFixed(3) : '—' },
@@ -370,8 +617,6 @@
     { header: 'Horómetro h', accessorKey: 'hourMeter' },
     { header: 'Eficiencia', accessorFn: fmtEfficiency },
     { header: 'Anomalía', accessorFn: r => r.isAnomaly ? '⚠ Sí' : 'No' },
-    { header: 'Llenado Completo', accessorFn: r => r.isFullTank ? 'Sí' : 'No' },
-    { header: 'Estado Factura', accessorKey: 'invoiceStatus' },
     { header: 'Estación', accessorKey: 'serviceStation' },
     { header: 'Registrado por', accessorKey: 'registeredBy' },
     { header: 'Historial', id: 'fuel_historial', accessorFn: () => '', meta: { isFuelHistorial: true } },
@@ -388,15 +633,11 @@
     overflow: hidden;
   }
 
-  /* toolbar */
-  .toolbar { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 6px; flex-shrink: 0; }
+  /* toolbar — usa clases estándar del sistema */
+  .fuel-filter-bar { display: flex; gap: 12px; align-items: flex-end; flex-shrink: 0; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid #d0d0d0; margin-bottom: 8px; }
   .filter-field { display: flex; flex-direction: column; font-size: 11px; }
-  .filter-field label { margin-bottom: 2px; font-weight: bold; }
-  .filter-field input { padding: 3px 5px; border: 1px inset #808080; font-size: 11px; font-family: inherit; }
-  .btn { padding: 4px 12px; background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%); border: 1px outset #c0c0c0; cursor: pointer; font-size: 11px; font-family: inherit; }
-  .btn:hover { background: linear-gradient(to bottom, #ffffff 0%, #e0e0e0 100%); }
-  .btn:active { border-style: inset; }
-  .btn-primary { font-weight: bold; }
+  .filter-field label { margin-bottom: 2px; font-weight: bold; color: #333; }
+  .filter-field input { padding: 3px 6px; border: 1px inset #808080; font-size: 11px; font-family: inherit; }
 
   /* summary */
   .summary-bar { display: flex; gap: 24px; padding: 8px 12px; background: linear-gradient(to bottom, #e0e0e0 0%, #d0d0d0 100%); border: 1px inset #c0c0c0; margin-bottom: 6px; flex-wrap: wrap; flex-shrink: 0; }
@@ -424,7 +665,7 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
     border: 1px inset #c0c0c0;
     border-top: none;
     padding: 10px;
@@ -436,11 +677,41 @@
   .error { color: red; font-weight: bold; margin-bottom: 8px; font-size: 11px; flex-shrink: 0; }
   .loader-container { display: flex; flex-direction: column; align-items: center; height: 160px; justify-content: center; gap: 12px; font-size: 11px; }
 
-  /* ranking table */
-  .rank-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  .rank-table th { background: #c0c0c0; border: 1px outset #303030; border-left: none; padding: 5px 10px; text-align: center; white-space: nowrap; }
-  .rank-table td { border: 1px solid #c0c0c0; border-left: none; padding: 5px 10px; background: #fff; white-space: nowrap; }
-  .rank-table tr:nth-child(even) td { background: #f4f4f4; }
+  /* ── toolbar + contenedor (replica exacta del DataGrid) ── */
+  .fuel-toolbar {
+    padding: 12px;
+    background: #e0e0e0;
+    border: 1px solid #808080;
+    border-bottom: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+  .fuel-toolbar-label { font-weight: bold; color: #333; }
+
+  .fuel-table-wrap {
+    overflow: auto;
+    border: 2px inset #c0c0c0;
+    border-top: none;
+    border-top-color: #808080;
+    border-left-color: #808080;
+    border-right-color: #dfdfdf;
+    border-bottom-color: #dfdfdf;
+    margin-bottom: 4px;
+  }
+
+  /* ── tabla base compartida (ranking / anomalías / facturas) ── */
+  .fuel-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: "MS Sans Serif", "Tahoma", sans-serif; }
+  .fuel-table th { background: #c0c0c0; border: 1px outset #303030; border-left: none; padding: 6px 8px; text-align: center; white-space: nowrap; }
+  .fuel-table td { border: 1px solid #c0c0c0; border-left: none; padding: 6px 8px; background: #fff; white-space: nowrap; text-align: left; }
+  .fuel-table tr:nth-child(even) td { background: #f4f4f4; }
+  .fuel-table th.col-sort { cursor: pointer; user-select: none; }
+  .fuel-table th.col-sort:hover { background: #a8a8a8; }
+
+  /* ranking — decoraciones específicas */
   .rank-pos { font-weight: bold; text-align: center; font-size: 13px; }
   .rank-1 { color: #b8860b; }
   .rank-2 { color: #707070; }
@@ -451,12 +722,9 @@
   .bar-fill { height: 100%; background: linear-gradient(to right, #5a9fd4, #2a6fa8); }
   .bar-label { font-size: 10px; white-space: nowrap; }
 
-  /* anomaly table */
-  .ano-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  .ano-table th { background: #c0c0c0; border: 1px outset #303030; border-left: none; padding: 5px 10px; text-align: center; white-space: nowrap; }
-  .ano-table td { border: 1px solid #c0c0c0; border-left: none; padding: 5px 10px; background: #fff; white-space: nowrap; }
-  .ano-table tr:nth-child(even) td { background: #fff6f0; }
-  .ano-table tr td { background: #fff3e0; }
+  /* anomalías — tinte naranja solo en filas impares (filas pares ya las cubre nth-child) */
+  .fuel-table--anomaly td { background: #fff3e0 !important; }
+  .fuel-table--anomaly tr:nth-child(even) td { background: #fff6f0 !important; }
   .badge-warn { display: inline-block; padding: 1px 6px; background: #ffcc00; border: 1px solid #cc9900; font-weight: bold; font-size: 10px; color: #5c3d00; }
   .dismiss-btn { padding: 2px 8px; font-size: 10px; font-family: inherit; border: 1px outset #c0c0c0; cursor: pointer; background: linear-gradient(to bottom, #f0f0f0,#d0d0d0); }
   .dismiss-btn:hover { background: linear-gradient(to bottom, #fff,#e0e0e0); }
@@ -472,38 +740,31 @@
   /* stations tab */
   .stations-header { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 10px; }
   .stations-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  .stations-table th { background: #c0c0c0; border: 1px outset #303030; padding: 5px 10px; text-align: left; }
-  .stations-table td { border: 1px solid #c0c0c0; padding: 5px 10px; background: #fff; }
+  .stations-table th { background: #c0c0c0; border: 1px outset #303030; border-left: none; padding: 5px 10px; text-align: center; }
+  .stations-table td { border: 1px solid #c0c0c0; border-left: none; padding: 5px 10px; background: #fff; }
   .stations-table tr:nth-child(even) td { background: #f4f4f4; }
   .station-action-btn { padding: 2px 8px; font-size: 10px; font-family: inherit; border: 1px outset #c0c0c0; cursor: pointer; background: linear-gradient(to bottom, #f0f0f0,#d0d0d0); }
   .station-del-btn { color: #8c1a1a; }
   .station-edit-input { padding: 3px 5px; border: 1px inset #808080; font-size: 11px; font-family: inherit; width: 200px; }
   .btn-export { color: #1a5c1a; font-weight: bold; }
   .empty-msg { text-align: center; padding: 32px; color: #666; font-size: 12px; }
-  .tab-section-title { font-size: 11px; font-weight: bold; color: #444; margin-bottom: 8px; }
-
   /* invoice tab */
-  .inv-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 11px; }
-  .inv-toolbar label { font-weight: bold; }
-  .inv-toolbar select { padding: 3px 5px; border: 1px inset #808080; font-size: 11px; font-family: inherit; }
-  .inv-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  .inv-table th { background: #c0c0c0; border: 1px outset #303030; border-left: none; padding: 5px 10px; text-align: center; white-space: nowrap; }
-  .inv-table td { border: 1px solid #c0c0c0; border-left: none; padding: 5px 8px; background: #fff; white-space: nowrap; }
-  .inv-table tr:nth-child(even) td { background: #f4f4f4; }
   .status-badge {
     display: inline-block; padding: 1px 7px; font-size: 10px; font-weight: bold; border: 1px solid;
   }
   .status-PENDING_REVIEW { background: #fff8d0; color: #7a5c00; border-color: #ccaa00; }
   .status-APPROVED       { background: #d6f5d6; color: #1a5c1a; border-color: #4a9c4a; }
   .status-REJECTED       { background: #fde8e8; color: #8c1a1a; border-color: #cc4444; }
-  .inv-action-btn { padding: 2px 8px; font-size: 10px; font-family: inherit; border: 1px outset #c0c0c0; cursor: pointer; background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%); }
-  .inv-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .inv-approve { color: #1a5c1a; }
-  .inv-reject  { color: #8c1a1a; }
-  .inv-upload-label { display: inline-block; padding: 2px 8px; font-size: 10px; font-family: inherit; border: 1px outset #c0c0c0; cursor: pointer; background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%); }
-  .inv-upload-label:hover { background: linear-gradient(to bottom, #fff 0%, #e0e0e0 100%); }
+  .inv-action-btn { padding: 4px 10px; font-size: 11px; font-family: inherit; border: 1px outset #b8b8b8; cursor: pointer; background: linear-gradient(to bottom, #f5f5f5 0%, #d8d8d8 100%); border-radius: 3px; transition: all 0.2s ease; }
+  .inv-action-btn:hover:not(:disabled) { background: linear-gradient(to bottom, #fff 0%, #e8e8e8 100%); }
+  .inv-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .inv-approve { color: #15803d; font-weight: 500; }
+  .inv-reject  { color: #b91c1c; font-weight: 500; }
+  .inv-upload-label { display: inline-block; padding: 4px 10px; font-size: 11px; font-family: inherit; border: 1px outset #b8b8b8; cursor: pointer; background: linear-gradient(to bottom, #f5f5f5 0%, #d8d8d8 100%); border-radius: 3px; transition: all 0.2s ease; }
+  .inv-upload-label:hover { background: linear-gradient(to bottom, #fff 0%, #e8e8e8 100%); }
   .inv-upload-label input[type="file"] { display: none; }
-  .inv-photo-link { color: #0050a0; text-decoration: underline; font-size: 10px; cursor: pointer; }
+  .inv-photo-link { color: #0050a0; text-decoration: none; font-size: 11px; cursor: pointer; font-weight: 500; padding: 4px 10px; background: linear-gradient(to bottom, #f5f5f5 0%, #d8d8d8 100%); border: 1px outset #b8b8b8; border-radius: 3px; display: inline-block; transition: all 0.2s ease; }
+  .inv-photo-link:hover { background: linear-gradient(to bottom, #fff 0%, #e8e8e8 100%); }
   .mismatch-warn { color: #c05000; font-size: 10px; font-weight: bold; }
 
   /* paginación compartida (ranking, anomalías, facturas) */
@@ -525,109 +786,162 @@
 
   /* estadísticas */
   .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
-  .kpi-card { background: linear-gradient(160deg, #efefef 0%, #d6d6d6 100%); border: 1px inset #b0b0b0; padding: 10px 14px; border-left: 3px solid #4a7fc4; }
-  .kpi-label { font-size: 10px; color: #555; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; }
-  .kpi-value { font-size: 17px; font-weight: bold; color: #1a1a1a; margin-top: 3px; }
-  .kpi-sub   { font-size: 10px; color: #666; margin-top: 2px; }
+  .kpi-card { background: linear-gradient(160deg, #efefef 0%, #d6d6d6 100%); border: 1px inset #b0b0b0; padding: 14px 16px; border-left: 4px solid #4a7fc4; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  .kpi-label { font-size: 11px; color: #444; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .kpi-value { font-size: 22px; font-weight: bold; color: #1a1a1a; margin: 6px 0 4px; line-height: 1.2; }
+  .kpi-sub   { font-size: 11px; color: #555; margin-top: 6px; line-height: 1.4; }
   .chart-section { margin-bottom: 18px; }
-  .chart-title { font-size: 11px; font-weight: bold; color: #333; margin-bottom: 6px; border-bottom: 1px solid #c0c0c0; padding-bottom: 3px; }
+  .chart-title { font-size: 12px; font-weight: bold; color: #222; margin-bottom: 10px; border-bottom: 2px solid #4a7fc4; padding-bottom: 6px; }
   .charts-row  { margin-bottom: 12px; }
-  .charts-row-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 18px; }
-  .chart-box { background: #fff; border: 1px inset #c0c0c0; padding: 12px; }
+  .charts-row-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .chart-box { background: #fff; border: 1px solid #d8d8d8; padding: 14px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
   svg.chart { width: 100%; overflow: visible; }
-  .axis-label { font-size: 9px; fill: #666; }
-  .bar-total-label { font-size: 8px; fill: #333; font-weight: bold; }
-  .grid-line  { stroke: #e8e8e8; stroke-width: 1; stroke-dasharray: 3,3; }
+  .axis-label { font-size: 11px; fill: #333; font-weight: 500; }
+  .bar-total-label { font-size: 9px; fill: #222; font-weight: bold; }
+  .grid-line  { stroke: #f0f0f0; stroke-width: 1; stroke-dasharray: 4,3; }
   .bar-machine { fill: #4a7fc4; }
   .bar-vehicle { fill: #4aaa6a; }
   .bar-moto    { fill: #e08030; }
-  .line-total  { fill: none; stroke: #5a4fa0; stroke-width: 2.5; }
-  .dot-total   { fill: #5a4fa0; stroke: #fff; stroke-width: 1.5; }
-  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 10px; margin-top: 8px; }
-  .legend-item { display: flex; align-items: center; gap: 4px; }
-  .legend-dot  { width: 10px; height: 10px; display: inline-block; border-radius: 2px; border: 1px solid #0004; }
+  .line-total  { fill: none; stroke: #d97706; stroke-width: 2.5; }
+  .dot-total   { fill: #d97706; stroke: #fff; stroke-width: 1.5; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e0e0e0; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot  { width: 12px; height: 12px; display: inline-block; border-radius: 2px; border: 1px solid #0004; }
   .donut-wrap  { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .donut-legend { font-size: 10px; width: 100%; }
   .donut-row   { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; }
   .donut-amount { font-size: 9px; color: #666; margin-left: 6px; }
 
-  /* ── Estadísticas rediseñadas ──────────────────────────────────────────── */
-  .stats-section-header {
-    display: flex; align-items: flex-start; gap: 10px;
-    margin: 18px 0 10px 0; padding-bottom: 8px;
-    border-bottom: 2px solid #c0c0c0;
+  /* ── Selector de período de estadísticas ──────────────────────────────── */
+  .stats-period-toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 0; margin-bottom: 14px; border-bottom: 1px solid #e0e0e0;
   }
-  .stats-section-icon { font-size: 20px; line-height: 1; }
-  .stats-section-title { font-size: 13px; font-weight: bold; color: #222; }
-  .stats-section-sub   { font-size: 10px; color: #666; margin-top: 2px; }
+  .stats-period-label { font-size: 12px; font-weight: 600; color: #333; margin-right: 4px; }
+  .stats-period-btn {
+    padding: 5px 12px; font-size: 11px; font-family: inherit; cursor: pointer; font-weight: 500;
+    border: 1px solid #c0c0c0;
+    background: #f8f8f8;
+    color: #333; border-radius: 3px; transition: all 0.15s ease;
+  }
+  .stats-period-btn:hover:not(.active) {
+    border-color: #4a7fc4; background: #f5f5f5;
+  }
+  .stats-period-btn.active {
+    background: linear-gradient(to bottom, #4a7fc4 0%, #2a5fa4 100%);
+    color: #fff; border-color: #1a4fa4; box-shadow: 0 2px 6px rgba(74, 127, 196, 0.2);
+  }
 
-  /* KPI row con icono */
-  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .kpi-card { display: flex; align-items: flex-start; gap: 10px; background: linear-gradient(160deg,#f0f0f0,#dcdcdc); border: 1px inset #b0b0b0; padding: 10px 12px; }
-  .kpi-accent-blue   { border-left: 3px solid #4a7fc4; }
-  .kpi-accent-green  { border-left: 3px solid #4aaa6a; }
-  .kpi-accent-orange { border-left: 3px solid #e08030; }
-  .kpi-accent-red    { border-left: 3px solid #c0392b; }
-  .kpi-accent-gray   { border-left: 3px solid #999; }
-  .kpi-icon-badge {
-    flex-shrink: 0; width: 30px; height: 30px; border-radius: 4px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: bold;
+  /* ── Paneles de estadísticas ───────────────────────────────────────────── */
+  .stats-panel { margin-bottom: 14px; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; }
+  .stats-panel-header {
+    padding: 12px 14px; background: #f5f5f5;
+    border-bottom: 1px solid #d8d8d8;
+    font-size: 12px; font-weight: 600; color: #222;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   }
-  .kpi-body { flex: 1; min-width: 0; }
-  .kpi-label { font-size: 10px; color: #555; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; }
-  .kpi-value { font-size: 17px; font-weight: bold; color: #1a1a1a; margin-top: 3px; }
-  .kpi-sub   { font-size: 10px; color: #666; margin-top: 2px; }
+  .stats-mode-badge {
+    font-size: 10px; font-weight: 500; color: #666;
+    background: #ffffff; border: 1px solid #d0d0d0; padding: 2px 8px;
+    border-radius: 3px;
+  }
+  .stats-panel-body {
+    border: none;
+    padding: 14px; background: #ffffff;
+  }
 
-  /* Fleet breakdown cards */
-  .fleet-breakdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 6px; }
-  .fleet-card { background: #fff; border: 1px inset #c0c0c0; padding: 10px 12px; }
-  .fleet-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-  .fleet-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-  .fleet-name { flex: 1; font-size: 11px; font-weight: bold; color: #333; }
-  .fleet-pct { font-size: 13px; font-weight: bold; color: #444; }
-  .fleet-value { font-size: 15px; font-weight: bold; color: #111; margin-bottom: 6px; }
-  .fleet-bar-track { height: 8px; background: #e0e0e0; border-radius: 4px; margin-bottom: 5px; border: 1px inset #ccc; }
-  .fleet-bar-fill  { height: 100%; border-radius: 4px; transition: width 0.3s; }
-  .fleet-sub { font-size: 10px; color: #666; }
+  /* ── Insights strip ───────────────────────────────────────────────────── */
+  .insights-strip { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .insight-chip {
+    display:inline-flex; align-items:center; gap:7px;
+    padding:8px 14px; font-size:11px; font-family:inherit;
+    border-radius:4px; border: 1px solid; line-height:1.4; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .insight-icon { font-size:15px; flex-shrink:0; }
+  .insight-good  { background:#f0fdf4; border-color:#86efac; color:#166534; }
+  .insight-warn  { background:#fffbeb; border-color:#fcd34d; color:#7c2d12; }
+  .insight-alert { background:#fef2f2; border-color:#fca5a5; color:#991b1b; }
+  .insight-info  { background:#eff6ff; border-color:#93c5fd; color:#0c2d6b; }
+  .insight-proj  { background:#f5f3ff; border-color:#c4b5fd; color:#4c1d95; }
 
-  /* Tabla de estadísticas mensuales */
-  .stats-table-wrap { overflow-x: auto; margin-bottom: 10px; }
-  .stats-table { width: 100%; border-collapse: collapse; font-size: 11px; white-space: nowrap; }
-  .stats-table th { background: #b8b8b8; padding: 5px 8px; border: 1px solid #909090; font-weight: bold; }
-  .stats-table td { padding: 5px 8px; border: 1px solid #d0d0d0; background: #fff; }
-  .stats-table tbody tr:nth-child(even) td { background: #f6f6f6; }
-  .stats-table tbody tr:hover td { background: #eef4ff; }
-  .st-group   { text-align: center; }
-  .st-machine { background: #dbeafe !important; color: #1d4ed8; }
-  .st-vehicle { background: #dcfce7 !important; color: #15803d; }
-  .st-moto    { background: #ffedd5 !important; color: #c2410c; }
-  .st-month   { text-align: left; min-width: 90px; }
-  .st-center  { text-align: center; }
-  .st-right   { text-align: right; }
-  .st-bold    { font-weight: bold; }
-  .st-month-cell { font-weight: bold; white-space: nowrap; }
-  .st-peak-row td { background: #fef9c3 !important; }
-  .st-peak-badge {
-    display: inline-block; margin-left: 5px; padding: 0px 5px;
-    background: #ca8a04; color: #fff; font-size: 9px; font-weight: bold; border-radius: 3px;
-    vertical-align: middle; text-transform: uppercase;
-  }
-  .st-anomaly-badge {
-    display: inline-block; padding: 1px 5px;
-    background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;
-    font-size: 10px; font-weight: bold;
-  }
-  .st-ok { color: #15803d; font-size: 11px; }
-  .st-total-row td { background: #dcdcdc !important; font-weight: bold; border-top: 2px solid #888; }
+  /* ── Fleet list (barras horizontales) ─────────────────────────────────── */
+  .fleet-list { display:flex; flex-direction:column; gap:12px; margin-top:14px; }
+  .fleet-row  { display:grid; grid-template-columns:120px 1fr auto; align-items:center; gap:14px; padding:8px 0; border-bottom:1px solid #f0f0f0; }
+  .fleet-row:last-child { border-bottom:none; }
+  .fleet-row-label { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:bold; color:#222; }
+  .fleet-row-bar  { height:14px; background:#e8e8e8; border-radius:6px; overflow:hidden; border:1px solid #d0d0d0; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+  .fleet-row-fill { height:100%; border-radius:6px; transition: width 0.3s ease; }
+  .fleet-row-stats { display:flex; gap:14px; align-items:center; font-size:11px; white-space:nowrap; min-width:380px; }
+  .fleet-row-cost   { font-weight:bold; color:#111; min-width:100px; font-size:12px; }
+  .fleet-row-pct    { color:#666; min-width:45px; font-weight:500; }
+  .fleet-row-detail { color:#777; font-size:10px; }
+
+  /* ── KPI cards ─────────────────────────────────────────────────────────── */
+  .kpi-row   { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:18px; }
+  .kpi-row-6 { grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+  .kpi-card  { background:#ffffff; border:1px solid #e0e0e0; border-left:5px solid #999; padding:14px 16px; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,0.05); transition:box-shadow 0.2s ease; }
+  .kpi-card:hover { box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+  .kpi-accent-blue   { border-left-color:#4a7fc4; }
+  .kpi-accent-green  { border-left-color:#4aaa6a; }
+  .kpi-accent-orange { border-left-color:#e08030; }
+  .kpi-accent-red    { border-left-color:#c0392b; }
+  .kpi-accent-gray   { border-left-color:#888; }
+  .kpi-accent-purple { border-left-color:#7c3aed; }
+  .kpi-body  { min-width:0; }
+  .kpi-label { font-size:10px; color:#666; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px; }
+  .kpi-value { font-size:24px; font-weight:700; color:#0f172a; margin:4px 0 6px; line-height:1.1; }
+  .kpi-sub   { font-size:11px; color:#666; line-height:1.5; font-weight:400; }
+  .kpi-spark { display:block; margin-top:8px; opacity:0.75; }
+
+  /* fleet-dot used in fleet-row-label */
+  .fleet-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+
+  /* ── Tabla de estadísticas ─────────────────────────────────────────────── */
+  .stats-table-wrap { overflow-x:auto; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+  .stats-table { width:100%; border-collapse:collapse; font-size:11px; white-space:nowrap; }
+  .stats-table th { background:linear-gradient(to bottom, #c8c8c8, #b8b8b8); padding:8px 10px; border:1px solid #909090; font-weight:bold; color:#222; }
+  .stats-table td { padding:7px 10px; border:1px solid #d0d0d0; background:#fff; }
+  .stats-table tbody tr:nth-child(even) td { background:#f8f8f8; }
+  .stats-table tbody tr:hover td { background:#eef4ff; transition: background-color 0.2s ease; }
+  .st-group   { text-align:center; }
+  .st-machine { background:#dbeafe !important; color:#1d4ed8; }
+  .st-vehicle { background:#dcfce7 !important; color:#15803d; }
+  .st-moto    { background:#ffedd5 !important; color:#c2410c; }
+  .st-month   { text-align:left; min-width:90px; }
+  .st-center  { text-align:center; }
+  .st-right   { text-align:right; }
+  .st-bold    { font-weight:bold; }
+  .st-month-cell { font-weight:bold; white-space:nowrap; }
+  .st-peak-row td { background:#fef9c3 !important; }
+  .st-peak-badge { display:inline-block; margin-left:6px; padding:2px 7px; background:#d97706; color:#fff; font-size:9px; font-weight:bold; border-radius:3px; vertical-align:middle; text-transform:uppercase; }
+  .st-anomaly-badge { display:inline-block; padding:2px 7px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:10px; font-weight:bold; border-radius:3px; }
+  .st-min-badge { display:inline-block; margin-left:6px; padding:2px 7px; background:#15803d; color:#fff; font-size:9px; font-weight:bold; border-radius:3px; vertical-align:middle; }
+  .st-ok { color:#15803d; font-size:11px; }
+  .st-total-row td { background:#dcdcdc !important; font-weight:bold; border-top:2px solid #888; }
+  /* Color coding por desviación del promedio */
+  .st-row-low td  { background:#f0fdf4 !important; }
+  .st-row-high td { background:#fff7ed !important; }
+  /* Barra mini en celda de costo */
+  .st-cost-bar { height:3px; background:#e8e8e8; margin-top:3px; border-radius:2px; overflow:hidden; }
+  .st-cost-bar > div { height:100%; border-radius:2px; }
+  /* Celda de precio: tamaño compacto */
+  .st-price-cell { font-size:10px; white-space:nowrap; }
+  /* Indicador de variación */
+  .st-change { font-size:11px; font-weight:bold; }
 </style>
 
 <div class="fuel-module">
 
-<h3>Módulo de Combustibles</h3>
+<!-- Toolbar principal — acciones -->
+<div class="vehicle-toolbar">
+  <button class="vehicle-btn" on:click={() => showCreateModal = true}>+ Registrar Carga</button>
+  {#if isAdmin}
+    <button class="vehicle-btn vehicle-btn--export" on:click={handleExportExcel}>↓ Exportar Excel</button>
+  {/if}
+</div>
 
-<!-- Toolbar -->
-<div class="toolbar">
+<!-- Filtro de fecha (secundario) -->
+<div class="fuel-filter-bar">
   <div class="filter-field">
     <label for="fuel-from">Desde:</label>
     <input id="fuel-from" type="date" bind:value={filterFrom} />
@@ -636,12 +950,8 @@
     <label for="fuel-to">Hasta:</label>
     <input id="fuel-to" type="date" bind:value={filterTo} />
   </div>
-  <button class="btn" on:click={applyFilter}>Filtrar</button>
-  <button class="btn" on:click={clearFilter}>Limpiar</button>
-  <button class="btn btn-primary" on:click={() => showCreateModal = true}>+ Registrar Carga</button>
-  {#if isAdmin}
-    <button class="btn btn-export" on:click={handleExportExcel}>↓ Exportar Excel</button>
-  {/if}
+  <button class="vehicle-btn" on:click={applyFilter}>Filtrar</button>
+  <button class="vehicle-btn" on:click={clearFilter}>Limpiar</button>
 </div>
 
 {#if error}
@@ -686,8 +996,11 @@
 
 <!-- Tabs -->
 <div class="tab-bar">
+  <button class="tab-btn" class:active={activeTab === 'estadisticas'} on:click={() => switchTab('estadisticas')}>
+    Estadísticas
+  </button>
   <button class="tab-btn" class:active={activeTab === 'registros'} on:click={() => switchTab('registros')}>
-    Registros ({latestFuelLogs.length} activos)
+    Registros
   </button>
   <button class="tab-btn" class:active={activeTab === 'ranking'} on:click={() => switchTab('ranking')}>
     Ranking
@@ -695,15 +1008,7 @@
   <button class="tab-btn" class:active={activeTab === 'anomalias'} on:click={() => switchTab('anomalias')}>
     Anomalías {#if (dashboard?.anomalyCount ?? 0) > 0}({dashboard.anomalyCount}){/if}
   </button>
-  <button class="tab-btn" class:active={activeTab === 'estadisticas'} on:click={() => switchTab('estadisticas')}>
-    Estadísticas
-  </button>
-  <button class="tab-btn" class:active={activeTab === 'facturas'} on:click={() => switchTab('facturas')}>
-    Facturas {#if fuelLogs.filter(r => r.invoiceStatus === 'PENDING_REVIEW').length > 0}
-      ({fuelLogs.filter(r => r.invoiceStatus === 'PENDING_REVIEW').length} pendientes)
-    {/if}
-  </button>
-  {#if isAdmin}
+  {#if isAdmin || isSupervisorOperativo}
     <button class="tab-btn" class:active={activeTab === 'estaciones'} on:click={() => switchTab('estaciones')}>
       Estaciones
     </button>
@@ -730,6 +1035,7 @@
         on:action={handleGridAction}
         on:pageChange={e => { regPage = e.detail; }}
         on:sizeChange={e => { regPageSize = e.detail; regPage = 0; }}
+        showDeleteButton={isAdmin}
       />
     {/if}
 
@@ -740,79 +1046,15 @@
     {:else if rankingData.length === 0}
       <div class="empty-msg">Sin datos de ranking para el período seleccionado.</div>
     {:else}
-      {@const maxGallons = Math.max(...rankingData.map(r => r.quantityGallons ?? 0))}
-      <p class="tab-section-title">
-        Ranking de eficiencia — del menos eficiente al más eficiente ({rankingData.length} activos)
-        {#if filterFrom || filterTo} · {filterFrom || '…'} → {filterTo || '…'}{/if}
-      </p>
-      <table class="rank-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Tipo</th>
-            <th>Placa / Nombre</th>
-            <th>Galones totales</th>
-            <th>Consumo relativo</th>
-            <th>Costo total</th>
-            <th title="Eficiencia según el fabricante">Efic. Fábrica</th>
-            <th title="Eficiencia calculada en base a los registros de combustible">Efic. Estimada</th>
-            <th>Últ. carga</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each rankPagedData as row, i}
-            {@const globalIndex = rankPage * rankPageSize + i}
-            {@const pct = maxGallons > 0 ? ((row.quantityGallons ?? 0) / maxGallons) * 100 : 0}
-            {@const factoryUnit = row.factoryEfficiencyUnit === 'KM_PER_GALLON' ? 'km/Gal'
-              : row.factoryEfficiencyUnit === 'KM_PER_CUBIC_METER' ? 'km/m³'
-              : row.factoryEfficiencyUnit === 'GAL_PER_HOUR' ? 'Gal/h'
-              : row.factoryEfficiencyUnit === 'M3_PER_HOUR' ? 'm³/h'
-              : ''}
-            {@const factoryLabel = row.factoryEfficiency != null ? `${fmtNum(row.factoryEfficiency, 2)} ${factoryUnit}` : '—'}
-            {@const estimatedLabel = fmtEfficiency(row)}
-            {@const belowFactory = row.factoryEfficiency != null && row.efficiencyValue != null
-              && row.factoryEfficiencyUnit === 'KM_PER_GALLON'
-              && Number(row.efficiencyValue) < Number(row.factoryEfficiency)}
-            <tr>
-              <td class="rank-pos {globalIndex === 0 ? 'rank-1' : globalIndex === 1 ? 'rank-2' : globalIndex === 2 ? 'rank-3' : ''}">
-                {globalIndex + 1}
-              </td>
-              <td>{row.assetType ?? '—'}</td>
-              <td>{row.assetPlate ?? `ID ${row.assetId}`}</td>
-              <td style="text-align:right">{fmtNum(row.quantityGallons, 3)} Gal</td>
-              <td class="bar-cell">
-                <div class="bar-wrap">
-                  <div class="bar-bg">
-                    <div class="bar-fill" style="width:{pct.toFixed(1)}%"></div>
-                  </div>
-                  <span class="bar-label">{pct.toFixed(0)}%</span>
-                </div>
-              </td>
-              <td style="text-align:right">{fmtCurrency(row.totalCostCalculated)}</td>
-              <td style="text-align:right; color:#555">{factoryLabel}</td>
-              <td style="text-align:right; font-weight:bold; color:{belowFactory ? '#c00' : estimatedLabel === '—' ? '#999' : '#1a5c1a'}">
-                {estimatedLabel}{#if belowFactory} ↓{/if}
-              </td>
-              <td>{fmtDate(row.fuelDateTime)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-      <div class="tbl-footer">
-        <span class="record-count">
-          Mostrando {rankPagedData.length} de {rankingData.length} registros
-        </span>
-        <div class="pagination-controls">
-          <select value={rankPageSize} on:change={e => { rankPageSize = +e.target.value; rankPage = 0; }}>
-            {#each [10, 20, 50] as s}<option value={s}>Mostrar {s}</option>{/each}
-          </select>
-          <button on:click={() => rankPage = 0}               disabled={rankPage === 0}>« Primero</button>
-          <button on:click={() => rankPage -= 1}              disabled={rankPage === 0}>‹ Anterior</button>
-          <span>Página <strong>{rankPage + 1} de {rankTotalPages}</strong></span>
-          <button on:click={() => rankPage += 1}              disabled={rankPage >= rankTotalPages - 1}>Siguiente ›</button>
-          <button on:click={() => rankPage = rankTotalPages - 1} disabled={rankPage >= rankTotalPages - 1}>Último »</button>
-        </div>
-      </div>
+      <DataGrid
+        columns={rankingColumns}
+        data={rankingEnriched}
+        totalElements={rankingEnriched.length}
+        totalPages={Math.max(1, Math.ceil(rankingEnriched.length / 20))}
+        currentPage={0}
+        pageSize={20}
+        showPagination={true}
+      />
     {/if}
 
   <!-- ── TAB: ANOMALÍAS ─────────────────────────────────────────────────────── -->
@@ -822,9 +1064,11 @@
     {:else if anomaliesData.length === 0}
       <div class="empty-msg">✓ No hay registros marcados como anómalos.</div>
     {:else}
-      <p class="tab-section-title">
-        {anomaliesData.length} registro{anomaliesData.length !== 1 ? 's' : ''} con consumo anómalo detectados
-      </p>
+      <div class="fuel-toolbar">
+        <span class="fuel-toolbar-label">
+          {anomaliesData.length} registro{anomaliesData.length !== 1 ? 's' : ''} con consumo anómalo detectados
+        </span>
+      </div>
       <!-- Panel de dismiss activo -->
       {#if dismissRow}
         <div class="dismiss-panel">
@@ -848,514 +1092,254 @@
         </div>
       {/if}
 
-      <table class="ano-table">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Tipo</th>
-            <th>Placa / Nombre</th>
-            <th>Combustible</th>
-            <th>Galones</th>
-            <th>Total</th>
-            <th>Eficiencia</th>
-            <th>Odómetro km</th>
-            <th>Horómetro h</th>
-            <th>Estación</th>
-            <th>Registrado por</th>
-            <th>Recibo</th>
-            {#if isAdmin}<th>Acciones</th>{/if}
-          </tr>
-        </thead>
-        <tbody>
-          {#each anomPagedData as row}
-            <tr>
-              <td>{fmtDate(row.fuelDateTime)}</td>
-              <td>{row.assetType ?? '—'}</td>
-              <td>{row.assetPlate ?? `ID ${row.assetId}`}</td>
-              <td>{row.fuelType ?? '—'}</td>
-              <td style="text-align:right">{fmtNum(row.quantityGallons, 3)} Gal</td>
-              <td style="text-align:right">
-                {fmtCurrency(row.totalCostCalculated)}
-                {#if row.totalCostMismatch}
-                  <span style="color:#c00;font-size:10px"> ⚠ declarado: {fmtCurrency(row.totalCostActual)}</span>
-                {/if}
-              </td>
-              <td><span class="badge-warn">⚠ {fmtEfficiency(row)}</span></td>
-              <td>{row.odometerKm ?? '—'}</td>
-              <td>{row.hourMeter ?? '—'}</td>
-              <td>{row.serviceStation ?? '—'}</td>
-              <td>{row.registeredBy ?? '—'}</td>
-              <td>
-                {#if row.invoicePhotoUrl}
-                  <a href={row.invoicePhotoUrl.startsWith('http') ? row.invoicePhotoUrl : `${window.location.origin}/${row.invoicePhotoUrl}`}
-                     target="_blank" rel="noopener noreferrer"
-                     class="inv-photo-link">Ver recibo</a>
-                {:else}
-                  <span style="color:#999;font-size:10px">Sin recibo</span>
-                {/if}
-              </td>
-              {#if isAdmin}
-                <td>
-                  <button class="dismiss-btn"
-                    on:click={() => { dismissRow = row; dismissReason = ''; dismissCost = ''; }}>
-                    Quitar anomalía
-                  </button>
-                </td>
-              {/if}
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-      <div class="tbl-footer">
-        <span class="record-count">
-          Mostrando {anomPagedData.length} de {anomaliesData.length} registros
-        </span>
-        <div class="pagination-controls">
-          <select value={anomPageSize} on:change={e => { anomPageSize = +e.target.value; anomPage = 0; }}>
-            {#each [10, 20, 50] as s}<option value={s}>Mostrar {s}</option>{/each}
-          </select>
-          <button on:click={() => anomPage = 0}               disabled={anomPage === 0}>« Primero</button>
-          <button on:click={() => anomPage -= 1}              disabled={anomPage === 0}>‹ Anterior</button>
-          <span>Página <strong>{anomPage + 1} de {anomTotalPages}</strong></span>
-          <button on:click={() => anomPage += 1}              disabled={anomPage >= anomTotalPages - 1}>Siguiente ›</button>
-          <button on:click={() => anomPage = anomTotalPages - 1} disabled={anomPage >= anomTotalPages - 1}>Último »</button>
-        </div>
-      </div>
+      <DataGrid
+        columns={anomalyColumns}
+        data={anomaliesEnriched}
+        totalElements={anomaliesEnriched.length}
+        totalPages={Math.max(1, Math.ceil(anomaliesEnriched.length / 20))}
+        currentPage={0}
+        pageSize={20}
+        showPagination={true}
+        on:action={e => {
+          if (e.detail.type === 'dismiss_anomaly') {
+            dismissRow = e.detail.data; dismissReason = ''; dismissCost = '';
+          }
+        }}
+      />
     {/if}
 
   <!-- ── TAB: ESTADÍSTICAS ─────────────────────────────────────────────────── -->
   {:else if activeTab === 'estadisticas'}
+    <!-- Selector de período propio -->
+    <div class="stats-period-toolbar">
+      <span class="stats-period-label">Ver período:</span>
+      {#each [
+        { key: 'historico',  label: 'Histórico completo' },
+        { key: 'anio',       label: 'Último año' },
+        { key: 'semestre',   label: 'Últimos 6 meses' },
+        { key: 'trimestre',  label: 'Último trimestre' },
+        { key: 'periodo',    label: 'Rango del filtro' },
+      ] as opt}
+        <button class="stats-period-btn" class:active={statsMode === opt.key}
+          on:click={() => setStatsMode(opt.key)}>
+          {opt.label}
+        </button>
+      {/each}
+    </div>
+
     {#if statsLoading}
       <div class="loader-container"><Loader /><p>Calculando estadísticas...</p></div>
     {:else if statsData.length === 0}
       <div class="empty-msg">
-        Sin datos para el período seleccionado.<br>
-        <small>Registra cargas de combustible para ver estadísticas.</small>
+        Sin registros para el período seleccionado.<br>
+        <small>Prueba con "Histórico completo" o registra cargas de combustible.</small>
       </div>
     {:else}
 
-      <!-- ── Sección 1: Resumen general ──────────────────────────────────── -->
-      <div class="stats-section-header">
-        <span class="stats-section-icon">📊</span>
-        <div>
-          <div class="stats-section-title">Resumen del período</div>
-          <div class="stats-section-sub">
-            {statsData.length} mes{statsData.length !== 1 ? 'es' : ''} analizados
-            {#if filterFrom || filterTo}· {filterFrom || '…'} → {filterTo || '…'}{/if}
-          </div>
-        </div>
-      </div>
-
-      <!-- Fila 1: totales generales -->
-      <div class="kpi-row">
-        <div class="kpi-card kpi-accent-blue">
-          <div class="kpi-icon-badge" style="background:#dbeafe;color:#1d4ed8">$</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Gasto total del período</div>
-            <div class="kpi-value">{fmtCurrency(grandTotalCost)}</div>
-            <div class="kpi-sub">{fmtNum(grandTotalGallons, 1)} galones consumidos</div>
-          </div>
-        </div>
-        <div class="kpi-card kpi-accent-green">
-          <div class="kpi-icon-badge" style="background:#dcfce7;color:#15803d">≈</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Promedio mensual</div>
-            <div class="kpi-value">{fmtCurrency(avgMonthlyCost)}</div>
-            <div class="kpi-sub">{fmtNum(grandTotalGallons / (statsData.length || 1), 1)} Gal / mes</div>
-          </div>
-        </div>
-        <div class="kpi-card kpi-accent-orange">
-          <div class="kpi-icon-badge" style="background:#ffedd5;color:#c2410c">▲</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Mes de mayor gasto</div>
-            <div class="kpi-value" style="font-size:15px">{peakMonth?.monthLabel ?? '—'}</div>
-            <div class="kpi-sub">{fmtCurrency(peakMonth?.totalCost)} · {peakMonth?.totalLoads ?? 0} cargas</div>
-          </div>
-        </div>
-        <div class="kpi-card {totalAnomalies > 0 ? 'kpi-accent-red' : 'kpi-accent-gray'}">
-          <div class="kpi-icon-badge" style="background:{totalAnomalies > 0 ? '#fee2e2' : '#f3f4f6'};color:{totalAnomalies > 0 ? '#b91c1c' : '#6b7280'}">⚠</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Anomalías detectadas</div>
-            <div class="kpi-value" style="color:{totalAnomalies > 0 ? '#b91c1c' : '#374151'}">{totalAnomalies}</div>
-            <div class="kpi-sub">{totalAnomalies > 0 ? 'Requieren revisión' : 'Sin irregularidades'}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Fila 2: desglose por flota -->
-      <div class="fleet-breakdown">
-        <div class="fleet-card">
-          <div class="fleet-header">
-            <span class="fleet-dot" style="background:#4a7fc4"></span>
-            <span class="fleet-name">Maquinaria pesada</span>
-            <span class="fleet-pct">{grandTotalCost > 0 ? ((totalMachineCost/grandTotalCost)*100).toFixed(1) : 0}%</span>
-          </div>
-          <div class="fleet-value">{fmtCurrency(totalMachineCost)}</div>
-          <div class="fleet-bar-track">
-            <div class="fleet-bar-fill" style="width:{grandTotalCost > 0 ? ((totalMachineCost/grandTotalCost)*100).toFixed(1) : 0}%;background:#4a7fc4"></div>
-          </div>
-          <div class="fleet-sub">{fmtNum(statsData.reduce((a,m)=>a+(m.machineGallons??0),0),1)} Gal · {statsData.reduce((a,m)=>a+m.machineLoads,0)} cargas</div>
-        </div>
-        <div class="fleet-card">
-          <div class="fleet-header">
-            <span class="fleet-dot" style="background:#4aaa6a"></span>
-            <span class="fleet-name">Vehículos</span>
-            <span class="fleet-pct">{grandTotalCost > 0 ? ((totalVehicleCost/grandTotalCost)*100).toFixed(1) : 0}%</span>
-          </div>
-          <div class="fleet-value">{fmtCurrency(totalVehicleCost)}</div>
-          <div class="fleet-bar-track">
-            <div class="fleet-bar-fill" style="width:{grandTotalCost > 0 ? ((totalVehicleCost/grandTotalCost)*100).toFixed(1) : 0}%;background:#4aaa6a"></div>
-          </div>
-          <div class="fleet-sub">{fmtNum(statsData.reduce((a,m)=>a+(m.vehicleGallons??0),0),1)} Gal · {statsData.reduce((a,m)=>a+m.vehicleLoads,0)} cargas</div>
-        </div>
-        <div class="fleet-card">
-          <div class="fleet-header">
-            <span class="fleet-dot" style="background:#e08030"></span>
-            <span class="fleet-name">Motocicletas</span>
-            <span class="fleet-pct">{grandTotalCost > 0 ? ((totalMotoCost/grandTotalCost)*100).toFixed(1) : 0}%</span>
-          </div>
-          <div class="fleet-value">{fmtCurrency(totalMotoCost)}</div>
-          <div class="fleet-bar-track">
-            <div class="fleet-bar-fill" style="width:{grandTotalCost > 0 ? ((totalMotoCost/grandTotalCost)*100).toFixed(1) : 0}%;background:#e08030"></div>
-          </div>
-          <div class="fleet-sub">{fmtNum(statsData.reduce((a,m)=>a+(m.motoGallons??0),0),1)} Gal · {statsData.reduce((a,m)=>a+m.motoLoads,0)} cargas</div>
-        </div>
-      </div>
-
-      <!-- ── Sección 2: Gráfico de barras ────────────────────────────────── -->
-      <div class="stats-section-header">
-        <span class="stats-section-icon">📅</span>
-        <div>
-          <div class="stats-section-title">Gasto mensual por tipo de flota</div>
-          <div class="stats-section-sub">Cada barra muestra cuánto gastó cada tipo de activo en el mes</div>
-        </div>
-      </div>
-      <div class="chart-box" style="margin-bottom:14px">
-        <svg class="chart" viewBox="0 0 {BAR_TOTAL_W} {CHART_H + BAR_PAD.top + BAR_PAD.bottom}">
-          {#each [0.25, 0.5, 0.75, 1] as pct}
-            {@const y = BAR_PAD.top + CHART_H * (1 - pct)}
-            <line class="grid-line" x1={BAR_PAD.left} x2={BAR_TOTAL_W - BAR_PAD.right} y1={y} y2={y} />
-            <text class="axis-label" x={BAR_PAD.left - 4} y={y + 3} text-anchor="end">
-              {fmtCurrency(maxMonthCost * pct)}
-            </text>
+      <!-- INSIGHTS — hallazgos automáticos accionables -->
+      {#if statsInsights.length > 0}
+        <div class="insights-strip">
+          {#each statsInsights as ins}
+            <div class="insight-chip insight-{ins.type}">
+              <span class="insight-icon">{ins.icon}</span>
+              <span>{ins.text}</span>
+            </div>
           {/each}
-          {#each statsData as month, i}
-            {@const x        = BAR_PAD.left + i * (BAR_W + BAR_GAP)}
-            {@const hMachine = ((month.machineCost ?? 0) / maxMonthCost) * CHART_H}
-            {@const hVehicle = ((month.vehicleCost ?? 0) / maxMonthCost) * CHART_H}
-            {@const hMoto    = ((month.motoCost    ?? 0) / maxMonthCost) * CHART_H}
-            {@const totalH   = hMachine + hVehicle + hMoto}
-            {@const isPeak   = month.monthLabel === peakMonth?.monthLabel && month.year === peakMonth?.year}
-            {#if isPeak}
-              <rect x={x - 2} y={BAR_PAD.top} width={BAR_W + 4} height={CHART_H}
-                fill="#fef9c3" rx="2" opacity="0.6"/>
-            {/if}
-            <rect class="bar-moto"    x={x} y={BAR_PAD.top + CHART_H - hMoto}              width={BAR_W} height={hMoto}    rx="0" />
-            <rect class="bar-vehicle" x={x} y={BAR_PAD.top + CHART_H - hMoto - hVehicle}    width={BAR_W} height={hVehicle} rx="0" />
-            <rect class="bar-machine" x={x} y={BAR_PAD.top + CHART_H - totalH}              width={BAR_W} height={hMachine} rx="3" ry="3" />
-            {#if totalH > 8}
-              <text class="bar-total-label" x={x + BAR_W / 2} y={BAR_PAD.top + CHART_H - totalH - 4} text-anchor="middle">
-                {fmtCurrency(month.totalCost)}
-              </text>
-            {/if}
-            <text class="axis-label" x={x + BAR_W / 2} y={BAR_PAD.top + CHART_H + 14} text-anchor="middle">{month.monthLabel.slice(0, 3)}</text>
-            <text class="axis-label" x={x + BAR_W / 2} y={BAR_PAD.top + CHART_H + 25} text-anchor="middle">{month.year}</text>
-          {/each}
-        </svg>
-        <div class="legend">
-          <div class="legend-item"><span class="legend-dot" style="background:#4a7fc4"></span>Maquinaria</div>
-          <div class="legend-item"><span class="legend-dot" style="background:#4aaa6a"></span>Vehículos</div>
-          <div class="legend-item"><span class="legend-dot" style="background:#e08030"></span>Motos</div>
-          <div class="legend-item"><span style="display:inline-block;width:10px;height:10px;background:#fef9c3;border:1px solid #ca8a04"></span>Mes pico</div>
         </div>
-      </div>
+      {/if}
 
-      <!-- ── Sección 3: Tendencia + Distribución ─────────────────────────── -->
-      <div class="stats-section-header">
-        <span class="stats-section-icon">📈</span>
-        <div>
-          <div class="stats-section-title">Tendencia de consumo y distribución</div>
-          <div class="stats-section-sub">Evolución de galones mes a mes y proporción del gasto por flota</div>
+      <!-- PANEL 1 — Resumen ejecutivo -->
+      <div class="stats-panel">
+        <div class="stats-panel-header">
+          Resumen — {statsData.length} mes{statsData.length !== 1 ? 'es' : ''} · {statsData.reduce((a,m)=>a+m.totalLoads,0)} cargas
+          {#if statsMode==='historico'}<span class="stats-mode-badge">Histórico completo</span>
+          {:else if statsMode==='anio'}<span class="stats-mode-badge">Último año</span>
+          {:else if statsMode==='semestre'}<span class="stats-mode-badge">Últimos 6 meses</span>
+          {:else if statsMode==='trimestre'}<span class="stats-mode-badge">Último trimestre</span>
+          {:else if filterFrom||filterTo}<span class="stats-mode-badge">{filterFrom||'…'} → {filterTo||'…'}</span>
+          {/if}
         </div>
-      </div>
-      <div class="charts-row-2" style="margin-bottom:14px">
-        <div class="chart-box">
-          <div class="chart-title">Galones consumidos por mes</div>
-          <svg class="chart" viewBox="0 0 {LINE_W} {LINE_H + LINE_P.top + LINE_P.bottom}">
-            {#each [0.25, 0.5, 0.75, 1] as pct}
-              {@const y = LINE_P.top + LINE_H * (1 - pct)}
-              <line class="grid-line" x1={LINE_P.left} x2={LINE_W - LINE_P.right} y1={y} y2={y} />
-              <text class="axis-label" x={LINE_P.left - 4} y={y + 3} text-anchor="end">
-                {fmtNum(maxMonthGallons * pct, 0)} Gal
-              </text>
-            {/each}
-            {#if statsData.length > 1}
-              {@const step  = (LINE_W - LINE_P.left - LINE_P.right) / (statsData.length - 1)}
-              {@const pts   = statsData.map((m, i) => `${LINE_P.left + i * step},${LINE_P.top + LINE_H * (1 - (m.totalGallons ?? 0) / maxMonthGallons)}`).join(' ')}
-              {@const baseY = LINE_P.top + LINE_H}
-              <polygon points="{LINE_P.left},{baseY} {pts} {LINE_P.left + (statsData.length - 1) * step},{baseY}"
-                fill="#5a4fa0" opacity="0.12" />
-              <polyline class="line-total" points={pts} />
-              {#each statsData as month, i}
-                {@const x = LINE_P.left + i * step}
-                {@const y = LINE_P.top + LINE_H * (1 - (month.totalGallons ?? 0) / maxMonthGallons)}
-                <circle class="dot-total" cx={x} cy={y} r="4" />
-                <text class="axis-label" x={x} y={LINE_P.top + LINE_H + 14} text-anchor="middle">{month.monthLabel.slice(0,3)}</text>
-                <text class="axis-label" x={x} y={LINE_P.top + LINE_H + 25} text-anchor="middle">{month.year}</text>
-              {/each}
-            {:else}
-              {@const m = statsData[0]}
-              <circle class="dot-total" cx={LINE_W / 2} cy={LINE_P.top + LINE_H * 0.4} r="5" />
-              <text class="axis-label" x={LINE_W / 2} y={LINE_P.top + LINE_H + 14} text-anchor="middle">{m.monthLabel}</text>
-            {/if}
-          </svg>
-        </div>
-        <div class="chart-box">
-          <div class="chart-title">¿Dónde va el presupuesto de combustible?</div>
-          <div class="donut-wrap">
-            {#if grandTotalCost > 0}
-              {@const R = 78}
-              {@const CX = 110} {@const CY = 100}
-              {@const CIRC = 2 * Math.PI * R}
-              {@const pMachine = totalMachineCost / grandTotalCost}
-              {@const pVehicle = totalVehicleCost / grandTotalCost}
-              {@const pMoto    = totalMotoCost    / grandTotalCost}
-              {@const dMachine = pMachine * CIRC}
-              {@const dVehicle = pVehicle * CIRC}
-              {@const dMoto    = pMoto    * CIRC}
-              <svg viewBox="0 0 220 200" style="width:100%;max-width:220px">
-                <circle cx={CX} cy={CY} r={R} fill="none" stroke="#4a7fc4" stroke-width="32"
-                  stroke-dasharray="{dMachine} {CIRC}" stroke-dashoffset={0}
-                  transform="rotate(-90 {CX} {CY})" />
-                <circle cx={CX} cy={CY} r={R} fill="none" stroke="#4aaa6a" stroke-width="32"
-                  stroke-dasharray="{dVehicle} {CIRC}" stroke-dashoffset={-(dMachine)}
-                  transform="rotate(-90 {CX} {CY})" />
-                <circle cx={CX} cy={CY} r={R} fill="none" stroke="#e08030" stroke-width="32"
-                  stroke-dasharray="{dMoto} {CIRC}" stroke-dashoffset={-(dMachine + dVehicle)}
-                  transform="rotate(-90 {CX} {CY})" />
-                <circle cx={CX} cy={CY} r={R - 16} fill="#f5f5f5" />
-                <text x={CX} y={CY - 8}  text-anchor="middle" font-size="10" fill="#666">Total</text>
-                <text x={CX} y={CY + 8}  text-anchor="middle" font-size="9"  fill="#222" font-weight="bold">{fmtCurrency(grandTotalCost)}</text>
+        <div class="stats-panel-body">
+
+          <!-- KPIs principales -->
+          <div class="kpi-row">
+            <div class="kpi-card kpi-accent-blue">
+              <div class="kpi-label">Gasto total</div>
+              <div class="kpi-value">{fmtCurrency(grandTotalCost)}</div>
+              <div class="kpi-sub">{fmtNum(grandTotalGallons,1)} Gal · {statsData.reduce((a,m)=>a+m.totalLoads,0)} cargas</div>
+              <svg width="100%" height="20" class="kpi-spark" preserveAspectRatio="none" viewBox="0 0 60 20">
+                <polyline points={sparkCostPts} fill="none" stroke="#4a7fc4" stroke-width="1.5" stroke-linejoin="round"/>
               </svg>
-            {/if}
-            <div class="donut-legend">
-              {#each [['#4a7fc4','Maquinaria',totalMachineCost],['#4aaa6a','Vehículos',totalVehicleCost],['#e08030','Motos',totalMotoCost]] as [color, label, cost]}
-                <div class="donut-row">
-                  <span>
-                    <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:{color};margin-right:4px;vertical-align:middle"></span>
-                    {label}
+            </div>
+            <div class="kpi-card kpi-accent-green">
+              <div class="kpi-label">Promedio mensual</div>
+              <div class="kpi-value">{fmtCurrency(avgMonthlyCost)}</div>
+              <div class="kpi-sub">Base para proyecciones y comparativas</div>
+            </div>
+            <div class="kpi-card {costTrendPct!==null?(costTrendPct>8?'kpi-accent-red':costTrendPct<-8?'kpi-accent-green':'kpi-accent-gray'):'kpi-accent-gray'}">
+              <div class="kpi-label">Tendencia (últimas 2 semanas)</div>
+              <div class="kpi-value" style="font-size:24px">
+                {#if costTrendPct!==null}
+                  <span style="color:{costTrendPct>8?'#b91c1c':costTrendPct<-8?'#15803d':costTrendPct>3?'#d97706':'#374151'}">
+                    {costTrendPct>0?'↑':'↓'} {Math.abs(costTrendPct).toFixed(1)}%
                   </span>
-                  <span>
-                    <b>{grandTotalCost > 0 ? ((cost/grandTotalCost)*100).toFixed(1) : 0}%</b>
-                    <span class="donut-amount">{fmtCurrency(cost)}</span>
-                  </span>
-                </div>
-              {/each}
+                {:else}<span style="color:#999">—</span>{/if}
+              </div>
+              <div class="kpi-sub" style="font-size:10px">{costTrendPct!==null?(costTrendPct>8?'⚠ Gasto elevado':costTrendPct<-8?'✓ Buen control':'Variación normal'):''}</div>
+            </div>
+            <div class="kpi-card kpi-accent-orange">
+              <div class="kpi-label">Proyección próximo mes</div>
+              <div class="kpi-value">{fmtCurrency(projectedNextMonth)}</div>
+              <div class="kpi-sub">
+                vs promedio {#if Math.abs(projectedVsAvgPct)>3}<span style="color:{projectedVsAvgPct>0?'#c0392b':'#15803d'}"> {projectedVsAvgPct>0?'+':''}{projectedVsAvgPct.toFixed(1)}%</span>{:else}similar{/if}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ── Sección 4: Tabla detallada ──────────────────────────────────── -->
-      <div class="stats-section-header">
-        <span class="stats-section-icon">📋</span>
-        <div>
-          <div class="stats-section-title">Detalle mensual</div>
-          <div class="stats-section-sub">Galones y costos desglosados por tipo de activo — el mes resaltado es el de mayor gasto</div>
-        </div>
-      </div>
-      <div class="stats-table-wrap">
-        <table class="stats-table">
-          <thead>
-            <tr>
-              <th rowspan="2" class="st-month">Mes</th>
-              <th rowspan="2" class="st-center">Cargas</th>
-              <th rowspan="2" class="st-right">Galones</th>
-              <th rowspan="2" class="st-right">Costo total</th>
-              <th colspan="2" class="st-group st-machine">Maquinaria</th>
-              <th colspan="2" class="st-group st-vehicle">Vehículos</th>
-              <th colspan="2" class="st-group st-moto">Motos</th>
-              <th rowspan="2" class="st-center">Anomalías</th>
-            </tr>
-            <tr>
-              <th class="st-right st-machine">Gal</th><th class="st-right st-machine">Costo</th>
-              <th class="st-right st-vehicle">Gal</th><th class="st-right st-vehicle">Costo</th>
-              <th class="st-right st-moto">Gal</th><th class="st-right st-moto">Costo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each statsData as m}
-              {@const isPeak = m.monthLabel === peakMonth?.monthLabel && m.year === peakMonth?.year}
-              <tr class:st-peak-row={isPeak}>
-                <td class="st-month-cell">
-                  {m.monthLabel}
-                  {#if isPeak}<span class="st-peak-badge">pico</span>{/if}
-                </td>
-                <td class="st-center">{m.totalLoads}</td>
-                <td class="st-right">{fmtNum(m.totalGallons, 2)}</td>
-                <td class="st-right st-bold">{fmtCurrency(m.totalCost)}</td>
-                <td class="st-right">{fmtNum(m.machineGallons, 2)}</td>
-                <td class="st-right">{fmtCurrency(m.machineCost)}</td>
-                <td class="st-right">{fmtNum(m.vehicleGallons, 2)}</td>
-                <td class="st-right">{fmtCurrency(m.vehicleCost)}</td>
-                <td class="st-right">{fmtNum(m.motoGallons, 2)}</td>
-                <td class="st-right">{fmtCurrency(m.motoCost)}</td>
-                <td class="st-center">
-                  {#if m.anomalyCount > 0}
-                    <span class="st-anomaly-badge">⚠ {m.anomalyCount}</span>
-                  {:else}
-                    <span class="st-ok">✓</span>
+      <!-- PANEL 2 — Gráfico de gasto mensual -->
+      <div class="stats-panel">
+        <div class="stats-panel-header">Evolución de gasto por flota</div>
+        <div class="stats-panel-body">
+          <div class="chart-box">
+            <div class="chart-title">Gasto mensual — línea punteada = promedio ({fmtCurrency(avgMonthlyCost)})</div>
+              <svg class="chart" viewBox="0 0 {BAR_TOTAL_W} {CHART_H + BAR_PAD.top + BAR_PAD.bottom}">
+                {#each [0.25,0.5,0.75,1] as pct}
+                  {@const y = BAR_PAD.top+CHART_H*(1-pct)}
+                  <line class="grid-line" x1={BAR_PAD.left} x2={BAR_TOTAL_W-BAR_PAD.right} y1={y} y2={y}/>
+                  <text class="axis-label" x={BAR_PAD.left-4} y={y+3} text-anchor="end">{fmtCurrency(maxMonthCost*pct)}</text>
+                {/each}
+                <line x1={BAR_PAD.left} x2={BAR_TOTAL_W-BAR_PAD.right} y1={barAvgY} y2={barAvgY} stroke="#888" stroke-width="1.5" stroke-dasharray="5,3"/>
+                <text fill="#888" font-size="9" x={BAR_PAD.left+4} y={barAvgY-3} font-style="italic">Prom. {fmtCurrency(avgMonthlyCost)}</text>
+                {#each statsData as month, i}
+                  {@const x = BAR_PAD.left+i*(BAR_W+BAR_GAP)}
+                  {@const hM = ((month.machineCost??0)/maxMonthCost)*CHART_H}
+                  {@const hV = ((month.vehicleCost??0)/maxMonthCost)*CHART_H}
+                  {@const hT = ((month.motoCost??0)/maxMonthCost)*CHART_H}
+                  {@const totalH = hM+hV+hT}
+                  {@const isPeak = month.monthLabel===peakMonth?.monthLabel && month.year===peakMonth?.year}
+                  {#if isPeak}<rect x={x-2} y={BAR_PAD.top} width={BAR_W+4} height={CHART_H} fill="#fef9c3" rx="2" opacity="0.7"/>{/if}
+                  <rect class="bar-moto"    x={x} y={BAR_PAD.top+CHART_H-hT}     width={BAR_W} height={hT}/>
+                  <rect class="bar-vehicle" x={x} y={BAR_PAD.top+CHART_H-hT-hV}  width={BAR_W} height={hV}/>
+                  <rect class="bar-machine" x={x} y={BAR_PAD.top+CHART_H-totalH} width={BAR_W} height={hM} rx="2" ry="2"/>
+                  {#if totalH>10}
+                    <text class="bar-total-label" x={x+BAR_W/2} y={BAR_PAD.top+CHART_H-totalH-4} text-anchor="middle">{fmtCurrency(month.totalCost)}</text>
                   {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-          <tfoot>
-            <tr class="st-total-row">
-              <td class="st-bold">TOTAL</td>
-              <td class="st-center st-bold">{statsData.reduce((a,m)=>a+m.totalLoads,0)}</td>
-              <td class="st-right st-bold">{fmtNum(grandTotalGallons, 2)}</td>
-              <td class="st-right st-bold">{fmtCurrency(grandTotalCost)}</td>
-              <td class="st-right">{fmtNum(statsData.reduce((a,m)=>a+(m.machineGallons??0),0),2)}</td>
-              <td class="st-right">{fmtCurrency(totalMachineCost)}</td>
-              <td class="st-right">{fmtNum(statsData.reduce((a,m)=>a+(m.vehicleGallons??0),0),2)}</td>
-              <td class="st-right">{fmtCurrency(totalVehicleCost)}</td>
-              <td class="st-right">{fmtNum(statsData.reduce((a,m)=>a+(m.motoGallons??0),0),2)}</td>
-              <td class="st-right">{fmtCurrency(totalMotoCost)}</td>
-              <td class="st-center st-bold">{statsData.reduce((a,m)=>a+m.anomalyCount,0)}</td>
-            </tr>
-          </tfoot>
-        </table>
+                  <text class="axis-label" x={x+BAR_W/2} y={BAR_PAD.top+CHART_H+13} text-anchor="middle">{month.monthLabel.slice(0,3)}</text>
+                  <text class="axis-label" x={x+BAR_W/2} y={BAR_PAD.top+CHART_H+24} text-anchor="middle">{month.year}</text>
+                {/each}
+              </svg>
+              <div class="legend">
+                <div class="legend-item"><span class="legend-dot" style="background:#4a7fc4"></span>Maquinaria</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#4aaa6a"></span>Vehículos</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#e08030"></span>Motos</div>
+              </div>
+            </div>
+        </div>
       </div>
-    {/if}
 
-  <!-- ── TAB: FACTURAS ─────────────────────────────────────────────────────── -->
-  {:else if activeTab === 'facturas'}
-    <div class="inv-toolbar">
-      <label for="inv-filter">Filtrar por estado:</label>
-      <select id="inv-filter" bind:value={invoiceFilter}>
-        <option value="ALL">Todos ({fuelLogs.length})</option>
-        <option value="PENDING_REVIEW">Pendiente revisión ({fuelLogs.filter(r => r.invoiceStatus === 'PENDING_REVIEW').length})</option>
-        <option value="APPROVED">Aprobadas ({fuelLogs.filter(r => r.invoiceStatus === 'APPROVED').length})</option>
-        <option value="REJECTED">Rechazadas ({fuelLogs.filter(r => r.invoiceStatus === 'REJECTED').length})</option>
-      </select>
-      <span style="color:#666; font-size:10px; margin-left:8px;">
-        {invoiceRows.length} registro{invoiceRows.length !== 1 ? 's' : ''}
-      </span>
-    </div>
-
-    {#if invoiceRows.length === 0}
-      <div class="empty-msg">No hay registros para el filtro seleccionado.</div>
-    {:else}
-      <table class="inv-table">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Tipo</th>
-            <th>Placa / Nombre</th>
-            <th>Galones</th>
-            <th>Total calculado</th>
-            <th>Discrepancia</th>
-            <th>Voucher</th>
-            <th>Estado factura</th>
-            <th>Factura (foto)</th>
-            {#if isAdmin}<th>Acciones</th>{/if}
-          </tr>
-        </thead>
-        <tbody>
-          {#each invPagedData as row}
-            <tr style={row.totalCostMismatch ? 'background:#fff8e0;' : ''}>
-              <td>{fmtDate(row.fuelDateTime)}</td>
-              <td>{row.assetType ?? '—'}</td>
-              <td>{row.assetPlate ?? `ID ${row.assetId}`}</td>
-              <td style="text-align:right">{fmtNum(row.quantityGallons, 3)} Gal</td>
-              <td style="text-align:right">{fmtCurrency(row.totalCostCalculated)}</td>
-              <td>
-                {#if row.totalCostMismatch}
-                  <span class="mismatch-warn" title="El total declarado difiere del calculado qty×precio">
-                    ⚠ declarado: {fmtCurrency(row.totalCostActual)}
-                  </span>
-                {:else}
-                  <span style="color:#4a7a4a; font-size:10px;">✓ ok</span>
-                {/if}
-              </td>
-              <td>{row.voucherNumber ?? '—'}</td>
-              <td>
-                <span class="status-badge status-{row.invoiceStatus ?? 'PENDING_REVIEW'}">
-                  {#if row.invoiceStatus === 'APPROVED'}Aprobada
-                  {:else if row.invoiceStatus === 'REJECTED'}Rechazada
-                  {:else}Pendiente{/if}
-                </span>
-              </td>
-              <td>
-                {#if row.invoicePhotoUrl}
-                  <a
-                    class="inv-photo-link"
-                    href={invoiceUrl(row.invoicePhotoUrl)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >Ver factura</a>
-                  &nbsp;
-                  <label class="inv-upload-label" title="Reemplazar imagen">
-                    ↑
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      disabled={invoiceActionLoading === row.id}
-                      on:change={e => handleInvoiceUpload(row.id, e)}
-                    />
-                  </label>
-                {:else}
-                  <label class="inv-upload-label" title="Subir factura">
-                    {invoiceActionLoading === row.id ? '...' : '↑ Subir'}
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      disabled={invoiceActionLoading === row.id}
-                      on:change={e => handleInvoiceUpload(row.id, e)}
-                    />
-                  </label>
-                {/if}
-              </td>
-              {#if isAdmin}
-                <td style="white-space:nowrap">
-                  <button
-                    class="inv-action-btn inv-approve"
-                    disabled={row.invoiceStatus === 'APPROVED' || invoiceActionLoading === row.id}
-                    on:click={() => handleInvoiceAction(row.id, 'APPROVED')}
-                  >✓ Aprobar</button>
-                  &nbsp;
-                  <button
-                    class="inv-action-btn inv-reject"
-                    disabled={row.invoiceStatus === 'REJECTED' || invoiceActionLoading === row.id}
-                    on:click={() => handleInvoiceAction(row.id, 'REJECTED')}
-                  >✗ Rechazar</button>
-                </td>
-              {/if}
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-      <div class="tbl-footer">
-        <span class="record-count">
-          Mostrando {invPagedData.length} de {invoiceRows.length} registros
-        </span>
-        <div class="pagination-controls">
-          <select value={invPageSize} on:change={e => { invPageSize = +e.target.value; invPage = 0; }}>
-            {#each [10, 20, 50] as s}<option value={s}>Mostrar {s}</option>{/each}
-          </select>
-          <button on:click={() => invPage = 0}               disabled={invPage === 0}>« Primero</button>
-          <button on:click={() => invPage -= 1}              disabled={invPage === 0}>‹ Anterior</button>
-          <span>Página <strong>{invPage + 1} de {invTotalPages}</strong></span>
-          <button on:click={() => invPage += 1}              disabled={invPage >= invTotalPages - 1}>Siguiente ›</button>
-          <button on:click={() => invPage = invTotalPages - 1} disabled={invPage >= invTotalPages - 1}>Último »</button>
+      <!-- PANEL 3 — Tabla histórica completa -->
+      <div class="stats-panel">
+        <div class="stats-panel-header">
+          Histórico mensual completo
+          <span class="stats-mode-badge">Verde = bajo promedio · Naranja = sobre promedio</span>
+        </div>
+        <div class="stats-panel-body" style="padding:0">
+          <div class="stats-table-wrap">
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th rowspan="2" class="st-month">Mes</th>
+                  <th rowspan="2" class="st-center">Cargas</th>
+                  <th rowspan="2" class="st-right">Galones</th>
+                  <th rowspan="2" class="st-right">Costo total</th>
+                  <th rowspan="2" class="st-center">Var. %</th>
+                  <th colspan="2" class="st-group st-machine">Maquinaria</th>
+                  <th colspan="2" class="st-group st-vehicle">Vehículos</th>
+                  <th colspan="2" class="st-group st-moto">Motos</th>
+                  <th rowspan="2" class="st-center">Anom.</th>
+                </tr>
+                <tr>
+                  <th class="st-right st-machine">Gal</th><th class="st-right st-machine">Costo</th>
+                  <th class="st-right st-vehicle">Gal</th><th class="st-right st-vehicle">Costo</th>
+                  <th class="st-right st-moto">Gal</th><th class="st-right st-moto">Costo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each statsPagedData as m}
+                  {@const isPeak = m.monthLabel===peakMonth?.monthLabel&&m.year===peakMonth?.year}
+                  {@const isMin  = minMonth&&m.monthLabel===minMonth.monthLabel&&m.year===minMonth.year}
+                  {@const rowCls = isPeak?'st-peak-row':m.totalCost>avgMonthlyCost*1.12?'st-row-high':m.totalCost<avgMonthlyCost*0.88&&m.totalCost>0?'st-row-low':''}
+                  <tr class={rowCls}>
+                    <td class="st-month-cell">
+                      {m.monthLabel} <span style="color:#999;font-size:10px">{m.year}</span>
+                      {#if isPeak}<span class="st-peak-badge">pico</span>{/if}
+                      {#if isMin}<span class="st-min-badge">mín</span>{/if}
+                    </td>
+                    <td class="st-center">{m.totalLoads}</td>
+                    <td class="st-right">{fmtNum(m.totalGallons,2)}</td>
+                    <td class="st-right st-bold">
+                      {fmtCurrency(m.totalCost)}
+                      <div class="st-cost-bar"><div style="width:{(m.totalCost/maxMonthCost*100).toFixed(1)}%;background:{isPeak?'#ca8a04':'#4a7fc4'}"></div></div>
+                    </td>
+                    <td class="st-center">
+                      {#if m.changeVsPrev!==null}
+                        <span class="st-change" style="color:{m.changeVsPrev>8?'#b91c1c':m.changeVsPrev<-8?'#15803d':m.changeVsPrev>3?'#d97706':'#374151'}">
+                          {m.changeVsPrev>0?'↑':'↓'} {Math.abs(m.changeVsPrev).toFixed(1)}%
+                        </span>
+                      {:else}<span style="color:#bbb">—</span>{/if}
+                    </td>
+                    <td class="st-right">{fmtNum(m.machineGallons,2)}</td>
+                    <td class="st-right">{fmtCurrency(m.machineCost)}</td>
+                    <td class="st-right">{fmtNum(m.vehicleGallons,2)}</td>
+                    <td class="st-right">{fmtCurrency(m.vehicleCost)}</td>
+                    <td class="st-right">{fmtNum(m.motoGallons,2)}</td>
+                    <td class="st-right">{fmtCurrency(m.motoCost)}</td>
+                    <td class="st-center">
+                      {#if m.anomalyCount>0}<span class="st-anomaly-badge">⚠ {m.anomalyCount}</span>
+                      {:else}<span class="st-ok">✓</span>{/if}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+              <tfoot>
+                <tr class="st-total-row">
+                  <td class="st-bold">TOTAL</td>
+                  <td class="st-center st-bold">{statsData.reduce((a,m)=>a+m.totalLoads,0)}</td>
+                  <td class="st-right st-bold">{fmtNum(grandTotalGallons,2)}</td>
+                  <td class="st-right st-bold">{fmtCurrency(grandTotalCost)}</td>
+                  <td></td>
+                  <td class="st-right">{fmtNum(statsData.reduce((a,m)=>a+(m.machineGallons??0),0),2)}</td>
+                  <td class="st-right">{fmtCurrency(totalMachineCost)}</td>
+                  <td class="st-right">{fmtNum(statsData.reduce((a,m)=>a+(m.vehicleGallons??0),0),2)}</td>
+                  <td class="st-right">{fmtCurrency(totalVehicleCost)}</td>
+                  <td class="st-right">{fmtNum(statsData.reduce((a,m)=>a+(m.motoGallons??0),0),2)}</td>
+                  <td class="st-right">{fmtCurrency(totalMotoCost)}</td>
+                  <td class="st-center st-bold">{statsData.reduce((a,m)=>a+m.anomalyCount,0)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          {#if statsTotalPages > 1}
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#e8e8e8; border-top:1px solid #b8b8b8; font-size:11px">
+              <div style="display:flex; gap:4px">
+                <button class="btn" style="padding:4px 12px" disabled={statsCurrentPage === 0} on:click={() => statsCurrentPage = 0}>«</button>
+                <button class="btn" style="padding:4px 12px" disabled={statsCurrentPage === 0} on:click={() => statsCurrentPage--}>‹</button>
+                <span style="padding:0 12px; display:flex; align-items:center; color:#666">Pág {statsCurrentPage + 1} de {statsTotalPages}</span>
+                <button class="btn" style="padding:4px 12px" disabled={statsCurrentPage === statsTotalPages - 1} on:click={() => statsCurrentPage++}>›</button>
+                <button class="btn" style="padding:4px 12px" disabled={statsCurrentPage === statsTotalPages - 1} on:click={() => statsCurrentPage = statsTotalPages - 1}>»</button>
+              </div>
+            </div>
+          {/if}
         </div>
       </div>
     {/if}
+
   {/if}
 
   <!-- ── TAB: ESTACIONES ───────────────────────────────────────────────────── -->
-  {#if activeTab === 'estaciones' && isAdmin}
+  {#if activeTab === 'estaciones' && (isAdmin || isSupervisorOperativo)}
     {#if stationsLoading}
       <div class="loader-container"><Loader /><p>Cargando estaciones...</p></div>
     {:else}
@@ -1409,12 +1393,14 @@
                       on:click={() => { stationEditId = s.id; stationEditName = s.name; }}>
                       Editar
                     </button>
+                    {#if isAdmin}
                     &nbsp;
                     <button class="station-action-btn station-del-btn"
                       disabled={stationActionLoading === s.id}
                       on:click={() => handleDeleteStation(s.id)}>
                       {stationActionLoading === s.id ? '...' : '✕ Eliminar'}
                     </button>
+                    {/if}
                   {/if}
                 </td>
               </tr>
@@ -1443,6 +1429,7 @@
     assetPlate={historialRow.assetPlate}
     logs={historialLogs}
     loading={historialLoading}
+    onInvoiceUpload={handleInvoiceUpload}
     on:close={() => { historialRow = null; historialLogs = []; }}
   />
 {/if}

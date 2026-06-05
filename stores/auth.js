@@ -99,9 +99,10 @@ function createAuthStore() {
 
         const userRole = (decodedPayload.role || '').replace(/[\[\]']+/g, '').replace('ROLE_', '');
 
-        const allowedRoles = ['ADMIN', 'OPERARIO', 'ACEITE', 'MECANIC'];
+        // Web: ADMIN, SUPERVISOR_OPERATIVO. OPERARIO solo usa app móvil.
+        const allowedRoles = ['ADMIN', 'SUPERVISOR_OPERATIVO'];
         if (!allowedRoles.includes(userRole)) {
-          return { success: false, error: 'Acceso denegado' };
+          return { success: false, error: 'Acceso denegado. Usa la app móvil 📱' };
         }
 
         const currentUser = setSession(accessToken, newRefreshToken, decodedPayload);

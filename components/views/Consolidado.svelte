@@ -1,9 +1,13 @@
 <script>
   import { createConsolidadoColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
+  import { auth } from '../../stores/auth.js';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
   import { addNotification } from '../../stores/ui.js';
+
+  $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
+  $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
 
   const distritoColumns = createConsolidadoColumns('Distrito');
   const asociacionColumns = createConsolidadoColumns('Asociación');
@@ -111,19 +115,19 @@
     {:else}
       {#if distritoMachines.length > 0}
         <div class="vehicle-table-wrap vehicle-table-wrap--inset">
-          <DataGrid columns={distritoColumns} data={distritoMachines} fixedLayout={false} on:action={handleGridAction} />
+          <DataGrid columns={distritoColumns} data={distritoMachines} fixedLayout={false} on:action={handleGridAction} showDeleteButton={isAdmin} />
         </div>
       {/if}
       {#if asociacionMachines.length > 0}
         <div class="vehicle-table-wrap vehicle-table-wrap--inset">
-          <DataGrid columns={asociacionColumns} data={asociacionMachines} fixedLayout={false} on:action={handleGridAction} />
+          <DataGrid columns={asociacionColumns} data={asociacionMachines} fixedLayout={false} on:action={handleGridAction} showDeleteButton={isAdmin} />
         </div>
       {/if}
     {/if}
   </div>
 </div>
 
-{#if hourmeterModalOpen && hourmeterRow}
+{#if hourmeterModalOpen && hourmeterRow && (isAdmin || isSupervisorOperativo)}
   <div class="hm-overlay" role="presentation" on:click|self={closeHourmeterModal}>
     <div
       class="vehicle-form-section hm-dialog"

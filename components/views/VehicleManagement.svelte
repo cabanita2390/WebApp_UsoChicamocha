@@ -10,6 +10,7 @@
   import { formatVehiclePayload } from '@/lib/textFormat.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
+  $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
 
   let isSubmitting = false;
   let isExporting = false;
@@ -161,11 +162,10 @@
   /** Vigencias y archivos al alta. */
   let docSoatVencimiento = "";
   let docTecnoVencimiento = "";
-  let docLicenciaVencimiento = "";
+  let docTarjetaPropiedadFile = null;
   let docExtintorMes = "";
   let docSoatFile = null;
   let docTecnoFile = null;
-  let docLicenciaFile = null;
   let docExtintorFile = null;
 
   async function persistVehicleDocument(vid, tipoDocumento, fechaVencimiento, fileList) {
@@ -211,7 +211,8 @@
 
   async function handleDocSubmit(ev) {
     const { tipoDocumento, fechaVencimiento, file } = ev.detail;
-    if (!docVehicleId || !fechaVencimiento) return;
+    const esTarjeta = tipoDocumento === 'TARJETA DE PROPIEDAD';
+    if (!docVehicleId || (!fechaVencimiento && !esTarjeta)) return;
     docModalSubmitting = true;
     try {
       if (file) {
@@ -303,9 +304,14 @@
             await persistVehicleDocument(vid, "TECNOMECANICA", docTecnoVencimiento, docTecnoFile);
             parts.push("Tecnomecánica");
           }
-          if (docLicenciaVencimiento) {
-            await persistVehicleDocument(vid, "LICENCIA DE CONDUCCION", docLicenciaVencimiento, docLicenciaFile);
-            parts.push("Licencia");
+          if (docTarjetaPropiedadFile && docTarjetaPropiedadFile.length) {
+            await data.uploadVehicleDocumentFile({
+              idVehiculo: vid,
+              tipoDocumento: "TARJETA DE PROPIEDAD",
+              fechaVencimiento: null,
+              file: docTarjetaPropiedadFile[0],
+            });
+            parts.push("Tarjeta de propiedad");
           }
           if (docExtintorMes && docExtintorMes.length >= 7) {
             const [y, m] = docExtintorMes.split("-").map(Number);
@@ -325,11 +331,10 @@
       newVehicle = { ...initialVehicleState };
       docSoatVencimiento = "";
       docTecnoVencimiento = "";
-      docLicenciaVencimiento = "";
+      docTarjetaPropiedadFile = null;
       docExtintorMes = "";
       docSoatFile = null;
       docTecnoFile = null;
-      docLicenciaFile = null;
       docExtintorFile = null;
       addNotification({ id: Date.now(), text: "Vehículo creado con éxito." + docExtra });
     } catch (e) {
@@ -367,10 +372,10 @@
     }
   }
 
-  function handleAction(event) {
+  async function handleAction(event) {
     const { type, data: vehicleData } = event.detail;
     if (type === "edit") {
-      openEditModal(vehicleData);
+      await openEditModal(vehicleData);
     } else if (type === "delete") {
       vehicleToDelete = vehicleData;
     } else if (type === "cv") {
@@ -382,21 +387,32 @@
     }
   }
 
-  function openEditModal(vehicle) {
-    vehicleInEditor = {
-      ...vehicle,
-      idMarca: resolveBrandIdFromVehicle(vehicle),
-      idTipoVehiculo: resolveTipoIdFromVehicle(vehicle),
-      idUbicacionBase: (() => {
-        const raw = vehicle.idUbicacionBase;
-        if (raw == null || raw === '') return null;
-        const n = Number(raw);
-        return Number.isNaN(n) ? null : n;
-      })(),
-      belongsTo: vehicle.belongsTo ?? '',
-      activo: vehicle.activo === true || vehicle.activo === 'true' || vehicle.activo === 1 || vehicle.activo === '1',
-    };
-    showEditModal = true;
+  async function openEditModal(vehicle) {
+    try {
+      const fullVehicle = await data.getVehicleByPlaca(vehicle.placa);
+      console.log("🔍 fullVehicle cargado:", fullVehicle);
+      vehicleInEditor = {
+        ...fullVehicle,
+        idMarca: resolveBrandIdFromVehicle(fullVehicle),
+        idTipoVehiculo: resolveTipoIdFromVehicle(fullVehicle),
+        idUbicacionBase: (() => {
+          const raw = fullVehicle.idUbicacionBase;
+          if (raw == null || raw === '') return null;
+          const n = Number(raw);
+          return Number.isNaN(n) ? null : n;
+        })(),
+        belongsTo: (fullVehicle.belongsTo && fullVehicle.belongsTo.trim()) ? fullVehicle.belongsTo.trim().toLowerCase() : 'distrito',
+        activo: fullVehicle.activo !== false && fullVehicle.activo !== 'false' && fullVehicle.activo !== 0 && fullVehicle.activo !== '0',
+        fuelTankCapacityGallons: fullVehicle.fuelTankCapacityGallons ?? null,
+        factoryEfficiencyKmPerGallon: fullVehicle.factoryEfficiencyKmPerGallon ?? null,
+        factoryEfficiencyUnit: fullVehicle.factoryEfficiencyUnit ?? 'KM_PER_GALLON',
+      };
+      console.log("✏️ vehicleInEditor.belongsTo asignado a:", vehicleInEditor.belongsTo);
+      showEditModal = true;
+    } catch (e) {
+      errorMessage = 'No se pudo cargar el vehículo para editar.';
+      addNotification({ id: Date.now(), text: e.message || 'Error al cargar vehículo.' });
+    }
   }
 
   function closeEditModal() {
@@ -473,6 +489,7 @@
         </button>
       </div>
 
+    {#if isAdmin || isSupervisorOperativo}
     <div class="vehicle-form-section">
       <div class="vehicle-subpanel-head">Registrar nuevo vehículo</div>
       <form class="create-form create-form--compact" on:submit={handleCreateVehicle}>
@@ -624,18 +641,14 @@
               <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docTecnoFile} disabled={isSubmitting} />
             </div>
           </label>
-          <label class="field field-doc">
-            <span class="field-lab">Licencia — vence</span>
-            <input type="date" bind:value={docLicenciaVencimiento} disabled={isSubmitting} />
-          </label>
           <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
-            <span class="field-lab">Archivo licencia</span>
+            <span class="field-lab">Tarjeta de propiedad</span>
             <div class="file-upload-win__row" class:file-upload-win__row--disabled={isSubmitting}>
               <div class="file-upload-win__inner">
-                <span class="file-upload-win__name" class:file-upload-win__name--empty={!docLicenciaFile?.length}>{filePickLabel(docLicenciaFile)}</span>
+                <span class="file-upload-win__name" class:file-upload-win__name--empty={!docTarjetaPropiedadFile?.length}>{filePickLabel(docTarjetaPropiedadFile)}</span>
                 <span class="file-upload-win__btn">Examinar…</span>
               </div>
-              <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docLicenciaFile} disabled={isSubmitting} />
+              <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docTarjetaPropiedadFile} disabled={isSubmitting} />
             </div>
           </label>
           <label class="field field-doc">
@@ -663,14 +676,16 @@
         <p class="vehicle-catalog-inline-error">{errorMessage}</p>
       {/if}
     </div>
+    {/if}
 
     <div class="vehicle-table-wrap vehicle-table-wrap--inset">
-      <DataGrid columns={vehicleManagementColumns} data={vehicles} on:action={handleAction} totalElements={vehicles.length} />
+      <DataGrid columns={vehicleManagementColumns} data={vehicles} on:action={handleAction} totalElements={vehicles.length} showDeleteButton={isAdmin} />
     </div>
     </div>
   </div>
 {/if}
 
+{#if isAdmin || isSupervisorOperativo}
 {#if showEditModal}
   <div class="modal-overlay">
     <div class="modal-content" on:click|stopPropagation>
@@ -804,7 +819,9 @@
     </div>
   </div>
 {/if}
+{/if}
 
+{#if isAdmin}
 {#if vehicleToDelete}
   <div class="modal-overlay" on:click={() => vehicleToDelete = null}>
     <div class="modal-content confirmation" on:click|stopPropagation>
@@ -816,6 +833,7 @@
       </div>
     </div>
   </div>
+{/if}
 {/if}
 
 {#if showDocHistoryModal}

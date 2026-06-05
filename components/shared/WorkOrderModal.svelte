@@ -57,7 +57,7 @@
   let workOrderForm = {
     asignadoA: '',
     detalles: '',
-    orderType: 'MECANICO',
+    orderType: '',
     maintenanceType: '',
   };
   let showConfirmation = false;
@@ -127,8 +127,9 @@
       <form class="work-order-form" on:submit={handleSubmit}>
         <div class="form-row">
           <div class="form-group">
-            <label for="orderType">Tipo de Orden:</label>
+            <label for="orderType">Área de trabajo (opcional):</label>
             <select bind:value={workOrderForm.orderType} id="orderType">
+              <option value="">— Sin especificar —</option>
               <option value="MECANICO">Mecánico</option>
               <option value="ELECTRICO">Eléctrico</option>
               <option value="ESTRUCTURAL">Estructural</option>

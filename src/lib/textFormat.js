@@ -59,6 +59,8 @@ export function formatVehiclePayload(v) {
     idUbicacionBase: v.idUbicacionBase ?? null,
     activo: v.activo === true || v.activo === 'true' || v.activo === 1 || v.activo === '1',
     fuelTankCapacityGallons: v.fuelTankCapacityGallons != null && v.fuelTankCapacityGallons !== '' ? Number(v.fuelTankCapacityGallons) : null,
+    factoryEfficiencyKmPerGallon: v.factoryEfficiencyKmPerGallon != null && v.factoryEfficiencyKmPerGallon !== '' ? Number(v.factoryEfficiencyKmPerGallon) : null,
+    factoryEfficiencyUnit: v.factoryEfficiencyUnit ?? null,
   };
 }
 
@@ -81,6 +83,8 @@ export function formatMachinePayload(m) {
     numEngine: normalizeIdCode(m.numEngine) ?? '',
     numInterIdentification: normalizeIdCode(m.numInterIdentification) ?? '',
     fuelTankCapacityGallons: m.fuelTankCapacityGallons != null && m.fuelTankCapacityGallons !== '' ? Number(m.fuelTankCapacityGallons) : null,
+    factoryEfficiencyGalPerHour: m.factoryEfficiencyGalPerHour != null && m.factoryEfficiencyGalPerHour !== '' ? Number(m.factoryEfficiencyGalPerHour) : null,
+    factoryEfficiencyUnit: m.factoryEfficiencyUnit ?? null,
   };
 }
 

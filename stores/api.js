@@ -38,10 +38,12 @@ async function fetchWithAuth(endpoint, options = {}) {
 
     if (!response.ok) {
         let message = (responseText && responseText.trim()) || `Error ${response.status}: ${response.statusText}`;
+        let body = null;
         if (responseText && responseText.trim()) {
             try {
                 const parsed = JSON.parse(responseText);
                 if (parsed && typeof parsed === 'object') {
+                    body = parsed;
                     if (typeof parsed.message === 'string' && parsed.message.trim()) {
                         message = parsed.message.trim();
                     } else if (typeof parsed.error === 'string' && parsed.error.trim()) {
@@ -55,6 +57,7 @@ async function fetchWithAuth(endpoint, options = {}) {
         }
         const err = new Error(message);
         err.status = response.status;
+        err.body = body;
         throw err;
     }
 
@@ -67,6 +70,13 @@ async function fetchWithAuth(endpoint, options = {}) {
     } catch (e) {
         throw new Error("La respuesta del servidor no es un JSON válido.");
     }
+}
+
+export function getFileUrl(relativePath) {
+    if (!relativePath) return null;
+    if (relativePath.startsWith('http')) return relativePath;
+    const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+    return `${BASE_URL}/${relativePath}`;
 }
 
 export default fetchWithAuth;

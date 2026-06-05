@@ -10,6 +10,7 @@
   import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
+  $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
 
   let isSubmitting = false;
   let isExporting = false;
@@ -332,10 +333,10 @@
     }
   }
 
-  function handleAction(event) {
+  async function handleAction(event) {
     const { type, data: row } = event.detail;
     if (type === "edit") {
-      openEditModal(row);
+      await openEditModal(row);
     } else if (type === "delete") {
       motoToDelete = row;
     } else if (type === "cv") {
@@ -347,20 +348,31 @@
     }
   }
 
-  function openEditModal(moto) {
-    motoInEditor = {
-      ...moto,
-      idMarca: resolveBrandIdFromMoto(moto),
-      idUbicacionBase: (() => {
-        const raw = moto.idUbicacionBase;
-        if (raw == null || raw === '') return null;
-        const n = Number(raw);
-        return Number.isNaN(n) ? null : n;
-      })(),
-      belongsTo: moto.belongsTo ?? '',
-      activo: moto.activo === true || moto.activo === "true" || moto.activo === 1 || moto.activo === "1",
-    };
-    showEditModal = true;
+  async function openEditModal(moto) {
+    try {
+      const fullMoto = await data.getMotoByPlaca(moto.placa);
+      console.log("🔍 fullMoto cargado:", fullMoto);
+      motoInEditor = {
+        ...fullMoto,
+        idMarca: resolveBrandIdFromMoto(fullMoto),
+        idUbicacionBase: (() => {
+          const raw = fullMoto.idUbicacionBase;
+          if (raw == null || raw === '') return null;
+          const n = Number(raw);
+          return Number.isNaN(n) ? null : n;
+        })(),
+        belongsTo: (fullMoto.belongsTo && fullMoto.belongsTo.trim()) ? fullMoto.belongsTo.trim().toLowerCase() : 'distrito',
+        activo: fullMoto.activo !== false && fullMoto.activo !== 'false' && fullMoto.activo !== 0 && fullMoto.activo !== '0',
+        fuelTankCapacityGallons: fullMoto.fuelTankCapacityGallons ?? null,
+        factoryEfficiencyKmPerGallon: fullMoto.factoryEfficiencyKmPerGallon ?? null,
+        factoryEfficiencyUnit: fullMoto.factoryEfficiencyUnit ?? 'KM_PER_GALLON',
+      };
+      console.log("✏️ motoInEditor.belongsTo asignado a:", motoInEditor.belongsTo);
+      showEditModal = true;
+    } catch (e) {
+      errorMessage = 'No se pudo cargar la moto para editar.';
+      addNotification({ id: Date.now(), text: e.message || 'Error al cargar moto.' });
+    }
   }
 
   function closeEditModal() {
@@ -415,6 +427,7 @@
         </button>
       </div>
 
+      {#if isAdmin || isSupervisorOperativo}
       <div class="vehicle-form-section">
         <div class="vehicle-subpanel-head">Registrar nueva motocicleta</div>
         <form class="create-form create-form--compact" on:submit={handleCreateMoto}>
@@ -571,14 +584,16 @@
           <p class="vehicle-catalog-inline-error">{errorMessage}</p>
         {/if}
       </div>
+      {/if}
 
       <div class="vehicle-table-wrap vehicle-table-wrap--inset">
-        <DataGrid columns={motoInventoryColumns} data={motos} on:action={handleAction} totalElements={motos.length} />
+        <DataGrid columns={motoInventoryColumns} data={motos} on:action={handleAction} totalElements={motos.length} showDeleteButton={isAdmin} />
       </div>
     </div>
   </div>
 {/if}
 
+{#if isAdmin || isSupervisorOperativo}
 {#if showEditModal}
   <div class="modal-overlay">
     <div class="modal-content" on:click|stopPropagation>
@@ -694,7 +709,9 @@
     </div>
   </div>
 {/if}
+{/if}
 
+{#if isAdmin}
 {#if motoToDelete}
   <div class="modal-overlay" on:click={() => (motoToDelete = null)}>
     <div class="modal-content confirmation" on:click|stopPropagation>
@@ -706,6 +723,7 @@
       </div>
     </div>
   </div>
+{/if}
 {/if}
 
 {#if showDocHistoryModal}

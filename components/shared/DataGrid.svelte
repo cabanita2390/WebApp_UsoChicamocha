@@ -8,6 +8,7 @@
     getFilteredRowModel,
     getSortedRowModel,
   } from "@tanstack/svelte-table";
+  import { getFileUrl } from "../../stores/api";
 
   export let columns = [];
   export let data = [];
@@ -19,6 +20,8 @@
   export let fixedLayout = false;
   /** Si es false, se oculta el pie de paginación (listas cargadas de una vez). */
   export let showPagination = true;
+  /** Controla si se muestran los botones de eliminación en las acciones */
+  export let showDeleteButton = true;
 
   const dispatch = createEventDispatcher();
 
@@ -247,7 +250,9 @@
                 class:sortable={header.column.getCanSort()}
                 class:multiline-hdr={header.column.columnDef.meta?.isMultilineHeader}
                 on:click={header.column.getToggleSortingHandler()}
-                class={header.column.columnDef.meta?.cellClass || ""}
+                class={typeof header.column.columnDef.meta?.cellClass === 'function'
+                  ? header.column.columnDef.meta.cellClass(header.column)
+                  : (header.column.columnDef.meta?.cellClass || "")}
               >
                 {#if !header.isPlaceholder}
                   {@const content = flexRender(
@@ -305,8 +310,13 @@
                   cell.column.columnDef.meta?.isConsolidadoVehicleActions ||
                   cell.column.columnDef.meta?.isConsolidadoMaqActions ||
                   cell.column.columnDef.meta?.isDocHistoryAction ||
-                  cell.column.columnDef.meta?.isFuelHistorial}
-                class={cell.column.columnDef.meta?.cellClass || ""}
+                  cell.column.columnDef.meta?.isFuelHistorial ||
+                  cell.column.columnDef.meta?.isFuelInvoice ||
+                  cell.column.columnDef.meta?.isLicenseDocAction ||
+                  cell.column.columnDef.meta?.isAnomDismissAction}
+                class={typeof cell.column.columnDef.meta?.cellClass === 'function'
+                ? cell.column.columnDef.meta.cellClass(cell.row.original)
+                : (cell.column.columnDef.meta?.cellClass || "")}
               >
                 {#if cell.column.columnDef.meta?.isAction}
                   <div class="actions-cell">
@@ -315,11 +325,13 @@
                       on:click={() => handleAction("edit", row.original)}
                       >Editar</button
                     >
-                    <button
-                      class="btn-action btn-delete"
-                      on:click={() => handleAction("delete", row.original)}
-                      >Eliminar</button
-                    >
+                    {#if showDeleteButton}
+                      <button
+                        class="btn-action btn-delete"
+                        on:click={() => handleAction("delete", row.original)}
+                        >Eliminar</button
+                      >
+                    {/if}
                   </div>
                 {:else if cell.column.columnDef.meta?.isExecuteAction}
                   <div class="actions-cell">
@@ -350,6 +362,19 @@
                     >
                       Historial docs
                     </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isLicenseDocAction}
+                  <div class="license-doc-cell">
+                    {#if row.original.licenseDocumentUrl}
+                      <button
+                        class="btn-action btn-view-images btn-license-doc"
+                        on:click={() => handleAction("view_license_doc", row.original)}
+                      >
+                        Documento
+                      </button>
+                    {:else}
+                      <span class="license-doc-cell__empty">—</span>
+                    {/if}
                   </div>
                 {:else if cell.column.columnDef.meta?.isImageAction}
                   <div class="actions-cell">
@@ -393,6 +418,30 @@
                       Corregir Horómetro
                     </button>
                   </div>
+                {:else if cell.column.columnDef.meta?.isFuelInvoice}
+                  <div class="actions-cell">
+                    {#if row.original.invoicePhotoUrl}
+                      <a
+                        href={getFileUrl(row.original.invoicePhotoUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="btn-action mon-action-text mon-action-text--compact"
+                        title="Ver factura"
+                      >
+                        👁 Ver
+                      </a>
+                    {:else}
+                      <label class="btn-action mon-action-text mon-action-text--compact" title="Subir factura">
+                        ⬆ Subir
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          style="display:none"
+                          on:change={e => handleAction("fuel_invoice_upload", row.original, e)}
+                        />
+                      </label>
+                    {/if}
+                  </div>
                 {:else if cell.column.columnDef.meta?.isFuelHistorial}
                   <div class="actions-cell">
                     <button
@@ -408,7 +457,7 @@
                     <button
                       type="button"
                       class="mon-action-text mon-action-text--compact"
-                      title="Actualizar fechas y archivos de documentación (SOAT, tecnomecánica, licencia, extintor)"
+                      title="Actualizar fechas y archivos de documentación (SOAT, tecnomecánica, tarjeta de propiedad, extintor)"
                       on:click={() => handleAction("monitoring_update_docs", row.original)}
                     >
                       Actualizar Documentos
@@ -497,6 +546,63 @@
                   <span class="order-status {lower === 'done' ? 'order-status--done' : lower === 'pending' ? 'order-status--pending' : ''}">
                     {lower === 'done' ? 'Completada' : lower === 'pending' ? 'Pendiente' : raw}
                   </span>
+                {:else if cell.column.columnDef.meta?.isAnomalyEfficiency}
+                  {@const label = cell.row.original._effLabel ?? '—'}
+                  <span class="badge-warn">⚠ {label}</span>
+                {:else if cell.column.columnDef.meta?.isAnomalyCost}
+                  {@const r = cell.row.original}
+                  <div>
+                    <span>{r._costLabel ?? '—'}</span>
+                    {#if r.totalCostMismatch}
+                      <div style="color:#c00;font-size:10px">⚠ declarado: {r._costMismatchLabel ?? ''}</div>
+                    {/if}
+                  </div>
+                {:else if cell.column.columnDef.meta?.isInvoicePhotoLink}
+                  {@const url = cell.row.original.invoicePhotoUrl}
+                  {#if url}
+                    <a href={getFileUrl(url)}
+                       target="_blank" rel="noopener noreferrer" class="inv-photo-link">👁 Ver</a>
+                  {:else}
+                    <label class="btn-action mon-action-text mon-action-text--compact" title="Subir recibo">
+                      ⬆ Subir
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        style="display:none"
+                        on:change={e => handleAction("fuel_invoice_upload", row.original, e)}
+                      />
+                    </label>
+                  {/if}
+                {:else if cell.column.columnDef.meta?.isAnomDismissAction}
+                  <div class="actions-cell">
+                    <button class="btn-action dismiss-btn"
+                      on:click={() => handleAction('dismiss_anomaly', row.original)}>
+                      Quitar anomalía
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isRankPosition}
+                  {@const pos = cell.row.index + 1}
+                  <strong style="font-size:13px;color:{pos===1?'#b8860b':pos===2?'#707070':pos===3?'#8b4513':'inherit'}">{pos}</strong>
+                {:else if cell.column.columnDef.meta?.isRankBar}
+                  {@const pct = Number(cell.getContext().getValue() ?? 0)}
+                  <div style="display:flex;align-items:center;gap:6px;min-width:120px">
+                    <div style="flex:1;height:10px;background:#ddd;border:1px inset #bbb">
+                      <div style="height:100%;width:{pct.toFixed(1)}%;background:linear-gradient(to right,#5a9fd4,#2a6fa8)"></div>
+                    </div>
+                    <span style="font-size:10px;white-space:nowrap">{pct.toFixed(0)}%</span>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isEfficiencyRank}
+                  {@const r = cell.row.original}
+                  {@const isConsumption = ['GALLON_PER_HOUR','GAL_PER_HOUR','M3_PER_HOUR','L_PER_HOUR'].includes(r.factoryEfficiencyUnit)}
+                  {@const below = r.factoryEfficiency != null && r.efficiencyValue != null && (isConsumption ? +r.efficiencyValue > +r.factoryEfficiency : +r.efficiencyValue < +r.factoryEfficiency)}
+                  {@const dev = (r.factoryEfficiency != null && r.efficiencyValue != null && +r.factoryEfficiency !== 0) ? (isConsumption ? (+r.efficiencyValue - +r.factoryEfficiency) / +r.factoryEfficiency * 100 : (+r.factoryEfficiency - +r.efficiencyValue) / +r.factoryEfficiency * 100) : null}
+                  {@const label = cell.getContext().getValue() ?? '—'}
+                  <div style="text-align:right">
+                    <span style="font-weight:bold;color:{below?'#c00':label==='—'?'#999':'#1a5c1a'}">{label}{below?' ↓':''}</span>
+                    {#if dev !== null}
+                      <div style="font-size:10px;color:{dev>0?'#c00':'#1a5c1a'}">{dev>0?'+':''}{dev.toFixed(1)}% vs fábrica</div>
+                    {/if}
+                  </div>
                 {:else if cell.column.columnDef.meta?.isStatus || cell.column.columnDef.meta?.isBadge}
                   {@const cellValue = cell.getContext().getValue()}
                   {@const colorClass = getStatusClass(cellValue)}
@@ -573,6 +679,15 @@
 
   .btn-view-images {
     background-color: #d1c4e9;
+  }
+  .license-doc-cell {
+    display: flex;
+    justify-content: center;
+    padding: 0 2px;
+  }
+  .license-doc-cell__empty {
+    font-size: 10px;
+    color: #888;
   }
 
   /** Varias acciones de monitoreo/consolidado en una sola fila (lateral), para no alargar la altura de la fila. */
@@ -730,6 +845,9 @@
     text-align: center;
     vertical-align: middle;
   }
+  .data-grid tr:nth-child(even) td {
+    background-color: #f4f4f4;
+  }
   .unexpected-row td {
     background-color: #ffdddd !important;
   }
@@ -741,6 +859,9 @@
     background-color: #fffacd !important;
   }
 
+  th.sortable:hover {
+    background: #a8a8a8;
+  }
   th.sortable .header-content {
     cursor: pointer;
     display: flex;
@@ -779,7 +900,8 @@
     cursor: pointer;
     font-size: 10px;
     margin: 0;
-    flex: 1;
+    flex: 0 0 auto;
+    white-space: nowrap;
     font-family: inherit;
   }
   .btn-edit {
@@ -788,6 +910,17 @@
   .btn-delete {
     background-color: #ffbaba;
   }
+  .dismiss-btn {
+    background: linear-gradient(to bottom, #f0f0f0, #d0d0d0);
+  }
+  .dismiss-btn:hover {
+    background: linear-gradient(to bottom, #fff, #e0e0e0);
+  }
+  .badge-warn {
+    display: inline-block; padding: 1px 6px; background: #ffcc00;
+    border: 1px solid #cc9900; font-weight: bold; font-size: 10px; color: #5c3d00;
+  }
+  .inv-photo-link { color: #0050a0; text-decoration: underline; font-size: 10px; cursor: pointer; }
 
   .btn-execute {
     background-color: #add8e6;
@@ -916,5 +1049,22 @@
   :global(th.tecno-cell),
   :global(td.tecno-cell) {
     background-color: #f3e5f5 !important;
+  }
+
+  /* Semáforo para fechas de vencimiento */
+  :global(td.expiry-green) {
+    background-color: #c8e6c9 !important;
+    color: #1b5e20;
+    font-weight: 500;
+  }
+  :global(td.expiry-yellow) {
+    background-color: #fff9c4 !important;
+    color: #f57f17;
+    font-weight: 600;
+  }
+  :global(td.expiry-red) {
+    background-color: #ffcdd2 !important;
+    color: #b71c1c;
+    font-weight: 600;
   }
 </style>

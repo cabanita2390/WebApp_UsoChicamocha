@@ -4,7 +4,6 @@
   export let placa = '';
   export let soatVencimiento = null;
   export let tecnoVencimiento = null;
-  export let licenciaVencimiento = null;
   export let extintorVencimiento = null;
   export let isSubmitting = false;
 
@@ -39,15 +38,17 @@
       ? soatVencimiento
       : tipoDocumento === 'TECNOMECANICA'
         ? tecnoVencimiento
-        : tipoDocumento === 'LICENCIA DE CONDUCCION'
-          ? licenciaVencimiento
-          : extintorVencimiento;
+        : tipoDocumento === 'EXTINTOR'
+          ? extintorVencimiento
+          : null;
 
   $: {
     fechaVencimiento =
       tipoDocumento === 'EXTINTOR' && extintorVencimiento
         ? String(extintorVencimiento).slice(0, 7)
-        : toDateInput(currentRaw);
+        : tipoDocumento === 'TARJETA DE PROPIEDAD'
+          ? ''
+          : toDateInput(currentRaw);
   }
 
   $: tipoLabel =
@@ -55,23 +56,26 @@
       ? 'SOAT'
       : tipoDocumento === 'TECNOMECANICA'
         ? 'Revisión tecnomecánica'
-        : tipoDocumento === 'LICENCIA DE CONDUCCION'
-          ? 'Licencia de conducción'
+        : tipoDocumento === 'TARJETA DE PROPIEDAD'
+          ? 'Tarjeta de propiedad'
           : 'Extintor';
 
   function handleSubmit() {
-    if (!fechaVencimiento) {
+    const esTarjeta = tipoDocumento === 'TARJETA DE PROPIEDAD';
+    if (!esTarjeta && !fechaVencimiento) {
       error = 'Seleccione una fecha (o mes para extintor).';
       return;
     }
+    if (esTarjeta && (!archivo || !archivo.length)) {
+      error = 'Seleccione el archivo de la tarjeta de propiedad.';
+      return;
+    }
     error = '';
-    let fechaApi = fechaVencimiento;
-    if (tipoDocumento === 'EXTINTOR') {
-      if (fechaVencimiento.length === 7) {
-        const [y, m] = fechaVencimiento.split('-').map(Number);
-        const last = new Date(y, m, 0).getDate();
-        fechaApi = `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
-      }
+    let fechaApi = fechaVencimiento || null;
+    if (tipoDocumento === 'EXTINTOR' && fechaVencimiento && fechaVencimiento.length === 7) {
+      const [y, m] = fechaVencimiento.split('-').map(Number);
+      const last = new Date(y, m, 0).getDate();
+      fechaApi = `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
     }
     const file = archivo && archivo.length ? archivo[0] : null;
     dispatch('submit', { tipoDocumento, fechaVencimiento: fechaApi, file });
@@ -105,20 +109,22 @@
         <select bind:value={tipoDocumento} disabled={isSubmitting} on:change={onTipoChange}>
           <option value="SOAT">SOAT</option>
           <option value="TECNOMECANICA">Revisión tecnomecánica</option>
-          <option value="LICENCIA DE CONDUCCION">Licencia de conducción</option>
+          <option value="TARJETA DE PROPIEDAD">Tarjeta de propiedad</option>
           <option value="EXTINTOR">Extintor</option>
         </select>
       </label>
-      <div class="prev-fecha-block">
-        <span class="prev-fecha-label">Vencimiento actual ({tipoLabel})</span>
-        <span class="prev-fecha-val">{formatDisplay(currentRaw)}</span>
-      </div>
+      {#if tipoDocumento !== 'TARJETA DE PROPIEDAD'}
+        <div class="prev-fecha-block">
+          <span class="prev-fecha-label">Vencimiento actual ({tipoLabel})</span>
+          <span class="prev-fecha-val">{formatDisplay(currentRaw)}</span>
+        </div>
+      {/if}
       {#if tipoDocumento === 'EXTINTOR'}
         <label>
           Vigencia (mes)
           <input type="month" bind:value={fechaVencimiento} disabled={isSubmitting} />
         </label>
-      {:else}
+      {:else if tipoDocumento !== 'TARJETA DE PROPIEDAD'}
         <label>
           Nueva fecha de vencimiento
           <input type="date" bind:value={fechaVencimiento} disabled={isSubmitting} />

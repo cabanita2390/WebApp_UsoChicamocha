@@ -1,4 +1,19 @@
 /**
+ * Sistema de semáforo para fechas de vencimiento
+ * Verde: > 30 días restantes
+ * Amarillo: 0-30 días restantes
+ * Rojo: vencido (< 0 días)
+ */
+export function getExpiryStatusClass(diasRestantes) {
+  if (diasRestantes == null || diasRestantes === 'N/A') return '';
+  const dias = typeof diasRestantes === 'string' ? parseInt(diasRestantes, 10) : diasRestantes;
+  if (isNaN(dias)) return '';
+  if (dias > 30) return 'expiry-green';
+  if (dias >= 0) return 'expiry-yellow';
+  return 'expiry-red';
+}
+
+/**
  * Descripción con pipes: Origen|Sector|Condición|Detalle|Tarea (5+ segmentos).
  * Texto libre: intenta partir por " — " / raya (títulos tipo seed); si no, el resumen va en Origen
  * y el texto completo en Detalle (Sector/Condición/Tarea como N/A si no aplica).
@@ -395,11 +410,24 @@ export const createConsolidadoColumns = (owner) => [
 ];
 
 export const userColumns = [
- { accessorKey: "id", header: "ID", size: 40 },
  { accessorKey: "username", header: "Usuario", size: 100 },
- { accessorKey: "email", header: "Gmail", size: 150 },
  { accessorKey: "fullName", header: "Nombre Completo", size: 150 },
+ { accessorKey: "email", header: "Gmail", size: 150 },
  { accessorKey: "role", header: "Rol", size: 80 },
+ { accessorKey: "licenseCategory", header: "Categoría Lic.", size: 90, accessorFn: (row) => row.licenseCategory || "—" },
+ {
+  id: "licenseExpiry",
+  header: "Venc. Licencia",
+  size: 110,
+  accessorFn: (row) => row.licenseExpiry ?? null,
+  meta: { isDateStatus: true },
+ },
+ {
+  id: "licenseDoc",
+  header: "Documento",
+  size: 74,
+  meta: { isLicenseDocAction: true },
+ },
  {
   id: "actions",
   header: "Acciones",
@@ -579,7 +607,7 @@ export const vehicleInspectionReportColumns = [
     columns: [
       { header: 'SOAT', accessorKey: 'checkSoat', size: 78, meta: { isStatus: true } },
       { header: 'Tecnomecánica', accessorKey: 'checkTecno', size: 92, meta: { isStatus: true } },
-      { header: 'Licencia conducción', accessorKey: 'checkLicencia', size: 100, meta: { isStatus: true } },
+      { header: 'Lic. conductor', accessorKey: 'checkLicencia', size: 92, meta: { isStatus: true } },
       { header: 'Extintor', accessorKey: 'checkExtintor', size: 82, meta: { isStatus: true } },
     ],
   },
@@ -804,7 +832,7 @@ export const consolidadoVehicleColumns = [
     {
         header: 'SOAT',
         columns: [
-            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento), id: 'cv_soat_venc', size: 100, meta: { cellClass: 'soat-cell' } },
+            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento), id: 'cv_soat_venc', size: 100, meta: { cellClass: row => `soat-cell ${getExpiryStatusClass(row.soat?.diasRestantes)}` } },
             { header: 'Días Restantes', accessorFn: row => row.soat?.diasRestantes ?? 'N/A', id: 'cv_soat_dias', size: 90, meta: { cellClass: 'soat-cell' } },
             { header: 'Estado', accessorFn: row => row.soat?.estado ?? 'N/A', id: 'cv_soat_est', size: 100, meta: { cellClass: 'soat-cell' } },
         ],
@@ -812,7 +840,7 @@ export const consolidadoVehicleColumns = [
     {
         header: 'Tecno',
         columns: [
-            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento), id: 'cv_tecno_venc', size: 100, meta: { cellClass: 'tecno-cell' } },
+            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento), id: 'cv_tecno_venc', size: 100, meta: { cellClass: row => `tecno-cell ${getExpiryStatusClass(row.tecno?.diasRestantes)}` } },
             { header: 'Días Restantes', accessorFn: row => row.tecno?.diasRestantes ?? 'N/A', id: 'cv_tecno_dias', size: 90, meta: { cellClass: 'tecno-cell' } },
             { header: 'Estado', accessorFn: row => row.tecno?.estado ?? 'N/A', id: 'cv_tecno_est', size: 100, meta: { cellClass: 'tecno-cell' } },
         ],
@@ -853,7 +881,7 @@ export const consolidadoMotoColumns = [
     {
         header: 'SOAT',
         columns: [
-            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento), id: 'cm_soat_venc', size: 100, meta: { cellClass: 'soat-cell' } },
+            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento), id: 'cm_soat_venc', size: 100, meta: { cellClass: row => `soat-cell ${getExpiryStatusClass(row.soat?.diasRestantes)}` } },
             { header: 'Días Restantes', accessorFn: row => row.soat?.diasRestantes ?? 'N/A', id: 'cm_soat_dias', size: 90, meta: { cellClass: 'soat-cell' } },
             { header: 'Estado', accessorFn: row => row.soat?.estado ?? 'N/A', id: 'cm_soat_est', size: 100, meta: { cellClass: 'soat-cell' } },
         ],
@@ -861,7 +889,7 @@ export const consolidadoMotoColumns = [
     {
         header: 'Tecno',
         columns: [
-            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento), id: 'cm_tecno_venc', size: 100, meta: { cellClass: 'tecno-cell' } },
+            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento), id: 'cm_tecno_venc', size: 100, meta: { cellClass: row => `tecno-cell ${getExpiryStatusClass(row.tecno?.diasRestantes)}` } },
             { header: 'Días Restantes', accessorFn: row => row.tecno?.diasRestantes ?? 'N/A', id: 'cm_tecno_dias', size: 90, meta: { cellClass: 'tecno-cell' } },
             { header: 'Estado', accessorFn: row => row.tecno?.estado ?? 'N/A', id: 'cm_tecno_est', size: 100, meta: { cellClass: 'tecno-cell' } },
         ],
@@ -885,7 +913,7 @@ export const reportMotoColumns = [
     { header: 'Estado ACTUAL', accessorKey: 'estadoVisual', size: 130, meta: { isStatus: true } },
     { header: 'Observaciones', accessorKey: 'observacionesFinales', size: 220, meta: { isMultiline: true } },
     { header: 'Responsable', accessorKey: 'responsable', size: 120 },
-    { header: `LICENCIA DE CONDUCCIÓN`, accessorKey: 'checkLicencia', size: 160, meta: { isStatus: true, isMultilineHeader: true } },
+    { header: `LIC. CONDUCTOR`, accessorKey: 'checkLicencia', size: 120, meta: { isStatus: true } },
 ];
 
 export const maintenanceMotoColumns = [
@@ -940,13 +968,13 @@ export const vehicleManagementColumns = [
     {
         id: "doc_history_action",
         header: "Historial Docs",
-        size: 115,
+        size: 90,
         meta: { isDocHistoryAction: true },
     },
     {
         id: "update_docs_action",
         header: "Documentos",
-        size: 120,
+        size: 90,
         meta: { isUpdateDocsAction: true },
     },
     {

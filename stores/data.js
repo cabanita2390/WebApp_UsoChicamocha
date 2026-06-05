@@ -185,6 +185,7 @@ function createDataStore() {
         createUser: async (newUser) => {
             const createdUser = await fetchWithAuth('user', { method: 'POST', body: JSON.stringify(newUser) });
             update(s => ({ ...s, users: [...s.users, createdUser] }));
+            return createdUser;
         },
         updateUser: async (userId, userData) => {
             const userToUpdate = get({ subscribe }).users.find(u => u.id === userId);
@@ -196,6 +197,11 @@ function createDataStore() {
         deleteUser: async (userId) => {
             await fetchWithAuth(`user/${userId}`, { method: 'DELETE' });
             update(s => ({ ...s, users: s.users.filter(u => u.id !== userId) }));
+        },
+        restoreUser: async (userId) => {
+            const restored = await fetchWithAuth(`user/${userId}/restore`, { method: 'POST' });
+            update(s => ({ ...s, users: [...s.users, restored] }));
+            return restored;
         },
         changeUserPassword: async (userId, newPassword) => {
             await fetchWithAuth(`user/${userId}/change-password`, {
@@ -209,6 +215,8 @@ function createDataStore() {
             const createdMachine = await fetchWithAuth('machine', { method: 'POST', body: JSON.stringify(newMachine) });
             update(s => ({ ...s, machines: [...s.machines, createdMachine] }));
         },
+        getMachineById: (machineId) =>
+            fetchWithAuth(`machine/${machineId}`),
         updateMachine: async (machineData) => {
             const updatedMachine = await fetchWithAuth(`machine/${machineData.id}`, { method: 'PUT', body: JSON.stringify(machineData) });
             update(s => ({ ...s, machines: s.machines.map(m => m.id === machineData.id ? updatedMachine : m) }));
@@ -444,8 +452,17 @@ function createDataStore() {
             form.append('file', file);
             form.append('idVehiculo', String(idVehiculo));
             form.append('tipoDocumento', tipoDocumento);
-            form.append('fechaVencimiento', fechaVencimiento);
+            if (fechaVencimiento) {
+                form.append('fechaVencimiento', fechaVencimiento);
+            }
             await fetchWithAuth('admin/documents/upload', { method: 'POST', body: form });
+        },
+        uploadUserLicenseDocument: async (userId, file) => {
+            const form = new FormData();
+            form.append('file', file);
+            const updated = await fetchWithAuth(`user/${userId}/license-document`, { method: 'POST', body: form });
+            update(s => ({ ...s, users: s.users.map(u => (u.id === userId ? updated : u)) }));
+            return updated;
         },
         updateInspectionHourMeter: async (machineId, newHourMeter) => {
             await fetchWithAuth(`inspection/machine/${machineId}/hour-meter`, {
@@ -506,6 +523,8 @@ function createDataStore() {
         },
         getVehicleByPlaca: (placa) =>
             fetchWithAuth(`vehicle/${encodeURIComponent(normalizePlaca(placa))}`),
+        getMotoByPlaca: (placa) =>
+            fetchWithAuth(`moto/${encodeURIComponent(normalizePlaca(placa))}`),
         validateVehicleKilometraje: (placa, kilometraje) => {
             const q = new URLSearchParams({ placa: normalizePlaca(placa), kilometraje: String(kilometraje) });
             return fetchWithAuth(`vehicle-inspection/validar-kilometraje?${q.toString()}`);
