@@ -1,19 +1,4 @@
 /**
- * Sistema de semáforo para fechas de vencimiento
- * Verde: > 30 días restantes
- * Amarillo: 0-30 días restantes
- * Rojo: vencido (< 0 días)
- */
-export function getExpiryStatusClass(diasRestantes) {
-  if (diasRestantes == null || diasRestantes === 'N/A') return '';
-  const dias = typeof diasRestantes === 'string' ? parseInt(diasRestantes, 10) : diasRestantes;
-  if (isNaN(dias)) return '';
-  if (dias > 30) return 'expiry-green';
-  if (dias >= 0) return 'expiry-yellow';
-  return 'expiry-red';
-}
-
-/**
  * Descripción con pipes: Origen|Sector|Condición|Detalle|Tarea (5+ segmentos).
  * Texto libre: intenta partir por " — " / raya (títulos tipo seed); si no, el resumen va en Origen
  * y el texto completo en Detalle (Sector/Condición/Tarea como N/A si no aplica).
@@ -830,22 +815,6 @@ export const consolidadoVehicleColumns = [
         ],
     },
     {
-        header: 'SOAT',
-        columns: [
-            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento), id: 'cv_soat_venc', size: 100, meta: { cellClass: row => `soat-cell ${getExpiryStatusClass(row.soat?.diasRestantes)}` } },
-            { header: 'Días Restantes', accessorFn: row => row.soat?.diasRestantes ?? 'N/A', id: 'cv_soat_dias', size: 90, meta: { cellClass: 'soat-cell' } },
-            { header: 'Estado', accessorFn: row => row.soat?.estado ?? 'N/A', id: 'cv_soat_est', size: 100, meta: { cellClass: 'soat-cell' } },
-        ],
-    },
-    {
-        header: 'Tecno',
-        columns: [
-            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento), id: 'cv_tecno_venc', size: 100, meta: { cellClass: row => `tecno-cell ${getExpiryStatusClass(row.tecno?.diasRestantes)}` } },
-            { header: 'Días Restantes', accessorFn: row => row.tecno?.diasRestantes ?? 'N/A', id: 'cv_tecno_dias', size: 90, meta: { cellClass: 'tecno-cell' } },
-            { header: 'Estado', accessorFn: row => row.tecno?.estado ?? 'N/A', id: 'cv_tecno_est', size: 100, meta: { cellClass: 'tecno-cell' } },
-        ],
-    },
-    {
         id: 'cv_actions',
         header: 'Acciones',
         accessorFn: () => '',
@@ -876,22 +845,6 @@ export const consolidadoMotoColumns = [
             { header: 'Km Próximo', accessorFn: row => formatKm(row.oil?.kmProximoCambio), id: 'cm_oil_km_prox', size: 90, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Km Restantes', accessorFn: row => row.oil?.kmParaProximo ?? 'N/A', id: 'cm_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Estado', accessorFn: row => row.oil?.estado ?? 'N/A', id: 'cm_oil_estado', size: 110, meta: { cellClass: 'motor-oil-cell' } },
-        ],
-    },
-    {
-        header: 'SOAT',
-        columns: [
-            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento), id: 'cm_soat_venc', size: 100, meta: { cellClass: row => `soat-cell ${getExpiryStatusClass(row.soat?.diasRestantes)}` } },
-            { header: 'Días Restantes', accessorFn: row => row.soat?.diasRestantes ?? 'N/A', id: 'cm_soat_dias', size: 90, meta: { cellClass: 'soat-cell' } },
-            { header: 'Estado', accessorFn: row => row.soat?.estado ?? 'N/A', id: 'cm_soat_est', size: 100, meta: { cellClass: 'soat-cell' } },
-        ],
-    },
-    {
-        header: 'Tecno',
-        columns: [
-            { header: 'Vencimiento', accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento), id: 'cm_tecno_venc', size: 100, meta: { cellClass: row => `tecno-cell ${getExpiryStatusClass(row.tecno?.diasRestantes)}` } },
-            { header: 'Días Restantes', accessorFn: row => row.tecno?.diasRestantes ?? 'N/A', id: 'cm_tecno_dias', size: 90, meta: { cellClass: 'tecno-cell' } },
-            { header: 'Estado', accessorFn: row => row.tecno?.estado ?? 'N/A', id: 'cm_tecno_est', size: 100, meta: { cellClass: 'tecno-cell' } },
         ],
     },
     {

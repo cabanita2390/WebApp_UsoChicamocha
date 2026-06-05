@@ -250,9 +250,7 @@
                 class:sortable={header.column.getCanSort()}
                 class:multiline-hdr={header.column.columnDef.meta?.isMultilineHeader}
                 on:click={header.column.getToggleSortingHandler()}
-                class={typeof header.column.columnDef.meta?.cellClass === 'function'
-                  ? header.column.columnDef.meta.cellClass(header.column)
-                  : (header.column.columnDef.meta?.cellClass || "")}
+                class={header.column.columnDef.meta?.cellClass || ""}
               >
                 {#if !header.isPlaceholder}
                   {@const content = flexRender(
@@ -314,9 +312,7 @@
                   cell.column.columnDef.meta?.isFuelInvoice ||
                   cell.column.columnDef.meta?.isLicenseDocAction ||
                   cell.column.columnDef.meta?.isAnomDismissAction}
-                class={typeof cell.column.columnDef.meta?.cellClass === 'function'
-                ? cell.column.columnDef.meta.cellClass(cell.row.original)
-                : (cell.column.columnDef.meta?.cellClass || "")}
+                class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
                   <div class="actions-cell">
@@ -1049,22 +1045,5 @@
   :global(th.tecno-cell),
   :global(td.tecno-cell) {
     background-color: #f3e5f5 !important;
-  }
-
-  /* Semáforo para fechas de vencimiento */
-  :global(td.expiry-green) {
-    background-color: #c8e6c9 !important;
-    color: #1b5e20;
-    font-weight: 500;
-  }
-  :global(td.expiry-yellow) {
-    background-color: #fff9c4 !important;
-    color: #f57f17;
-    font-weight: 600;
-  }
-  :global(td.expiry-red) {
-    background-color: #ffcdd2 !important;
-    color: #b71c1c;
-    font-weight: 600;
   }
 </style>
