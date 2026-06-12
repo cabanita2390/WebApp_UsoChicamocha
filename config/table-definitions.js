@@ -63,7 +63,14 @@ export const workOrderColumns = [
   size: 130,
  },
  {
-  accessorFn: (row) => (row.order.date ? new Date(row.order.date).toLocaleDateString('es-CO') : "N/A"),
+  accessorFn: (row) => {
+    if (!row.order.date) return "N/A";
+    const d = new Date(row.order.date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  },
   id: "fecha",
   header: "Fecha",
   size: 95,
@@ -121,6 +128,39 @@ export const workOrderColumns = [
   size: 140,
  },
  {
+  accessorFn: (row) => {
+    const type = row.order?.maintenanceType;
+    if (!type) return '—';
+    const typeMap = {
+      'PREVENTIVO': 'Preventivo',
+      'CORRECTIVO': 'Correctivo',
+      'MECANICA': 'Mecánico',
+      'ELECTRICA': 'Eléctrico',
+      'HIDRAULICA': 'Hidráulico'
+    };
+    return typeMap[type] || type;
+  },
+  id: 'mantenimiento',
+  header: 'Tipo de Mantenimiento',
+  size: 130,
+ },
+ {
+  accessorFn: (row) => {
+    const hours = row.order?.hoursSpent;
+    const minutes = row.order?.minutesSpent;
+    if (!hours && !minutes) return "—";
+    const h = hours || 0;
+    const m = minutes || 0;
+    if (h === 0 && m === 0) return "—";
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  },
+  id: "tiempo_empleado",
+  header: "Tiempo",
+  size: 100,
+ },
+ {
   id: "execute",
   header: "Ejecutar Orden",
   size: 120,
@@ -140,17 +180,18 @@ export const machineColumns = [
   size: 100,
  },
  {
-  // Adding 'T00:00:00' ensures the date is interpreted correctly across timezones
-  accessorFn: (row) => (row.soat ? new Date(row.soat + 'T00:00:00').toLocaleDateString('es-CO') : 'N/A'),
+  accessorFn: (row) => formatLocalDate(row.soat),
   id: "soat",
   header: "SOAT",
   size: 100,
+  meta: { isDateStatus: true },
  },
  {
-  accessorFn: (row) => (row.runt ? new Date(row.runt + 'T00:00:00').toLocaleDateString('es-CO') : 'N/A'),
+  accessorFn: (row) => formatLocalDate(row.runt),
   id: "runt",
   header: "Seguro todo riesgo",
   size: 100,
+  meta: { isDateStatus: true },
  },
   {
         id: "curriculum",
@@ -167,10 +208,16 @@ export const machineColumns = [
 ];
 export const dashboardColumns = [
  {
- accessorFn: (row) => new Date(row.dateStamp + 'Z').toLocaleDateString('es-CO', { timeZone: 'America/Bogota' }),
+ accessorFn: (row) => {
+  const d = new Date(row.dateStamp + 'Z');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+ },
  id: "fecha",
  header: "Fecha",
- 
+
  },
  {
  accessorFn: (row) => new Date(row.dateStamp + 'Z').toLocaleTimeString('en-GB', { timeZone: 'America/Bogota' }), // Formato 24h
@@ -297,20 +344,26 @@ export const dashboardColumns = [
 
 function formatDateTime(utcDateString) {
  if (!utcDateString) return 'N/A';
- const date = new Date(utcDateString + 'Z'); 
- const formattedDate = date.toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
- const formattedTime = date.toLocaleTimeString('en-GB', { timeZone: 'America/Bogota' });
- return `${formattedDate} ${formattedTime}`;
+ const date = new Date(utcDateString + 'Z');
+ const day = String(date.getUTCDate()).padStart(2, '0');
+ const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+ const year = date.getUTCFullYear();
+ const hours = String(date.getUTCHours()).padStart(2, '0');
+ const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+ const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+ return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 }
 
 function formatDate(utcDateString) {
  if (!utcDateString) return 'N/A';
- return new Date(utcDateString + 'Z').toLocaleDateString('es-CO', {
-  timeZone: 'America/Bogota',
- });
+ const date = new Date(utcDateString + 'Z');
+ const day = String(date.getUTCDate()).padStart(2, '0');
+ const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+ const year = date.getUTCFullYear();
+ return `${day}/${month}/${year}`;
 }
 
-/** Formatea un LocalDate del backend, que puede llegar como array [y,m,d] o string "yyyy-mm-dd". */
+/** Formatea un LocalDate del backend, que puede llegar como array [y,m,d] o string "yyyy-mm-dd". Retorna dd/mm/yyyy */
 function formatLocalDate(raw) {
  if (!raw) return 'N/A';
  let s = raw;
@@ -319,7 +372,10 @@ function formatLocalDate(raw) {
  }
  const d = new Date(typeof s === 'string' ? `${s}T12:00:00` : s);
  if (Number.isNaN(d.getTime())) return String(raw);
- return d.toLocaleDateString('es-CO');
+ const day = String(d.getDate()).padStart(2, '0');
+ const month = String(d.getMonth() + 1).padStart(2, '0');
+ const year = d.getFullYear();
+ return `${day}/${month}/${year}`;
 }
 
 /** Fecha-hora sin forzar Z (LocalDateTime del backend). */
@@ -327,7 +383,13 @@ function formatDateTimeLocal(value) {
  if (!value) return 'N/A';
  const d = new Date(value);
  if (Number.isNaN(d.getTime())) return String(value);
- return `${d.toLocaleDateString('es-CO')} ${d.toLocaleTimeString('en-GB', { hour12: false })}`;
+ const day = String(d.getDate()).padStart(2, '0');
+ const month = String(d.getMonth() + 1).padStart(2, '0');
+ const year = d.getFullYear();
+ const hours = String(d.getHours()).padStart(2, '0');
+ const minutes = String(d.getMinutes()).padStart(2, '0');
+ const seconds = String(d.getSeconds()).padStart(2, '0');
+ return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 }
 
 function yn(v) {
@@ -404,7 +466,7 @@ export const userColumns = [
   id: "licenseExpiry",
   header: "Venc. Licencia",
   size: 110,
-  accessorFn: (row) => row.licenseExpiry ?? null,
+  accessorFn: (row) => formatLocalDate(row.licenseExpiry),
   meta: { isDateStatus: true },
  },
  {
@@ -440,7 +502,14 @@ const motoMonitoringUbicacionCell = (row) => {
 export const curriculumColumns = [
   // Columna 1: Fecha (sin grupo)
   {
-    accessorFn: (row) => (row.date ? new Date(row.date).toLocaleDateString("es-CO") : "N/A"),
+    accessorFn: (row) => {
+      if (!row.date) return "N/A";
+      const d = new Date(row.date);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    },
     id: "fecha",
     header: "FECHA",
   },
@@ -637,16 +706,16 @@ export const monitoringVehicleDocumentColumns = [
     {
         header: 'Revisión Tecnicomecánica',
         columns: [
-            { header: 'Fecha Vencimiento', accessorFn: (row) => row.tecno?.fechaVencimiento, id: 'doc_tecno_venc', size: 105, meta: { isDateStatus: true } },
-            { header: 'Días Para Vencimiento', accessorFn: (row) => row.tecno?.diasRestantes, id: 'doc_tecno_dias', size: 95, meta: { isDocDaysRemaining: true } },
+            { header: 'Fecha Vencimiento', accessorFn: (row) => formatLocalDate(row.tecno?.fechaVencimiento), id: 'doc_tecno_venc', size: 105, meta: { isDateStatus: true } },
+            { header: 'Días Para Vencimiento', accessorFn: (row) => row.tecno?.diasRestantes, id: 'doc_tecno_dias', size: 95 },
             { header: 'Estado Actual', accessorKey: 'tecno.estado', id: 'doc_tecno_est', size: 100, meta: { isBadge: true } },
         ],
     },
     {
         header: 'SOAT',
         columns: [
-            { header: 'Fecha Vencimiento', accessorFn: (row) => row.soat?.fechaVencimiento, id: 'doc_soat_venc', size: 105, meta: { isDateStatus: true } },
-            { header: 'Días Para Vencimiento', accessorFn: (row) => row.soat?.diasRestantes, id: 'doc_soat_dias', size: 95, meta: { isDocDaysRemaining: true } },
+            { header: 'Fecha Vencimiento', accessorFn: (row) => formatLocalDate(row.soat?.fechaVencimiento), id: 'doc_soat_venc', size: 105, meta: { isDateStatus: true } },
+            { header: 'Días Para Vencimiento', accessorFn: (row) => row.soat?.diasRestantes, id: 'doc_soat_dias', size: 95 },
             { header: 'Estado Actual', accessorKey: 'soat.estado', id: 'doc_soat_est', size: 100, meta: { isBadge: true } },
         ],
     },
@@ -718,16 +787,16 @@ export const monitoringMotoDocumentColumns = [
     {
         header: 'Revisión tecnomecánica',
         columns: [
-            { header: 'Fecha vencimiento', accessorFn: (row) => row.tecno?.fechaVencimiento, id: 'moto_doc_tecno_venc', size: 105, meta: { isDateStatus: true } },
-            { header: 'Días para vencimiento', accessorFn: (row) => row.tecno?.diasRestantes, id: 'moto_doc_tecno_dias', size: 100, meta: { isDocDaysRemaining: true } },
+            { header: 'Fecha vencimiento', accessorFn: (row) => formatLocalDate(row.tecno?.fechaVencimiento), id: 'moto_doc_tecno_venc', size: 105, meta: { isDateStatus: true } },
+            { header: 'Días para vencimiento', accessorFn: (row) => row.tecno?.diasRestantes, id: 'moto_doc_tecno_dias', size: 100 },
             { header: 'Estado actual', accessorKey: 'tecno.estado', id: 'moto_doc_tecno_est', size: 100, meta: { isBadge: true } },
         ],
     },
     {
         header: 'SOAT',
         columns: [
-            { header: 'Fecha vencimiento', accessorFn: (row) => row.soat?.fechaVencimiento, id: 'moto_doc_soat_venc', size: 105, meta: { isDateStatus: true } },
-            { header: 'Días para vencimiento', accessorFn: (row) => row.soat?.diasRestantes, id: 'moto_doc_soat_dias', size: 100, meta: { isDocDaysRemaining: true } },
+            { header: 'Fecha vencimiento', accessorFn: (row) => formatLocalDate(row.soat?.fechaVencimiento), id: 'moto_doc_soat_venc', size: 105, meta: { isDateStatus: true } },
+            { header: 'Días para vencimiento', accessorFn: (row) => row.soat?.diasRestantes, id: 'moto_doc_soat_dias', size: 100 },
             { header: 'Estado actual', accessorKey: 'soat.estado', id: 'moto_doc_soat_est', size: 100, meta: { isBadge: true } },
         ],
     },
@@ -811,6 +880,7 @@ export const consolidadoVehicleColumns = [
             { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.maintenance?.kmUltimoCambio), id: 'cv_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Km Próximo', accessorFn: row => formatKm(row.maintenance?.kmProximoCambio), id: 'cv_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Km Restantes', accessorFn: row => row.maintenance?.kmParaCambio ?? 'N/A', id: 'cv_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Uso %', accessorFn: row => (row.maintenance?.percentageUsed ?? 'N/A') + '%', id: 'cv_oil_uso', size: 70, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Estado', accessorFn: row => row.maintenance?.estado ?? 'N/A', id: 'cv_oil_estado', size: 110, meta: { cellClass: 'motor-oil-cell' } },
         ],
     },
@@ -844,6 +914,7 @@ export const consolidadoMotoColumns = [
             { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.oil?.kmCambio), id: 'cm_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Km Próximo', accessorFn: row => formatKm(row.oil?.kmProximoCambio), id: 'cm_oil_km_prox', size: 90, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Km Restantes', accessorFn: row => row.oil?.kmParaProximo ?? 'N/A', id: 'cm_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Uso %', accessorFn: row => (row.oil?.percentageUsed ?? 'N/A') + '%', id: 'cm_oil_uso', size: 70, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Estado', accessorFn: row => row.oil?.estado ?? 'N/A', id: 'cm_oil_estado', size: 110, meta: { cellClass: 'motor-oil-cell' } },
         ],
     },
@@ -917,28 +988,26 @@ export const vehicleManagementColumns = [
         accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento),
         id: 'veh_soat_venc',
         size: 100,
-        meta: { cellClass: 'soat-cell' },
+        meta: { isDateStatus: true },
     },
     {
         header: 'SOAT - Días',
         accessorFn: row => row.soat?.diasRestantes ?? 'N/A',
         id: 'veh_soat_dias',
         size: 85,
-        meta: { cellClass: 'soat-cell' },
     },
     {
         header: 'Tecno - Vencimiento',
         accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento),
         id: 'veh_tecno_venc',
         size: 100,
-        meta: { cellClass: 'tecno-cell' },
+        meta: { isDateStatus: true },
     },
     {
         header: 'Tecno - Días',
         accessorFn: row => row.tecno?.diasRestantes ?? 'N/A',
         id: 'veh_tecno_dias',
         size: 85,
-        meta: { cellClass: 'tecno-cell' },
     },
     {
         id: "curriculum",
@@ -973,7 +1042,14 @@ export const vehicleWorkOrderColumns = [
         id: 'vo_consecutive', header: 'Consecutivo', size: 130,
     },
     {
-        accessorFn: (row) => row.order?.date ? new Date(row.order.date).toLocaleDateString('es-CO') : 'N/A',
+        accessorFn: (row) => {
+            if (!row.order?.date) return 'N/A';
+            const d = new Date(row.order.date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        },
         id: 'vo_fecha', header: 'Fecha', size: 95,
     },
     {
@@ -1014,6 +1090,35 @@ export const vehicleWorkOrderColumns = [
         id: 'vo_asignado_por', header: 'Asignado por', size: 140,
     },
     {
+        accessorFn: (row) => {
+            const type = row.order?.maintenanceType;
+            if (!type) return '—';
+            const typeMap = {
+                'PREVENTIVO': 'Preventivo',
+                'CORRECTIVO': 'Correctivo',
+                'MECANICA': 'Mecánico',
+                'ELECTRICA': 'Eléctrico',
+                'HIDRAULICA': 'Hidráulico'
+            };
+            return typeMap[type] || type;
+        },
+        id: 'vo_mantenimiento', header: 'Tipo de Mantenimiento', size: 130,
+    },
+    {
+        accessorFn: (row) => {
+            const hours = row.order?.hoursSpent;
+            const minutes = row.order?.minutesSpent;
+            if (!hours && !minutes) return "—";
+            const h = hours || 0;
+            const m = minutes || 0;
+            if (h === 0 && m === 0) return "—";
+            if (h === 0) return `${m}m`;
+            if (m === 0) return `${h}h`;
+            return `${h}h ${m}m`;
+        },
+        id: 'vo_tiempo_empleado', header: 'Tiempo', size: 100,
+    },
+    {
         id: 'vo_execute',
         header: 'Ejecutar Orden',
         size: 120,
@@ -1043,28 +1148,26 @@ export const motoInventoryColumns = [
         accessorFn: row => formatLocalDate(row.soat?.fechaVencimiento),
         id: 'moto_soat_venc',
         size: 100,
-        meta: { cellClass: 'soat-cell' },
+        meta: { isDateStatus: true },
     },
     {
         header: 'SOAT - Días',
         accessorFn: row => row.soat?.diasRestantes ?? 'N/A',
         id: 'moto_soat_dias',
         size: 85,
-        meta: { cellClass: 'soat-cell' },
     },
     {
         header: 'Tecno - Vencimiento',
         accessorFn: row => formatLocalDate(row.tecno?.fechaVencimiento),
         id: 'moto_tecno_venc',
         size: 100,
-        meta: { cellClass: 'tecno-cell' },
+        meta: { isDateStatus: true },
     },
     {
         header: 'Tecno - Días',
         accessorFn: row => row.tecno?.diasRestantes ?? 'N/A',
         id: 'moto_tecno_dias',
         size: 85,
-        meta: { cellClass: 'tecno-cell' },
     },
     {
         id: 'curriculum',
@@ -1121,7 +1224,6 @@ export const vehicleOilHistoryColumns = [
         id: 'oil_h_intervalo',
         size: 110,
     },
-    { header: 'Tipo / Viscosidad', accessorKey: 'oilType', size: 120 },
     { header: 'Marca', accessorKey: 'brandName', size: 120 },
     {
         header: 'Cantidad (L)',
