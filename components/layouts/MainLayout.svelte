@@ -8,6 +8,9 @@
         notificationCount,
         notificationMessages,
         removeNotification,
+        preventiveAlertCount,
+        preventiveAlerts,
+        removePreventiveAlert,
     } from "../../stores/ui.js";
     import { wsNotificationService } from "../../composables/useWebSocketNotifications.js";
     import { location } from "svelte-spa-router";
@@ -28,16 +31,26 @@
         removeNotification(notificationId);
     }
 
+    function handleDeleteAlert(event) {
+        const alertId = event.detail;
+        removePreventiveAlert(alertId);
+    }
+
     function toggleAutoRefresh() {
         dispatch("toggleAutoRefresh");
+    }
+
+    function handleContainerClick(e) {
+        const notifWrapper = e.target.closest('.notification-wrapper');
+        if (!notifWrapper) {
+            showNotifications = false;
+        }
     }
 
     $: pageTitle = getPageTitle($location);
 </script>
 
-<svelte:window on:click={() => (showNotifications = false)} />
-
-<div class="app-container">
+<div class="app-container" on:click={handleContainerClick}>
     <Sidebar />
 
     <main class="main-content">
@@ -80,11 +93,11 @@
                         <span class="auto-refresh-text">Refrescando...</span>
                     {/if}
                 </div>
-                <div class="notification-wrapper" on:click|stopPropagation>
+                <div class="notification-wrapper">
                     <button
                         class="notification-bell"
-                        on:click={toggleNotifications}
-                        title="Notificaciones"
+                        on:click|stopPropagation={toggleNotifications}
+                        title="Notificaciones y Alertas"
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -93,16 +106,19 @@
                                 d="M12,22A2,2 0 0,0 14,20H10A2,2 0 0,0 12,22M18,16V11C18,7.93 16.36,5.36 13.5,4.68V4A1.5,1.5 0 0,0 12,2.5A1.5,1.5 0 0,0 10.5,4V4.68C7.63,5.36 6,7.93 6,11V16L4,18V19H20V18L18,16Z"
                             ></path></svg
                         >
-                        {#if $notificationCount > 0}
+                        {#if $notificationCount + $preventiveAlertCount > 0}
                             <span class="notification-badge"
-                                >{$notificationCount}</span
+                                >{$notificationCount + $preventiveAlertCount}</span
                             >
                         {/if}
                     </button>
                     {#if showNotifications}
                         <NotificationDropdown
                             messages={$notificationMessages}
-                            on:delete={handleDeleteNotification}
+                            alerts={$preventiveAlerts}
+                            isOpen={showNotifications}
+                            on:deleteNotification={handleDeleteNotification}
+                            on:deleteAlert={handleDeleteAlert}
                         />
                     {/if}
                 </div>

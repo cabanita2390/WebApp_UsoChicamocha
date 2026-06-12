@@ -128,15 +128,18 @@
     if (!s) return "N/A";
     const d = new Date(s);
     if (Number.isNaN(d.getTime())) return String(v);
-    return d.toLocaleDateString("es-CO");
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   }
 
-  /** Misma regla que el backend de documentos: ≥15 verde, 0–14 amarillo, &lt;0 rojo. */
+  /** Misma regla que el backend de documentos: >30 verde, 0–30 amarillo, <0 rojo. */
   function getDocDaysRemainingClass(days) {
     if (days == null || days === "") return "status-unknown";
     const n = Number(days);
     if (Number.isNaN(n)) return "status-unknown";
-    if (n >= 15) return "status-optimo";
+    if (n > 30) return "status-optimo";
     if (n >= 0) return "status-regular";
     return "status-malo";
   }
@@ -178,28 +181,51 @@
   }
 
   /**
-   * Semáforo para fechas de vencimiento (p. ej. SOAT): pasado = rojo, próximo = amarillo, lejano = verde.
-   * No aplicar a “fecha último cambio de aceite” (evento pasado; no es un vencimiento).
+   * Semáforo para fechas de vencimiento (p. ej. SOAT):
+   * Verde: > 60 días | Amarillo: 2-60 días | Rojo: ≤ 2 días (incluyendo vencido)
+   * Soporta formatos: yyyy-mm-dd, dd/mm/yyyy
    */
   function getDateStatusClass(dateString) {
-    if (!dateString || typeof dateString !== "string") return "status-unknown";
-    const parts = dateString.split("-");
+    if (!dateString || typeof dateString !== 'string') return 'status-unknown';
+
     let expirationDate;
-    if (parts.length === 2) {
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10);
-      expirationDate = new Date(year, month, 0);
+
+    // Intenta parsear formato dd/mm/yyyy (colombiano)
+    if (dateString.includes('/')) {
+      const parts = dateString.split('/');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
+        expirationDate = new Date(year, month - 1, day);
+      } else {
+        return 'status-unknown';
+      }
     } else {
-      expirationDate = new Date(dateString);
+      // Intenta parsear formato yyyy-mm-dd (ISO)
+      const parts = dateString.split('-');
+      if (parts.length === 2) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        expirationDate = new Date(year, month, 0);
+      } else if (parts.length === 3) {
+        expirationDate = new Date(dateString);
+      } else {
+        return 'status-unknown';
+      }
     }
+
+    if (isNaN(expirationDate.getTime())) return 'status-unknown';
+
     expirationDate.setHours(23, 59, 59, 999);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const twoMonthsFromNow = new Date();
-    twoMonthsFromNow.setMonth(twoMonthsFromNow.getMonth() + 2);
-    if (expirationDate < today) return "status-malo";
-    if (expirationDate <= twoMonthsFromNow) return "status-regular";
-    return "status-optimo";
+
+    const daysRemaining = Math.floor((expirationDate - today) / (1000 * 60 * 60 * 24));
+
+    if (daysRemaining > 60) return 'status-optimo';
+    if (daysRemaining >= 2) return 'status-regular';
+    return 'status-malo';
   }
 
   function getConditionalCellClass(cell) {
@@ -331,7 +357,7 @@
                   </div>
                 {:else if cell.column.columnDef.meta?.isExecuteAction}
                   <div class="actions-cell">
-                    {#if row.original.order?.status?.toUpperCase() !== "DONE"}
+                    {#if row.original.order?.status !== "Completada" && row.original.order?.status !== "Done"}
                       <button
                         class="btn-action btn-execute"
                         on:click={() => handleAction("execute", row.original)}
@@ -539,8 +565,8 @@
                 {:else if cell.column.columnDef.meta?.isOrderStatus}
                   {@const raw = String(cell.getContext().getValue() ?? '')}
                   {@const lower = raw.toLowerCase()}
-                  <span class="order-status {lower === 'done' ? 'order-status--done' : lower === 'pending' ? 'order-status--pending' : ''}">
-                    {lower === 'done' ? 'Completada' : lower === 'pending' ? 'Pendiente' : raw}
+                  <span class="order-status {(lower === 'done' || lower === 'completada') ? 'order-status--done' : lower === 'pending' ? 'order-status--pending' : ''}">
+                    {(lower === 'done' || lower === 'completada') ? 'Completada' : lower === 'pending' ? 'Pendiente' : raw}
                   </span>
                 {:else if cell.column.columnDef.meta?.isAnomalyEfficiency}
                   {@const label = cell.row.original._effLabel ?? '—'}

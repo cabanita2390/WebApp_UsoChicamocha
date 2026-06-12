@@ -14,7 +14,13 @@
 
   function fmtDate(v) {
     if (!v) return '—';
-    return new Date(v).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+    const d = new Date(v);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   }
   function fmtNum(v, decimals = 2) {
     if (v == null) return '—';

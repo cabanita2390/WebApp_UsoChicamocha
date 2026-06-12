@@ -30,7 +30,11 @@
     const s = toDateInput(raw);
     if (!s) return String(raw);
     const d = new Date(`${s}T12:00:00`);
-    return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString('es-CO');
+    if (Number.isNaN(d.getTime())) return s;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   }
 
   $: currentRaw =
@@ -127,7 +131,11 @@
       {:else if tipoDocumento !== 'TARJETA DE PROPIEDAD'}
         <label>
           Nueva fecha de vencimiento
-          <input type="date" bind:value={fechaVencimiento} disabled={isSubmitting} />
+          <input type="date"
+            value={fechaVencimiento}
+            on:change={(e) => fechaVencimiento = e.target.value}
+            disabled={isSubmitting}
+          />
         </label>
       {/if}
       <label class="file-upload-win file-upload-win--stack" class:file-upload-win--disabled={isSubmitting}>

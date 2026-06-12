@@ -33,13 +33,44 @@
   let showConfirmation = false;
 
   function getStatusClass(status) {
-    const s = String(status ?? '')
+    const raw = String(status ?? '').trim();
+    if (!raw) return 'status-unknown';
+    const s = raw
       .toLowerCase()
       .normalize('NFD')
       .replace(/[̀-ͯ]/g, '');
-    if (s.includes('optimo') || s === 'si' || s === 'sí') return 'status-optimo';
-    if (s.includes('regular')) return 'status-regular';
-    if (s.includes('malo') || s === 'no') return 'status-malo';
+
+    if (s.includes(',') && /\bsi\b/.test(s) && /\bno\b/.test(s)) {
+      return 'status-regular';
+    }
+    if (s === 'si' || s === 'sí') return 'status-optimo';
+    if (s === 'no') return 'status-malo';
+    if (s === 'n/a' || s === 'na') return 'status-unknown';
+
+    if (
+      s.includes('optimo') ||
+      s.includes('optima') ||
+      s.includes('vigente') ||
+      s === 'ok' ||
+      s.includes('bueno') ||
+      s.includes('excelente')
+    ) {
+      return 'status-optimo';
+    }
+    if (
+      s.includes('regular') ||
+      s.includes('proximo') ||
+      s.includes('medio')
+    ) {
+      return 'status-regular';
+    }
+    if (
+      s.includes('malo') ||
+      s.includes('vencido') ||
+      (s.includes('cambio') && !s.includes('sin cambio'))
+    ) {
+      return 'status-malo';
+    }
     return 'status-unknown';
   }
 

@@ -7,8 +7,8 @@
 
   const dispatch = createEventDispatcher();
 
-  let hoursSpent = "";
-  let minutesSpent = "";
+  let hoursSpent = 0;
+  let minutesSpent = 0;
   let description = "";
 
   let labor = {
@@ -31,10 +31,10 @@
         contractor: workOrder.labor?.contractor || "",
         observations: workOrder.labor?.observations || "",
       };
-      hoursSpent = "";
-      minutesSpent = "";
+      hoursSpent = 0;
+      minutesSpent = 0;
       description = "";
-      spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "" }];
+      spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "", supplier: "" }];
       nextSparePartId = 2;
       isProcessing = false;
     }
@@ -43,15 +43,15 @@
     }
   }
 
-  let spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "" }];
+  let spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "", supplier: "" }];
   let nextSparePartId = 2;
 
   let isProcessing = false;
 
   $: isFormValid =
-    hoursSpent !== "" && Number(hoursSpent) >= 0 &&
-    minutesSpent !== "" && Number(minutesSpent) >= 0 && Number(minutesSpent) < 60 &&
-    (Number(hoursSpent) > 0 || Number(minutesSpent) > 0) &&
+    hoursSpent >= 0 &&
+    minutesSpent >= 0 && minutesSpent < 60 &&
+    (hoursSpent > 0 || minutesSpent > 0) &&
     description.trim() !== "" &&
     (labor.sameMecanic || labor.contractor.trim() !== "") &&
     (labor.price === "" || labor.price === null || Number(labor.price) >= 0) &&
@@ -59,6 +59,7 @@
       (p) =>
         p.ref.trim() !== "" &&
         p.name.trim() !== "" &&
+        p.supplier.trim() !== "" &&
         p.quantity !== "" &&
         Number(p.quantity) > 0 &&
         p.price !== "" &&
@@ -68,7 +69,7 @@
   function addSparePart() {
     spareParts = [
       ...spareParts,
-      { id: nextSparePartId++, ref: "", name: "", quantity: 1, price: "" },
+      { id: nextSparePartId++, ref: "", name: "", quantity: 1, price: "", supplier: "" },
     ];
   }
 
@@ -90,6 +91,7 @@
       name: spareParts.map((p) => p.name).join(" - "),
       quantity: spareParts.map((p) => p.quantity).join(" - "),
       price: spareParts.reduce((sum, p) => sum + (Number(p.price) || 0), 0),
+      supplier: spareParts.map((p) => p.supplier).join(" - "),
     };
 
     const laborPayload = {
@@ -100,8 +102,8 @@
 
     const finalPayload = {
       orderId: workOrder.order.id,
-      hoursSpent: Number(hoursSpent) || 0,
-      minutesSpent: Number(minutesSpent) || 0,
+      hoursSpent: hoursSpent,
+      minutesSpent: minutesSpent,
       description,
       labor: laborPayload,
       sparePart: sparePartPayload,
@@ -182,12 +184,26 @@
         <div class="form-section">
           <div class="form-grid">
             <label>Horas empleadas:
-              <input type="number" min="0" bind:value={hoursSpent} required placeholder="0" />
+              <input
+                type="number"
+                min="0"
+                step="1"
+                bind:value={hoursSpent}
+                required
+              />
             </label>
             <label>Minutos empleados:
-              <input type="number" min="0" max="59" bind:value={minutesSpent} required placeholder="0" />
+              <input
+                type="number"
+                min="0"
+                max="59"
+                step="1"
+                bind:value={minutesSpent}
+                required
+              />
             </label>
           </div>
+          <p style="font-size: 0.9em; color: #666;">Ingresa las horas y minutos que tardó la ejecución (ej: 2 horas, 30 minutos)</p>
 
           <label>Descripción / Detalles del Trabajo Realizado:</label>
           <textarea bind:value={description} rows="4" required></textarea>
@@ -251,6 +267,14 @@
                   >Nombre: <input
                     type="text"
                     bind:value={part.name}
+                    required
+                  /></label
+                >
+                <label
+                  >Proveedor: <input
+                    type="text"
+                    bind:value={part.supplier}
+                    placeholder="Ej: Distribuidora XYZ"
                     required
                   /></label
                 >
