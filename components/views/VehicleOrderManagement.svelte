@@ -32,8 +32,9 @@
   async function handleExecute(event) {
     try {
       await data.executeVehicleWorkOrder(event.detail);
+      const orderNumber = selectedWorkOrder?.order?.consecutive || '?????';
+      addNotification({ id: Date.now(), text: `Orden ${orderNumber} ejecutada con éxito.` });
       selectedWorkOrder = null;
-      addNotification({ id: Date.now(), text: 'Orden ejecutada con éxito.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: 'Error al ejecutar orden: ' + (e.message || 'Desconocido') });
     }

@@ -10,6 +10,7 @@
   import { onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
   import { formatMachinePayload } from '@/lib/textFormat.js';
+  import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -29,7 +30,7 @@
     brand: "",
     soat: "",
     runt: "",
-    belongsTo: "distrito",
+    belongsTo: "Distrito",
     fuelTankCapacityGallons: null,
   };
   let newMachine = { ...initialMachineState };
@@ -44,6 +45,10 @@
   $: machines = $data.machines;
   $: isLoading = $data.isLoading;
 
+  $: if (machines?.length > 0) {
+    checkExpiringDocuments($data.vehicles || [], $data.motos || [], machines, addNotification);
+  }
+
   $: if (machineToDelete) {
     isDeleteMachineEnabled = false;
     clearTimeout(deleteMachineTimer);
@@ -55,6 +60,14 @@
   onDestroy(() => {
     clearTimeout(deleteMachineTimer);
   });
+
+  function normalizeBelongsTo(value) {
+    if (!value) return 'Distrito';
+    const trimmed = String(value).trim().toLowerCase();
+    if (trimmed === 'asociacion') return 'Asociación';
+    if (trimmed === 'asociación') return 'Asociación';
+    return 'Distrito';
+  }
 
   async function handleCreateMachine(event) {
     event.preventDefault();
@@ -134,7 +147,7 @@
       console.log("🔍 fullMachine cargado:", fullMachine);
       machineInEditor = {
         ...fullMachine,
-        belongsTo: (fullMachine.belongsTo && fullMachine.belongsTo.trim()) ? fullMachine.belongsTo.trim().toLowerCase() : 'distrito',
+        belongsTo: normalizeBelongsTo(fullMachine.belongsTo),
         fuelTankCapacityGallons: fullMachine.fuelTankCapacityGallons ?? null,
         factoryEfficiencyGalPerHour: fullMachine.factoryEfficiencyGalPerHour ?? null,
         factoryEfficiencyUnit: fullMachine.factoryEfficiencyUnit ?? 'GAL_PER_HOUR',
@@ -237,17 +250,25 @@
           <label class="field">
             <span class="field-lab">Pertenece a</span>
             <select bind:value={newMachine.belongsTo} disabled={isSubmitting}>
-              <option value="distrito">Distrito</option>
-              <option value="asociacion">Asociación</option>
+              <option value="Distrito">Distrito</option>
+              <option value="Asociación">Asociación</option>
             </select>
           </label>
           <label class="field">
             <span class="field-lab">SOAT — vence</span>
-            <input type="date" bind:value={newMachine.soat} disabled={isSubmitting} />
+            <input type="date"
+              value={newMachine.soat || ''}
+              on:change={(e) => newMachine.soat = e.target.value}
+              disabled={isSubmitting}
+            />
           </label>
           <label class="field">
             <span class="field-lab">Seguro todo riesgo — vence</span>
-            <input type="date" bind:value={newMachine.runt} disabled={isSubmitting} />
+            <input type="date"
+              value={newMachine.runt || ''}
+              on:change={(e) => newMachine.runt = e.target.value}
+              disabled={isSubmitting}
+            />
           </label>
           {#if isAdmin}
           <label class="field">
@@ -256,7 +277,7 @@
           </label>
           <label class="field">
             <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:4px;align-items:center">
               <input type="number" step="0.01" min="0" bind:value={newMachine.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" disabled={isSubmitting} />
               <select bind:value={newMachine.factoryEfficiencyUnit} disabled={isSubmitting}>
                 <option value="GAL_PER_HOUR">Gal/h</option>
@@ -308,8 +329,8 @@
           <label class="field">
             <span class="field-lab">Pertenece a</span>
             <select bind:value={machineInEditor.belongsTo}>
-              <option value="distrito">Distrito</option>
-              <option value="asociacion">Asociación</option>
+              <option value="Distrito">Distrito</option>
+              <option value="Asociación">Asociación</option>
             </select>
           </label>
           <label class="field">
@@ -322,11 +343,17 @@
           </label>
           <label class="field">
             <span class="field-lab">SOAT — vence</span>
-            <input type="date" bind:value={machineInEditor.soat} />
+            <input type="date"
+              value={machineInEditor.soat || ''}
+              on:change={(e) => machineInEditor.soat = e.target.value}
+            />
           </label>
           <label class="field">
             <span class="field-lab">Seguro todo riesgo — vence</span>
-            <input type="date" bind:value={machineInEditor.runt} />
+            <input type="date"
+              value={machineInEditor.runt || ''}
+              on:change={(e) => machineInEditor.runt = e.target.value}
+            />
           </label>
           {#if isAdmin}
           <label class="field">
@@ -335,7 +362,7 @@
           </label>
           <label class="field">
             <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:4px;align-items:center">
               <input type="number" step="0.01" min="0" bind:value={machineInEditor.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" />
               <select bind:value={machineInEditor.factoryEfficiencyUnit}>
                 <option value="GAL_PER_HOUR">Gal/h</option>

@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { get } from 'svelte/store';
   import { data as dataStore } from '../../stores/data.js';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
@@ -400,14 +401,13 @@
 
   // ── export excel ─────────────────────────────────────────────────────────────
   async function handleExportExcel() {
-    const { api } = await import('../../stores/api.js');
-    let base; api.subscribe(v => { base = v; })();
+    const base = import.meta.env.VITE_API_BASE_URL;
     const params = new URLSearchParams();
     if (filterFrom) params.append('from', filterFrom + 'T00:00:00');
     if (filterTo)   params.append('to',   filterTo   + 'T23:59:59');
     const qs = params.toString() ? `?${params}` : '';
-    const { auth } = await import('../../stores/auth.js');
-    let token; auth.subscribe(s => { token = s?.token; })();
+    const authState = get(auth);
+    const token = authState?.token;
     const res = await fetch(`${base}fuel/export${qs}`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) { error = 'Error al exportar'; return; }
     const blob = await res.blob();
@@ -566,7 +566,13 @@
   }
   function fmtDate(v) {
     if (!v) return '—';
-    return new Date(v).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+    const d = new Date(v);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   }
   function fmtEfficiency(r) {
     if (!r.efficiencyValue) return '—';
@@ -601,7 +607,14 @@
 
   // ── columnas tabla registros ──────────────────────────────────────────────────
   const columns = [
-    { header: 'Fecha', accessorFn: r => r.fuelDateTime ? new Date(r.fuelDateTime).toLocaleDateString('es-CO') : '—' },
+    { header: 'Fecha', accessorFn: r => {
+      if (!r.fuelDateTime) return '—';
+      const d = new Date(r.fuelDateTime);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }},
     { header: 'Tipo Activo', accessorKey: 'assetType' },
     { header: 'Placa / Nombre', accessorFn: getAssetLabel, size: 200 },
     { header: 'Tipo Combustible', accessorKey: 'fuelType' },

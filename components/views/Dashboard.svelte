@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte';
   import { createEventDispatcher } from "svelte";
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
@@ -10,6 +11,12 @@
 
   $: dashboardInfo = $data.dashboard;
   $: isLoading = $data.isLoading;
+
+  onMount(() => {
+    if (!$data.dashboard || !$data.dashboard.data || $data.dashboard.data.length === 0) {
+      data.fetchDashboardData(0, 20);
+    }
+  });
   let isExporting = false;
 
   function handlePageChange(event) {

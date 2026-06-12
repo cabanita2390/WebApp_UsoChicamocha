@@ -95,7 +95,7 @@
 </script>
 
 <div class="tabbed-wrap">
-  <TabPanel {tabs} {activeTab} on:tabChange={handleTabChange}>
+  <TabPanel {tabs} bind:activeTab on:tabChange={handleTabChange}>
     {#if activeTab === 'maquinaria'}
       <Consolidado />
     {:else if activeTab === 'vehiculos'}

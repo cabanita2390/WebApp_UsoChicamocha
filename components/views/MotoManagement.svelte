@@ -5,9 +5,10 @@
   import Loader from "../shared/Loader.svelte";
   import DocumentUpdateModal from "../shared/DocumentUpdateModal.svelte";
   import { motoInventoryColumns, curriculumColumns } from "../../config/table-definitions.js";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
   import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
+  import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -19,6 +20,7 @@
   let showCvModal = false;
   let isCvLoading = false;
   let curriculumData = null;
+  let unsubscribeDataCheck = null;
 
   async function openCurriculumModal(moto) {
     showCvModal = true;
@@ -37,6 +39,14 @@
   function closeCurriculumModal() {
     showCvModal = false;
     curriculumData = null;
+  }
+
+  function normalizeBelongsTo(value) {
+    if (!value) return 'Distrito';
+    const trimmed = String(value).trim().toLowerCase();
+    if (trimmed === 'asociacion') return 'Asociación';
+    if (trimmed === 'asociación') return 'Asociación';
+    return 'Distrito';
   }
 
   let quickModal = null;
@@ -137,10 +147,9 @@
   let newMoto = { ...initialMotoState };
   let docSoatVencimiento = "";
   let docTecnoVencimiento = "";
-  let docLicenciaVencimiento = "";
   let docSoatFile = null;
   let docTecnoFile = null;
-  let docLicenciaFile = null;
+  let docTarjetaPropiedadFile = null;
 
   async function persistMotoDocument(vid, tipoDocumento, fechaVencimiento, fileList) {
     if (!fechaVencimiento) return;
@@ -252,9 +261,20 @@
         data.fetchVehicleTypes(),
       ]);
       await data.fetchMotos();
+
+      // Verificar documentos próximos a vencer
+      unsubscribeDataCheck = data.subscribe(d => {
+        if (d.motos?.length > 0) {
+          checkExpiringDocuments(d.vehicles || [], d.motos, d.machines || [], addNotification);
+        }
+      });
     } catch (e) {
       console.error("Error al cargar inventario de motos:", e);
     }
+  });
+
+  onDestroy(() => {
+    if (unsubscribeDataCheck) unsubscribeDataCheck();
   });
 
   async function handleCreateMoto(event) {
@@ -270,7 +290,7 @@
       const created = await data.createMoto(formatMotoVehiclePayload(newMoto, motoTipoId));
       const vid = created?.id;
       let docExtra = "";
-      if (vid != null && (docSoatVencimiento || docTecnoVencimiento || docLicenciaVencimiento)) {
+      if (vid != null) {
         try {
           const parts = [];
           if (docSoatVencimiento) {
@@ -281,9 +301,14 @@
             await persistMotoDocument(vid, "TECNOMECANICA", docTecnoVencimiento, docTecnoFile);
             parts.push("Tecnomecánica");
           }
-          if (docLicenciaVencimiento) {
-            await persistMotoDocument(vid, "LICENCIA DE CONDUCCION", docLicenciaVencimiento, docLicenciaFile);
-            parts.push("Licencia");
+          if (docTarjetaPropiedadFile && docTarjetaPropiedadFile.length) {
+            await data.uploadVehicleDocumentFile({
+              idVehiculo: vid,
+              tipoDocumento: "TARJETA DE PROPIEDAD",
+              fechaVencimiento: null,
+              file: docTarjetaPropiedadFile[0],
+            });
+            parts.push("Tarjeta de propiedad");
           }
           if (parts.length) docExtra = " Documentación: " + parts.join(", ") + ".";
         } catch (docErr) {
@@ -293,10 +318,10 @@
       newMoto = { ...initialMotoState };
       docSoatVencimiento = "";
       docTecnoVencimiento = "";
-      docLicenciaVencimiento = "";
       docSoatFile = null;
       docTecnoFile = null;
-      docLicenciaFile = null;
+      docTarjetaPropiedadFile = null;
+      await data.fetchMotos();
       addNotification({ id: Date.now(), text: "Motocicleta registrada." + docExtra });
     } catch (e) {
       errorMessage = e.message || "Error al crear motocicleta.";
@@ -312,6 +337,7 @@
     errorMessage = "";
     try {
       await data.updateMoto(motoInEditor.id, formatMotoVehiclePayload(motoInEditor, motoTipoId));
+      await data.fetchMotos();
       closeEditModal();
       addNotification({ id: Date.now(), text: "Motocicleta actualizada." });
     } catch (e) {
@@ -326,6 +352,7 @@
     errorMessage = "";
     try {
       await data.deleteMoto(motoToDelete.id);
+      await data.fetchMotos();
       motoToDelete = null;
       addNotification({ id: Date.now(), text: "Motocicleta eliminada." });
     } catch (e) {
@@ -361,7 +388,7 @@
           const n = Number(raw);
           return Number.isNaN(n) ? null : n;
         })(),
-        belongsTo: (fullMoto.belongsTo && fullMoto.belongsTo.trim()) ? fullMoto.belongsTo.trim().toLowerCase() : 'distrito',
+        belongsTo: normalizeBelongsTo(fullMoto.belongsTo),
         activo: fullMoto.activo !== false && fullMoto.activo !== 'false' && fullMoto.activo !== 0 && fullMoto.activo !== '0',
         fuelTankCapacityGallons: fullMoto.fuelTankCapacityGallons ?? null,
         factoryEfficiencyKmPerGallon: fullMoto.factoryEfficiencyKmPerGallon ?? null,
@@ -464,8 +491,8 @@
               <span class="field-lab">Pertenece a</span>
               <select bind:value={newMoto.belongsTo} required disabled={isSubmitting}>
                 <option value="">— Seleccionar —</option>
-                <option value="distrito">Distrito</option>
-                <option value="asociacion">Asociación</option>
+                <option value="Distrito">Distrito</option>
+                <option value="Asociación">Asociación</option>
               </select>
             </label>
             <label class="field">
@@ -533,7 +560,11 @@
           <div class="create-docs-grid">
             <label class="field field-doc">
               <span class="field-lab">SOAT — vence</span>
-              <input type="date" bind:value={docSoatVencimiento} disabled={isSubmitting} />
+              <input type="date"
+                value={docSoatVencimiento}
+                on:change={(e) => docSoatVencimiento = e.target.value}
+                disabled={isSubmitting}
+              />
             </label>
             <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
               <span class="field-lab">Archivo SOAT</span>
@@ -547,7 +578,11 @@
             </label>
             <label class="field field-doc">
               <span class="field-lab">Tecnomecánica — vence</span>
-              <input type="date" bind:value={docTecnoVencimiento} disabled={isSubmitting} />
+              <input type="date"
+                value={docTecnoVencimiento}
+                on:change={(e) => docTecnoVencimiento = e.target.value}
+                disabled={isSubmitting}
+              />
             </label>
             <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
               <span class="field-lab">Archivo tecnomecánica</span>
@@ -559,18 +594,14 @@
                 <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docTecnoFile} disabled={isSubmitting} />
               </div>
             </label>
-            <label class="field field-doc">
-              <span class="field-lab">Licencia — vence</span>
-              <input type="date" bind:value={docLicenciaVencimiento} disabled={isSubmitting} />
-            </label>
             <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
-              <span class="field-lab">Archivo licencia</span>
+              <span class="field-lab">Tarjeta de propiedad</span>
               <div class="file-upload-win__row" class:file-upload-win__row--disabled={isSubmitting}>
                 <div class="file-upload-win__inner">
-                  <span class="file-upload-win__name" class:file-upload-win__name--empty={!docLicenciaFile?.length}>{filePickLabel(docLicenciaFile)}</span>
+                  <span class="file-upload-win__name" class:file-upload-win__name--empty={!docTarjetaPropiedadFile?.length}>{filePickLabel(docTarjetaPropiedadFile)}</span>
                   <span class="file-upload-win__btn">Examinar…</span>
                 </div>
-                <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docLicenciaFile} disabled={isSubmitting} />
+                <input type="file" class="file-upload-win__input" accept=".pdf,.jpg,.jpeg,.png,.webp" bind:files={docTarjetaPropiedadFile} disabled={isSubmitting} />
               </div>
             </label>
           </div>
@@ -634,8 +665,8 @@
             <span class="field-lab">Pertenece a</span>
             <select bind:value={motoInEditor.belongsTo} required>
               <option value="">— Seleccionar —</option>
-              <option value="distrito">Distrito</option>
-              <option value="asociacion">Asociación</option>
+              <option value="Distrito">Distrito</option>
+              <option value="Asociación">Asociación</option>
             </select>
           </label>
           <label class="field">
@@ -680,7 +711,7 @@
           </label>
           <label class="field">
             <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:4px;align-items:center">
               <input
                 type="number" step="0.01" min="0"
                 bind:value={motoInEditor.factoryEfficiencyKmPerGallon}
@@ -767,7 +798,7 @@
                       <span class="badge-reemplazada">Reemplazada</span>
                     {/if}
                   </td>
-                  <td class="doc-fecha-registro">{row.subidoEn ? new Date(row.subidoEn).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
+                  <td class="doc-fecha-registro">{row.subidoEn ? (() => { const d = new Date(row.subidoEn); const day = String(d.getDate()).padStart(2, '0'); const month = String(d.getMonth() + 1).padStart(2, '0'); const year = d.getFullYear(); const hours = String(d.getHours()).padStart(2, '0'); const minutes = String(d.getMinutes()).padStart(2, '0'); return `${day}/${month}/${year} ${hours}:${minutes}`; })() : '—'}</td>
                   <td>{formatSubidoPor(row.subidoPor)}</td>
                   <td>
                     {#if row.urlArchivo}

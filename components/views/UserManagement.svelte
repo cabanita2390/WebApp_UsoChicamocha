@@ -269,7 +269,11 @@
         </label>
         <label class="cf-field">
           <span class="cf-label">Vencimiento</span>
-          <input type="date" bind:value={newUser.licenseExpiry} disabled={isSubmitting} />
+          <input type="date"
+            value={newUser.licenseExpiry || ''}
+            on:change={(e) => newUser.licenseExpiry = e.target.value}
+            disabled={isSubmitting}
+          />
         </label>
         <label class="file-upload-field cf-field cf-field--doc" class:file-upload-field--disabled={isSubmitting}>
           <span class="file-upload-field__label cf-label">Documento</span>
@@ -323,11 +327,10 @@
             <label class="cf-field cf-field--span">
               <span class="cf-label">Rol</span>
               <select bind:value={userToEdit.role}>
-                <option value="ADMIN">ADMIN — Acceso completo del sistema</option>
-                <option value="SUPERVISOR_OPERATIVO">SUPERVISOR_OPERATIVO — Crear y editar activos, inspecciones, combustible</option>
-                <option value="OPERARIO">OPERARIO — Solo inspecciones pre-operativas y tanqueo (móvil)</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="SUPERVISOR_OPERATIVO">SUPERVISOR OPERATIVO</option>
+                <option value="OPERARIO">OPERARIO</option>
               </select>
-              <small class="role-helper-text">Los operarios acceden a través de la app móvil</small>
             </label>
           {/if}
           <label class="cf-field">
@@ -357,7 +360,10 @@
           </label>
           <label class="cf-field">
             <span class="cf-label">Vencimiento</span>
-            <input type="date" bind:value={userToEdit.licenseExpiry} />
+            <input type="date"
+              value={userToEdit.licenseExpiry || ''}
+              on:change={(e) => userToEdit.licenseExpiry = e.target.value}
+            />
           </label>
         </div>
 

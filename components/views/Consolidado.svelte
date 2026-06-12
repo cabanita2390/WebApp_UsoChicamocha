@@ -146,7 +146,7 @@
             Valor actual: <strong>{hourmeterRow.currentData?.currentHourMeter ?? 'N/A'}</strong>
             &nbsp;·&nbsp; Última inspección:
             {hourmeterRow.currentData?.lastUpdate
-              ? new Date(hourmeterRow.currentData.lastUpdate).toLocaleDateString('es-CO')
+              ? (() => { const d = new Date(hourmeterRow.currentData.lastUpdate); const day = String(d.getDate()).padStart(2, '0'); const month = String(d.getMonth() + 1).padStart(2, '0'); const year = d.getFullYear(); return `${day}/${month}/${year}`; })()
               : 'N/A'}
           </p>
         </div>

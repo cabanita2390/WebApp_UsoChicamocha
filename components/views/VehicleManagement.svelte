@@ -5,9 +5,10 @@
   import Loader from "../shared/Loader.svelte";
   import DocumentUpdateModal from "../shared/DocumentUpdateModal.svelte";
   import { vehicleManagementColumns, curriculumColumns } from "../../config/table-definitions.js";
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
   import { formatVehiclePayload } from '@/lib/textFormat.js';
+  import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -19,6 +20,7 @@
   let showCvModal = false;
   let isCvLoading = false;
   let curriculumData = null;
+  let unsubscribeDataCheck = null;
 
   async function openCurriculumModal(vehicle) {
     showCvModal = true;
@@ -53,6 +55,14 @@
 
   function normLower(s) {
     return String(s ?? '').trim().toLowerCase();
+  }
+
+  function normalizeBelongsTo(value) {
+    if (!value) return 'Distrito';
+    const trimmed = String(value).trim().toLowerCase();
+    if (trimmed === 'asociacion') return 'Asociación';
+    if (trimmed === 'asociación') return 'Asociación';
+    return 'Distrito';
   }
 
   /** Usa id del API si existe; si no, busca por nombre de marca (sin distinguir mayúsculas). */
@@ -280,9 +290,20 @@
         data.fetchVehicleTypes(),
         data.fetchLocations().catch(e => console.warn('No se cargó ubicaciones:', e)),
       ]);
+
+      // Verificar documentos próximos a vencer
+      unsubscribeDataCheck = data.subscribe(d => {
+        if (d.vehicles?.length > 0) {
+          checkExpiringDocuments(d.vehicles, d.motos || [], d.machines || [], addNotification);
+        }
+      });
     } catch (e) {
       console.error("Error al cargar datos iniciales:", e);
     }
+  });
+
+  onDestroy(() => {
+    if (unsubscribeDataCheck) unsubscribeDataCheck();
   });
 
   async function handleCreateVehicle(event) {
@@ -336,6 +357,7 @@
       docSoatFile = null;
       docTecnoFile = null;
       docExtintorFile = null;
+      await data.fetchVehicles();
       addNotification({ id: Date.now(), text: "Vehículo creado con éxito." + docExtra });
     } catch (e) {
       errorMessage = e.message || "Error al crear vehículo.";
@@ -351,6 +373,7 @@
     errorMessage = "";
     try {
       await data.updateVehicle(vehicleInEditor.id, formatVehiclePayload(vehicleInEditor));
+      await data.fetchVehicles();
       closeEditModal();
       addNotification({ id: Date.now(), text: 'Vehículo actualizado con éxito.' });
     } catch (e) {
@@ -365,6 +388,7 @@
     errorMessage = "";
     try {
       await data.deleteVehicle(vehicleToDelete.id);
+      await data.fetchVehicles();
       vehicleToDelete = null;
       addNotification({ id: Date.now(), text: 'Vehículo eliminado con éxito.' });
     } catch (e) {
@@ -401,7 +425,7 @@
           const n = Number(raw);
           return Number.isNaN(n) ? null : n;
         })(),
-        belongsTo: (fullVehicle.belongsTo && fullVehicle.belongsTo.trim()) ? fullVehicle.belongsTo.trim().toLowerCase() : 'distrito',
+        belongsTo: normalizeBelongsTo(fullVehicle.belongsTo),
         activo: fullVehicle.activo !== false && fullVehicle.activo !== 'false' && fullVehicle.activo !== 0 && fullVehicle.activo !== '0',
         fuelTankCapacityGallons: fullVehicle.fuelTankCapacityGallons ?? null,
         factoryEfficiencyKmPerGallon: fullVehicle.factoryEfficiencyKmPerGallon ?? null,
@@ -546,8 +570,8 @@
             <span class="field-lab">Pertenece a</span>
             <select bind:value={newVehicle.belongsTo} required disabled={isSubmitting}>
               <option value="">— Seleccionar —</option>
-              <option value="distrito">Distrito</option>
-              <option value="asociacion">Asociación</option>
+              <option value="Distrito">Distrito</option>
+              <option value="Asociación">Asociación</option>
             </select>
           </label>
           <label class="field">
@@ -595,7 +619,7 @@
           </label>
           <label class="field">
             <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:4px;align-items:center">
               <input
                 type="number" step="0.01" min="0"
                 bind:value={newVehicle.factoryEfficiencyKmPerGallon}
@@ -615,7 +639,11 @@
         <div class="create-docs-grid">
           <label class="field field-doc">
             <span class="field-lab">SOAT — vence</span>
-            <input type="date" bind:value={docSoatVencimiento} disabled={isSubmitting} />
+            <input type="date"
+              value={docSoatVencimiento}
+              on:change={(e) => docSoatVencimiento = e.target.value}
+              disabled={isSubmitting}
+            />
           </label>
           <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
             <span class="field-lab">Archivo SOAT</span>
@@ -629,7 +657,11 @@
           </label>
           <label class="field field-doc">
             <span class="field-lab">Tecnomecánica — vence</span>
-            <input type="date" bind:value={docTecnoVencimiento} disabled={isSubmitting} />
+            <input type="date"
+              value={docTecnoVencimiento}
+              on:change={(e) => docTecnoVencimiento = e.target.value}
+              disabled={isSubmitting}
+            />
           </label>
           <label class="field field-doc file-upload-win" class:file-upload-win--disabled={isSubmitting}>
             <span class="field-lab">Archivo tecnomecánica</span>
@@ -745,8 +777,8 @@
             <span class="field-lab">Pertenece a</span>
             <select bind:value={vehicleInEditor.belongsTo}>
               <option value="">— Seleccionar —</option>
-              <option value="distrito">Distrito</option>
-              <option value="asociacion">Asociación</option>
+              <option value="Distrito">Distrito</option>
+              <option value="Asociación">Asociación</option>
             </select>
           </label>
           <label class="field">
@@ -790,7 +822,7 @@
           </label>
           <label class="field">
             <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:4px;align-items:center">
               <input
                 type="number" step="0.01" min="0"
                 bind:value={vehicleInEditor.factoryEfficiencyKmPerGallon}
@@ -877,7 +909,7 @@
                       <span class="badge-reemplazada">Reemplazada</span>
                     {/if}
                   </td>
-                  <td class="doc-fecha-registro">{row.subidoEn ? new Date(row.subidoEn).toLocaleString('es-CO', { dateStyle:'short', timeStyle:'short' }) : '—'}</td>
+                  <td class="doc-fecha-registro">{row.subidoEn ? (() => { const d = new Date(row.subidoEn); const day = String(d.getDate()).padStart(2, '0'); const month = String(d.getMonth() + 1).padStart(2, '0'); const year = d.getFullYear(); const hours = String(d.getHours()).padStart(2, '0'); const minutes = String(d.getMinutes()).padStart(2, '0'); return `${day}/${month}/${year} ${hours}:${minutes}`; })() : '—'}</td>
                   <td class="doc-col-por">{formatSubidoPor(row.subidoPor)}</td>
                   <td>
                     {#if row.urlArchivo}

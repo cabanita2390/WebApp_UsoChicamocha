@@ -59,7 +59,8 @@
     isExecuting = true;
     try {
       await data.executeWorkOrder(event.detail);
-      addNotification({ id: Date.now(), text: `Orden #${orderToExecute.order.id} ejecutada con éxito.` });
+      const orderNumber = orderToExecute.order.consecutive || '?????';
+      addNotification({ id: Date.now(), text: `Orden ${orderNumber} ejecutada con éxito.` });
       showExecuteModal = false;
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al ejecutar la orden: ${e.message}` });
