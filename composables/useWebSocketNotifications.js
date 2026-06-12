@@ -1,7 +1,7 @@
 import { writable, get } from 'svelte/store';
 import { auth } from '../stores/auth.js';
 import { data } from '../stores/data.js';
-import { ui, addNotification } from '../stores/ui.js';
+import { ui, addNotification, addPreventiveAlert } from '../stores/ui.js';
 
 // Import SockJS and STOMP for browser environment
 import SockJS from 'sockjs-client';
@@ -63,6 +63,8 @@ export function setWebSocketSoundNeedsActivation(needsActivation) {
 // WebSocket connections - PERSISTENT
 let sockJSConnection = null;
 let stompClient = null;
+let heartbeatIntervalId = null;
+let messageCount = 0; // Local counter para evitar actualizar store constantemente
 
 // Audio context for WebSocket sounds
 let audioCtx = null;
@@ -101,21 +103,35 @@ export function initializeWebSocketNotifications() {
   console.log(`🚀 [WEBSOCKET] === INICIALIZACIÓN COMPLETA === ${timestamp}`);
 }
 
-// Debug connection status
+// Debug connection status - solo errores y eventos críticos
 function logConnectionStatus(event, data) {
-  const timestamp = new Date().toLocaleTimeString();
-  console.log(`🔍 [WEBSOCKET DEBUG] [${timestamp}] ${event}:`, data);
+  // Solo log eventos críticos y errores para evitar spam
+  const criticalEvents = ['STOMP_CONNECT', 'STOMP_DISCONNECT', 'STOMP_ERROR', 'STOMP_PROTOCOL_ERROR', 'SOCKJS_ERROR', 'SOCKJS_CLOSE'];
+  if (criticalEvents.includes(event)) {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`🔍 [WEBSOCKET] [${timestamp}] ${event}:`, data);
+  }
 }
 
 // WebSocket connection with SockJS + STOMP - DEBUG VERSION
 function connectSockJS(token) {
   console.log("🚀 [WEBSOCKET] Iniciando conexión SockJS + STOMP con DEBUG...");
-  
+
+  // IMPORTANTE: Limpiar conexiones anteriores para evitar loops
+  if (stompClient && stompClient.connected) {
+    console.log("⚠️ [WEBSOCKET] Desconectando cliente STOMP anterior...");
+    stompClient.deactivate();
+  }
+  if (sockJSConnection && sockJSConnection.readyState === 1) {
+    console.log("⚠️ [WEBSOCKET] Cerrando conexión SockJS anterior...");
+    sockJSConnection.close();
+  }
+  stompClient = null;
+  sockJSConnection = null;
+
   const wsUrl = buildWebSocketUrl();
-  console.log("🔌 [WEBSOCKET] URL:", wsUrl);
-  
+
   // Step 1: Test SockJS connection first
-  console.log("📡 [WEBSOCKET] Paso 1: Creando conexión SockJS básica...");
   sockJSConnection = new SockJS(wsUrl);
   
   // Step 2: Monitor SockJS connection events
@@ -144,11 +160,8 @@ function connectSockJS(token) {
   };
   
   // Step 3: Create STOMP client with CORS fixes
-  console.log("📡 [WEBSOCKET] Paso 2: Creando cliente STOMP con CORS fix...");
-  
   stompClient = new StompClient({
     webSocketFactory: function() {
-      logConnectionStatus("STOMP_WS_FACTORY", "Creando WebSocket factory");
       return sockJSConnection;
     },
     connectHeaders: {
@@ -157,29 +170,34 @@ function connectSockJS(token) {
     // CORS CONFIGURATION TO FIX BLOCKED REQUEST
     forceJSONP: false,
     checkOrigin: false,
-    // Enhanced debug logging
+    // Disable debug logging to prevent console spam
     debug: function (str) {
-      console.log('STOMP DEBUG:', str);
+      // Silenciar debug de STOMP - causa spam en consola
+      // Solo log en desarrollo y solo errores críticos
+      if (str.includes('ERROR') || str.includes('error')) {
+        console.warn('STOMP DEBUG:', str);
+      }
     },
     onConnect: (frame) => {
       logConnectionStatus("STOMP_CONNECT", "Conectado exitosamente a STOMP");
-      console.log(`✅ [WEBSOCKET] Conectado STOMP:`, frame);
-      
+      console.log(`✅ [WEBSOCKET] Conectado STOMP`);
+
       updateConnectionStatus(true);
       subscribeToAllTopics();
-      
-      // Send ping to confirm connection
-      sendPing();
-      
-      // Start heartbeat monitoring
-      startHeartbeat();
+
+      // NO enviar ping inicial - STOMP maneja su propio heartbeat
+      // sendPing();
+
+      // NO iniciar heartbeat manual - STOMP + SockJS manejan reconnection automáticamente
+      // startHeartbeat();
     },
     onError: (error) => {
       logConnectionStatus("STOMP_ERROR", error);
       console.error('❌ [WEBSOCKET] Error de conexión STOMP:', error);
-      
+
       updateConnectionError(`STOMP Error: ${JSON.stringify(error)}`);
-      handleConnectionError();
+      // NO llamar handleConnectionError() aquí - evitar loops
+      // handleConnectionError();
     },
     onDisconnect: (frame) => {
       logConnectionStatus("STOMP_DISCONNECT", frame);
@@ -197,10 +215,8 @@ function connectSockJS(token) {
   });
   
   // Step 4: Activate with error handling
-  console.log("📡 [WEBSOCKET] Paso 3: Activando cliente STOMP...");
   try {
     stompClient.activate();
-    logConnectionStatus("STOMP_ACTIVATE", "Cliente STOMP activado");
   } catch (error) {
     console.error('❌ [WEBSOCKET] Error activando cliente STOMP:', error);
     updateConnectionError(`Activación STOMP Error: ${error.message}`);
@@ -209,20 +225,24 @@ function connectSockJS(token) {
 
 // Update connection status with error tracking
 function updateConnectionStatus(isConnected, isReconnecting = false) {
-  console.log(`📊 [WEBSOCKET] Estado actualizado - Conectado: ${isConnected}, Reconectando: ${isReconnecting}`);
-  
-  wsNotificationService.update(state => ({
-    ...state,
-    isConnected: isConnected,
-    connection: sockJSConnection,
-    stompClient: stompClient,
-    isReconnecting: isReconnecting,
-    connectionStats: {
-      ...state.connectionStats,
-      connectTime: isConnected ? new Date().toISOString() : state.connectionStats.connectTime,
-      lastError: isConnected ? null : state.connectionStats.lastError
+  wsNotificationService.update(state => {
+    // Solo log si el estado realmente cambió
+    if (state.isConnected !== isConnected || state.isReconnecting !== isReconnecting) {
+      console.log(`📊 [WEBSOCKET] Estado actualizado - Conectado: ${isConnected}, Reconectando: ${isReconnecting}`);
     }
-  }));
+    return {
+      ...state,
+      isConnected: isConnected,
+      connection: sockJSConnection,
+      stompClient: stompClient,
+      isReconnecting: isReconnecting,
+      connectionStats: {
+        ...state.connectionStats,
+        connectTime: isConnected ? new Date().toISOString() : state.connectionStats.connectTime,
+        lastError: isConnected ? null : state.connectionStats.lastError
+      }
+    };
+  });
 }
 
 // Update connection error
@@ -354,7 +374,7 @@ function sendWebSocketMessage(destination, body) {
 function handleMessage(topic, messageBody, handler) {
   try {
     let message = messageBody;
-    
+
     // Try to parse as JSON, but handle plain strings gracefully
     if (typeof messageBody === 'string' && messageBody.trim()) {
       try {
@@ -362,109 +382,83 @@ function handleMessage(topic, messageBody, handler) {
         message = JSON.parse(messageBody);
       } catch (jsonError) {
         // If JSON parsing fails, treat as plain string
-        console.log(`📝 [WEBSOCKET] Mensaje como texto plano en ${topic}: "${messageBody}"`);
         message = messageBody;
       }
     }
-    
+
     handler(message);
-    
-    // Update message statistics
-    wsNotificationService.update(state => {
-      state.connectionStats.messageCount++;
-      return state;
-    });
-    
+
+    // Incrementar contador local (evita actualizar store constantemente)
+    messageCount++;
+
+    // Actualizar stats en el store cada 10 mensajes para reducir actualización
+    if (messageCount % 10 === 0) {
+      wsNotificationService.update(state => ({
+        ...state,
+        connectionStats: {
+          ...state.connectionStats,
+          messageCount: messageCount
+        }
+      }));
+    }
+
   } catch (error) {
-    console.error(`❌ [WEBSOCKET] Error procesando mensaje de ${topic}:`, error);
-    console.error(`❌ [WEBSOCKET] Contenido del mensaje:`, messageBody);
+    console.error(`❌ [WEBSOCKET] Error procesando mensaje:`, error);
   }
 }
 
-// Message handlers (same as before but with debug)
+// Message handlers
 function handleInspectionMessage(message) {
-  const timestamp = new Date().toLocaleTimeString();
-  console.log(`📨 [INSPECTION] ⭐ NOTIFICACIÓN WEBSOCKET EN ${timestamp} ⭐`);
-  console.log(`📨 [INSPECTION] 🚨 RAW DATA:`, message);
-  
   if (message.type === 'stream_open' || message === 'stream_open') {
-    console.log('✅ [INSPECTION] Notificaciones de inspecciones confirmadas.');
     return;
   }
-  
-  const machineInfo = message.machine ? 
-    `${message.machine.name} ${message.machine.model}` : 
+
+  const machineInfo = message.machine ?
+    `${message.machine.name} ${message.machine.model}` :
     'una máquina';
-  
-  console.log(`🚨 [INSPECTION] ⚡ AGREGANDO NOTIFICACIÓN WEBSOCKET: ${machineInfo}!`);
 
   addNotification({
     id: message.UUID || message.id || Date.now(),
     text: `¡IMPREVISTO EN ${machineInfo}!`
   });
 
-  console.log("🔊 [INSPECTION] Reproduciendo sonido...");
   playNotificationSound();
 
   // Auto-refresh dashboard if on inspection view
   const currentView = get(ui).currentView;
-  console.log("🔄 [INSPECTION] Vista actual:", currentView);
-  
+
   if (currentView === 'dashboard') {
-    console.log("🔄 [INSPECTION] Actualizando dashboard...");
     const dataState = get(data);
     data.fetchDashboardData(dataState.dashboard.currentPage, dataState.dashboard.pageSize);
   }
 }
 
 function handleDataUpdateMessage(message) {
-  const timestamp = new Date().toLocaleTimeString();
-  console.log(`📨 [DATA_UPDATE] Mensaje WebSocket recibido en ${timestamp}`);
-  console.log(`📨 [DATA_UPDATE] Raw data:`, message);
-  
   if (message.type === 'stream_open' || message === 'stream_open') {
-    console.log('✅ [DATA_UPDATE] Notificaciones de actualización confirmadas.');
     return;
   }
-  
+
   const currentView = get(ui).currentView;
   const updateType = message.type || message;
-  console.log(`🔄 [DATA_UPDATE] Mensaje: "${updateType}", Vista actual: "${currentView}"`);
 
   handleDataUpdate(currentView, updateType);
 }
 
 function handleOilChangeMessage(message) {
-  const timestamp = new Date().toLocaleTimeString();
-  console.log(`📨 [OIL_CHANGE] Mensaje WebSocket recibido en ${timestamp}`);
-  console.log(`📨 [OIL_CHANGE] Raw data:`, message);
-  
   if (message.type === 'stream_open' || message === 'stream_open') {
-    console.log('✅ [OIL_CHANGE] Notificaciones de cambios de aceite confirmadas.');
     return;
   }
-  
-  console.log("🔔 [OIL_CHANGE] Agregando notificación WebSocket:", message.message || 'Notificación de cambio de aceite');
-  
+
   addNotification({
     id: message.id || Date.now(),
     text: message.message || 'Notificación de cambio de aceite'
   });
 }
 
-// ELIMINADO: handleGeneralMessage function - ya no existe el endpoint backend
-
 function handleSoatRuntMessage(message) {
-  const timestamp = new Date().toLocaleTimeString();
-  console.log(`📨 [SOAT_RUNT] Mensaje WebSocket recibido en ${timestamp}`);
-  console.log(`📨 [SOAT_RUNT] Raw data:`, message);
-  
   if (message.type === 'stream_open' || message === 'stream_open') {
-    console.log('✅ [SOAT_RUNT] Notificaciones SOAT/RUNT confirmadas.');
     return;
   }
-  
-  console.log("🔔 [SOAT_RUNT] Agregando notificación WebSocket:", message.message || 'Notificación SOAT/RUNT');
   
   addNotification({
     id: message.id || Date.now(),
@@ -473,57 +467,87 @@ function handleSoatRuntMessage(message) {
 }
 
 function handleConnectionMessage(message) {
-  console.log("🔗 [CONNECTION] Mensaje de conexión WebSocket:", message);
-
-  if (message.type === 'connection_status') {
-    console.log(`📊 [CONNECTION] Estado de conexión: ${message.status}`);
-  }
+  // Silenciar logs de conexión
 }
 
 function handleAlertMessage(message) {
   if (message.type === 'stream_open' || message === 'stream_open') return;
 
-  const text = typeof message === 'string'
-    ? message
-    : message.message || message.text || 'Alerta del sistema';
+  let alertData;
 
-  addNotification({
-    id: message.id || Date.now(),
-    text,
-  });
+  // Si el mensaje es un string, es una notificación regular
+  if (typeof message === 'string') {
+    addNotification({
+      id: Date.now(),
+      text: message,
+    });
+    return;
+  }
+
+  // Si viene con propiedades de AlertDTO, es una alerta preventiva
+  if (message.tipoAlerta && message.placa) {
+    alertData = {
+      id: message.id || Date.now(),
+      placa: message.placa,
+      tipoAlerta: message.tipoAlerta,
+      descripcion: message.descripcion,
+      fechaVencimiento: message.fechaVencimiento,
+      fechaCreacion: message.fechaCreacion,
+      estado: message.estado || 'ACTIVA',
+      colorEstado: message.colorEstado || 'AMARILLO'
+    };
+
+    addPreventiveAlert(alertData);
+  } else {
+    // Fallback a notificación regular
+    const text = message.message || message.text || 'Alerta del sistema';
+    addNotification({
+      id: message.id || Date.now(),
+      text,
+    });
+  }
 }
 
 // Heartbeat to maintain connection
 function startHeartbeat() {
-  setInterval(() => {
+  stopHeartbeat();
+  heartbeatIntervalId = setInterval(() => {
     if (stompClient && stompClient.connected) {
       console.log("💓 [WEBSOCKET] Verificando conexión STOMP...");
-      // STOMP handles heartbeat automatically, but we can send a ping
       sendPing();
     }
   }, WS_CONFIG.heartbeatDelay);
 }
 
+// Stop heartbeat
+function stopHeartbeat() {
+  if (heartbeatIntervalId !== null) {
+    clearInterval(heartbeatIntervalId);
+    heartbeatIntervalId = null;
+    console.log("🛑 [WEBSOCKET] Heartbeat detenido");
+  }
+}
+
 // Handle connection errors and reconnection
 function handleConnectionError() {
   console.warn("⚠️ [WEBSOCKET] Error de conexión - intentando reconectar...");
-  
-  const currentState = wsNotificationService;
-  const attempts = get(currentState).connectionStats.reconnectAttempts;
-  
+
+  const currentState = get(wsNotificationService);
+  const attempts = currentState.connectionStats.reconnectAttempts;
+
   if (attempts >= 3) {
-    console.error("❌ [WEBSOCKET] Máximo número de intentos de reconexión alcanzado.");
+    console.error("❌ [WEBSOCKET] Máximo número de intentos de reconexión alcanzado. Abandonando.");
     wsNotificationService.update(state => ({
       ...state,
       isReconnecting: false,
       connectionStats: {
         ...state.connectionStats,
-        reconnectAttempts: state.connectionStats.reconnectAttempts + 1
+        lastError: "Max reconnection attempts exceeded"
       }
     }));
     return;
   }
-  
+
   wsNotificationService.update(state => ({
     ...state,
     isReconnecting: true,
@@ -532,12 +556,20 @@ function handleConnectionError() {
       reconnectAttempts: state.connectionStats.reconnectAttempts + 1
     }
   }));
-  
+
+  console.log(`🔄 [WEBSOCKET] Intento ${attempts + 1}/3 - Reconectando en ${WS_CONFIG.reconnectDelay}ms...`);
+
   setTimeout(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
-      console.log("🔄 [WEBSOCKET] Reintentando conexión...");
+      console.log("🔄 [WEBSOCKET] Ejecutando reconexión...");
       connectSockJS(token);
+    } else {
+      console.warn("⚠️ [WEBSOCKET] No hay token disponible para reconectar");
+      wsNotificationService.update(state => ({
+        ...state,
+        isReconnecting: false
+      }));
     }
   }, WS_CONFIG.reconnectDelay);
 }
@@ -555,62 +587,60 @@ function handleDataUpdate(currentView, message) {
   switch (message) {
     case 'inspections-updated':
       if (currentView === 'dashboard') {
-        console.log('🔄 [DATA_UPDATE] Recargando tabla de inspecciones...');
         data.fetchDashboardData(dataState.dashboard.currentPage, dataState.dashboard.pageSize);
       }
       break;
     case 'machines-updated':
       if (currentView === 'machines') {
-        console.log('🔄 [DATA_UPDATE] Recargando tabla de máquinas...');
         data.fetchMachines();
       }
       break;
     case 'users-updated':
       if (currentView === 'users') {
-        console.log('🔄 [DATA_UPDATE] Recargando tabla de usuarios...');
         data.fetchUsers();
       }
       break;
     case 'orders-updated':
       if (currentView === 'work-orders') {
-        console.log('🔄 [DATA_UPDATE] Recargando tabla de órdenes de trabajo...');
         data.fetchWorkOrders(dataState.workOrders.currentPage, dataState.workOrders.pageSize);
       }
       break;
     case 'oil-changes-updated':
       if (currentView === 'consolidado') {
-        console.log('🔄 [DATA_UPDATE] Recargando tabla de consolidado...');
         data.fetchConsolidadoData();
       }
       break;
     case 'fuel-updated':
       if (currentView === 'fuel') {
-        console.log('🔄 [DATA_UPDATE] Recargando registros de combustible...');
         data.fetchFuelLogs(null, null);
         data.fetchFuelDashboard(null, null);
       }
       break;
     case 'vehicle-inspections-updated':
       if (currentView === 'dashboard') {
-        console.log('🔄 [DATA_UPDATE] Recargando inspecciones de vehículos...');
         data.fetchVehicleInspections(dataState.vehicleInspections.currentPage, dataState.vehicleInspections.pageSize, { reload: true });
+        data.fetchVehicles();
+      } else if (currentView === 'vehicles') {
+        data.fetchVehicles();
       }
       break;
     case 'moto-inspections-updated':
       if (currentView === 'dashboard') {
-        console.log('🔄 [DATA_UPDATE] Recargando inspecciones de motos...');
         data.fetchMotoInspections();
+        data.fetchMotos();
+      } else if (currentView === 'moto-inventory') {
+        data.fetchMotos();
       }
       break;
-    default:
-      console.log("⚠️ [DATA_UPDATE] Mensaje no reconocido:", message);
   }
 }
 
 // Disconnect from WebSocket
 export function disconnectFromWebSocket() {
   console.log("🔌 [WEBSOCKET] Cerrando conexión WebSocket...");
-  
+
+  stopHeartbeat();
+
   if (stompClient && stompClient.connected) {
     // Unsubscribe from all topics
     wsNotificationService.update(state => {
@@ -621,11 +651,11 @@ export function disconnectFromWebSocket() {
       state.subscriptions.clear();
       return state;
     });
-    
+
     // Deactivate STOMP client
     stompClient.deactivate();
   }
-  
+
   stompClient = null;
   sockJSConnection = null;
   
