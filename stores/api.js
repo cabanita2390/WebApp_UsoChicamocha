@@ -1,9 +1,6 @@
 import { auth } from './auth';
 
 async function fetchWithAuth(endpoint, options = {}) {
-
-    await auth.checkAuth();
-
     const token = localStorage.getItem('accessToken');
 
     if (!token) {
@@ -14,7 +11,7 @@ async function fetchWithAuth(endpoint, options = {}) {
 
     const defaultHeaders = {
         'Authorization': `Bearer ${token}`,
-        ...(isFormData ? {} : { 'Content-Type': 'application/json' })
+        ...(isFormData ? {} : { 'Content-Type': 'application/json; charset=UTF-8' })
     };
 
     const BASE_URL = import.meta.env.VITE_API_BASE_URL;

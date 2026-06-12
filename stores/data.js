@@ -439,6 +439,15 @@ function createDataStore() {
                 throw err;
             }
         },
+        fetchMotoOilHistory: async (placa) => {
+            try {
+                const p = normalizePlaca(placa);
+                const result = await fetchWithAuth(`moto/${encodeURIComponent(p)}/oil-change-history`);
+                return Array.isArray(result) ? result : [];
+            } catch (err) {
+                throw err;
+            }
+        },
         updateVehicleDocument: async (docData) => {
             await fetchWithAuth('admin/documents', { method: 'POST', body: JSON.stringify(docData) });
         },

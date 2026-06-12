@@ -49,6 +49,8 @@
     isAutoRefreshEnabled,
     isAutoRefreshActive,
   } from "./composables/useAutoRefresh.js";
+  import { fetchAllAlerts } from "./composables/useAlerts.js";
+  import { preventiveAlerts, preventiveAlertCount } from "./stores/ui.js";
   import ImageCarouselModal from "./components/shared/ImageCarouselModal.svelte";
 
   // --- ROUTES DEFINITION ---
@@ -88,11 +90,38 @@
     }
   }
 
-  // WebSocket connection status monitoring is now handled via wsNotificationService store
-  $: {
-    const wsStatus = $wsNotificationService;
-    console.log("🔌 [APP] Estado WebSocket actualizado:", wsStatus);
+  // 📢 Cargar alertas preventivas automáticamente al iniciar sesión
+  async function loadInitialAlerts() {
+    try {
+      console.log("📢 [APP] Cargando alertas iniciales al iniciar sesión...");
+      const response = await fetchAllAlerts(0, 50, { estado: "ACTIVA" });
+      console.log("📢 [APP] Respuesta del API:", response);
+
+      let alertas = [];
+      if (response && response.content && Array.isArray(response.content)) {
+        alertas = response.content;
+      } else if (Array.isArray(response)) {
+        alertas = response;
+      }
+
+      if (alertas.length > 0) {
+        preventiveAlerts.set(alertas);
+        preventiveAlertCount.set(alertas.length);
+        console.log(`✅ [APP] ${alertas.length} alertas cargadas automáticamente`);
+      } else {
+        console.log("ℹ️ [APP] No hay alertas activas en el servidor");
+        preventiveAlerts.set([]);
+        preventiveAlertCount.set(0);
+      }
+    } catch (error) {
+      console.error("❌ [APP] Error cargando alertas iniciales:", error);
+      preventiveAlerts.set([]);
+      preventiveAlertCount.set(0);
+    }
   }
+
+  let unsubscribeAuth;
+  let wsInitialized = false;
 
   // --- LIFECYCLE HOOKS ---
   onMount(async () => {
@@ -110,38 +139,41 @@
     } else {
       console.log("🚀 [APP] Usuario no autenticado - mostrando login");
     }
-  });
 
-  auth.subscribe((value) => {
-    console.log(
-      "🚀 [APP] Cambio en estado de auth:",
-      value.isAuthenticated ? "AUTENTICADO" : "NO AUTENTICADO",
-    );
+    unsubscribeAuth = auth.subscribe((value) => {
+      console.log(
+        "🚀 [APP] Cambio en estado de auth:",
+        value.isAuthenticated ? "AUTENTICADO" : "NO AUTENTICADO",
+      );
 
-    if (value.isAuthenticated) {
-      console.log("🚀 [APP] Usuario autenticado - Verificando servicios...");
+      if (value.isAuthenticated) {
+        console.log("🚀 [APP] Usuario autenticado - Verificando servicios...");
 
-      // Verificar si ya hay conexión para evitar duplicados
-      const wsStatus = get(wsNotificationService);
-      if (!wsStatus.isConnected && !wsStatus.isReconnecting) {
-        console.log("🚀 [APP] Inicializando WebSocket notifications...");
-        initializeWebSocketNotifications();
+        // ❌ ALERTAS DESHABILITADAS PARA DEBUGGING
+        // loadInitialAlerts().catch(err => console.error("Error en loadInitialAlerts:", err));
+
+        // ❌ WebSocket COMPLETAMENTE DESHABILITADO PARA DEBUGGING
+        // if (!wsInitialized) {
+        //   wsInitialized = true;
+        //   console.log("🚀 [APP] Inicializando WebSocket notifications...");
+        //   initializeWebSocketNotifications();
+        // }
+
+        // ❌ AUTO-REFRESH DESHABILITADO PARA DEBUGGING
+        // if (!get(isAutoRefreshActive)) {
+        //   startAutoRefresh();
+        // }
       } else {
-        console.log("🚀 [APP] WebSocket ya conectado o conectando.");
+        console.log("🚀 [APP] Usuario desconectado - cerrando streams WebSocket");
+        wsInitialized = false;
+        disconnectFromWebSocket();
+        stopAutoRefresh();
       }
-
-      // Verificar auto-refresh
-      if (!get(isAutoRefreshActive)) {
-        startAutoRefresh();
-      }
-    } else {
-      console.log("🚀 [APP] Usuario desconectado - cerrando streams WebSocket");
-      disconnectFromWebSocket();
-      stopAutoRefresh();
-    }
+    });
   });
 
   onDestroy(() => {
+    if (unsubscribeAuth) unsubscribeAuth();
     disconnectFromWebSocket();
     stopAutoRefresh();
   });

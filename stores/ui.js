@@ -1,23 +1,12 @@
 import { writable, get } from 'svelte/store';
 
-// Helper para crear un store que persiste en sessionStorage
-function createPersistedStore(key, startValue) {
-  const isBrowser = typeof window !== 'undefined';
-  if (!isBrowser) {
-    return writable(startValue);
-  }
-  const storedValue = sessionStorage.getItem(key);
-  const initialValue = storedValue ? JSON.parse(storedValue) : startValue;
-  const store = writable(initialValue);
-  store.subscribe(value => {
-    sessionStorage.setItem(key, JSON.stringify(value));
-  });
-  return store;
-}
+// --- Stores de Notificaciones (en memoria, no persistir) ---
+export const notificationCount = writable(0);
+export const notificationMessages = writable([]);
 
-// --- Stores de Notificaciones ---
-export const notificationCount = createPersistedStore('notificationCount', 0);
-export const notificationMessages = createPersistedStore('notificationMessages', []);
+// --- Stores de Alertas Preventivas (en memoria, no persistir) ---
+export const preventiveAlertCount = writable(0);
+export const preventiveAlerts = writable([]);
 
 // --- Acciones de Notificaciones ---
 // CORRECCIÓN: Se usa `get` para una comprobación de duplicados más robusta y sincrónica.
@@ -44,6 +33,29 @@ export function removeNotification(notificationId) {
 export function clearNotifications() {
   notificationMessages.set([]);
   notificationCount.set(0);
+}
+
+// --- Acciones de Alertas Preventivas ---
+export function addPreventiveAlert(alert) {
+  const currentAlerts = get(preventiveAlerts);
+  // Evitar duplicados basados en placa + tipo de alerta
+  const exists = currentAlerts.some(a => a.placa === alert.placa && a.tipoAlerta === alert.tipoAlerta && a.estado === 'ACTIVA');
+  if (exists) {
+    console.log(`Alerta preventiva duplicada ignorada: ${alert.placa} - ${alert.tipoAlerta}`);
+    return;
+  }
+  preventiveAlerts.update(alerts => [alert, ...alerts]);
+  preventiveAlertCount.update(n => n + 1);
+}
+
+export function removePreventiveAlert(alertId) {
+  preventiveAlerts.update(alerts => alerts.filter(a => a.id !== alertId));
+  preventiveAlertCount.update(n => (n > 0 ? n - 1 : 0));
+}
+
+export function clearPreventiveAlerts() {
+  preventiveAlerts.set([]);
+  preventiveAlertCount.set(0);
 }
 
 // --- Store Principal de UI ---
