@@ -666,6 +666,13 @@ function handleDataUpdate(currentView, message) {
         data.fetchFuelDashboard(null, null);
       }
       break;
+    case 'oil-change-alert-updated':
+      // Refrescar consolidado cuando hay alerta de aceite
+      if (currentView === 'consolidado') {
+        console.log("🔔 [OIL_CHANGE_ALERT] Refrescando datos de consolidado...");
+        data.fetchConsolidadoData();
+      }
+      break;
     case 'vehicle-inspections-updated':
       if (currentView === 'dashboard') {
         data.fetchVehicleInspections(dataState.vehicleInspections.currentPage, dataState.vehicleInspections.pageSize, { reload: true });

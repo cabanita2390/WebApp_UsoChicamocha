@@ -43,6 +43,12 @@
     activateSound as activateWebSocketSound,
   } from "./composables/useWebSocketNotifications.js";
   import {
+    subscribeToOilChangeAlerts,
+    disconnectOilChangeAlerts,
+    oilChangeAlerts,
+    setGlobalStompClient,
+  } from "./src/composables/useOilChangeAlerts.js";
+  import {
     startAutoRefresh,
     stopAutoRefresh,
     toggleAutoRefresh,
@@ -149,24 +155,44 @@
       if (value.isAuthenticated) {
         console.log("🚀 [APP] Usuario autenticado - Verificando servicios...");
 
-        // ❌ ALERTAS DESHABILITADAS PARA DEBUGGING
-        // loadInitialAlerts().catch(err => console.error("Error en loadInitialAlerts:", err));
+        // ✅ ALERTAS HABILITADAS
+        loadInitialAlerts().catch(err => console.error("Error en loadInitialAlerts:", err));
 
-        // ❌ WebSocket COMPLETAMENTE DESHABILITADO PARA DEBUGGING
-        // if (!wsInitialized) {
-        //   wsInitialized = true;
-        //   console.log("🚀 [APP] Inicializando WebSocket notifications...");
-        //   initializeWebSocketNotifications();
-        // }
+        // ✅ WebSocket HABILITADO
+        if (!wsInitialized) {
+          wsInitialized = true;
+          console.log("🚀 [APP] Inicializando WebSocket notifications...");
+          initializeWebSocketNotifications();
 
-        // ❌ AUTO-REFRESH DESHABILITADO PARA DEBUGGING
-        // if (!get(isAutoRefreshActive)) {
-        //   startAutoRefresh();
-        // }
+          // ✅ Suscribirse a alertas de cambio de aceite cuando se conecte
+          const unsubscribeWS = wsNotificationService.subscribe((ws) => {
+            if (ws?.isConnected && ws?.stompClient) {
+              console.log("🚀 [APP] WebSocket conectado, configurando alertas de aceite...");
+              setGlobalStompClient(ws.stompClient);
+
+              subscribeToOilChangeAlerts((alert) => {
+                console.log("🔔 Nueva alerta de aceite:", alert);
+                addNotification({
+                  type: "warning",
+                  message: `⚠️ ${alert.placa}: ${alert.alertMessage}`,
+                });
+              });
+
+              // Desuscribirse del monitor de conexión
+              unsubscribeWS();
+            }
+          });
+        }
+
+        // ✅ AUTO-REFRESH HABILITADO
+        if (!get(isAutoRefreshActive)) {
+          startAutoRefresh();
+        }
       } else {
         console.log("🚀 [APP] Usuario desconectado - cerrando streams WebSocket");
         wsInitialized = false;
         disconnectFromWebSocket();
+        disconnectOilChangeAlerts();
         stopAutoRefresh();
       }
     });
@@ -175,6 +201,7 @@
   onDestroy(() => {
     if (unsubscribeAuth) unsubscribeAuth();
     disconnectFromWebSocket();
+    disconnectOilChangeAlerts();
     stopAutoRefresh();
   });
 

@@ -2,6 +2,7 @@
     import { createEventDispatcher } from "svelte";
     import Sidebar from "../shared/Sidebar.svelte";
     import NotificationDropdown from "../shared/NotificationDropdown.svelte";
+    import OilChangeAlertWidget from "../shared/OilChangeAlertWidget.svelte";
     import { auth } from "../../stores/auth.js";
     import {
         ui,
@@ -13,6 +14,7 @@
         removePreventiveAlert,
     } from "../../stores/ui.js";
     import { wsNotificationService } from "../../composables/useWebSocketNotifications.js";
+    import { oilChangeAlerts } from "../../src/composables/useOilChangeAlerts.js";
     import { location } from "svelte-spa-router";
     import { getPageTitle } from "../../config/page-titles.js";
 
@@ -149,6 +151,13 @@
         </header>
 
         <div class="content">
+            <!-- Widget de alertas de cambio de aceite -->
+            {#if Object.keys($oilChangeAlerts || {}).length > 0}
+                <div class="oil-alerts-container">
+                    <OilChangeAlertWidget />
+                </div>
+            {/if}
+
             <slot />
         </div>
     </main>
@@ -375,5 +384,15 @@
             opacity: 0.5;
             transform: scale(0.9);
         }
+    }
+
+    /* Oil Change Alerts Container */
+    .oil-alerts-container {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 </style>
