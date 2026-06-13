@@ -1,7 +1,11 @@
 import { auth } from './auth';
 
-async function fetchWithAuth(endpoint, options = {}) {
-    const token = localStorage.getItem('accessToken');
+let isRefreshingToken = false;
+let refreshTokenPromise = null;
+
+async function fetchWithAuth(endpoint, options = {}, retryCount = 0) {
+    const MAX_RETRIES = 1;
+    let token = localStorage.getItem('accessToken');
 
     if (!token) {
         throw new Error('Sesión no válida. Por favor, inicie sesión de nuevo.');
@@ -19,16 +23,39 @@ async function fetchWithAuth(endpoint, options = {}) {
     const apiVersion = options.version === undefined ? 'v1' : options.version;
     const path = apiVersion ? `/api/${apiVersion}/${endpoint}` : `/api/${endpoint}`;
 
-
     const response = await fetch(`${BASE_URL}${path}`, {
         ...options,
         headers: { ...defaultHeaders, ...options.headers }
     });
-    
 
     if (response.status === 403) {
-
         throw new Error('No tiene permisos para realizar esta acción.');
+    }
+
+    // 🔴 FALLBACK: Si llega un 401 (no debería, pero es failsafe)
+    if (response.status === 401 && retryCount < MAX_RETRIES) {
+        console.warn('⚠️ Token expirado (401) - El monitor no refrescó a tiempo, intentando refrescar ahora...');
+
+        try {
+            if (!isRefreshingToken) {
+                isRefreshingToken = true;
+                refreshTokenPromise = auth.refreshToken();
+            }
+
+            const refreshSuccess = await refreshTokenPromise;
+            isRefreshingToken = false;
+            refreshTokenPromise = null;
+
+            if (refreshSuccess) {
+                console.log('✅ Token refrescado en fallback, reintentando request...');
+                return fetchWithAuth(endpoint, options, retryCount + 1);
+            } else {
+                throw new Error('No se pudo renovar el token. Inicie sesión de nuevo.');
+            }
+        } catch (refreshError) {
+            console.error('Error al refrescar token:', refreshError);
+            throw new Error('Su sesión ha expirado. Por favor, inicie sesión de nuevo.');
+        }
     }
 
     const responseText = await response.text();
@@ -48,7 +75,6 @@ async function fetchWithAuth(endpoint, options = {}) {
                     }
                 }
             } catch {
-                // Cuerpo plano (p. ej. Spring devuelve texto con el motivo del 400/409)
                 message = responseText.trim();
             }
         }
@@ -59,7 +85,7 @@ async function fetchWithAuth(endpoint, options = {}) {
     }
 
     if (response.status === 204 || !responseText) {
-        return null; // Maneja respuestas sin contenido
+        return null;
     }
 
     try {
