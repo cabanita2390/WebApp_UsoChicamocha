@@ -65,6 +65,7 @@ let sockJSConnection = null;
 let stompClient = null;
 let heartbeatIntervalId = null;
 let messageCount = 0; // Local counter para evitar actualizar store constantemente
+let isConnecting = false; // 🔴 NUEVO: Flag para evitar múltiples conexiones simultáneas
 
 // Audio context for WebSocket sounds
 let audioCtx = null;
@@ -113,11 +114,50 @@ function logConnectionStatus(event, data) {
   }
 }
 
+// 🔴 NUEVO: Limpiar todas las subscriptions activas
+function cleanupSubscriptions() {
+  wsNotificationService.update(state => {
+    if (state.subscriptions && state.subscriptions.size > 0) {
+      console.log(`🧹 [WEBSOCKET] Limpiando ${state.subscriptions.size} subscriptions activas...`);
+
+      // Unsubscribe de cada topic
+      state.subscriptions.forEach((subscription, topic) => {
+        try {
+          if (subscription && subscription.unsubscribe) {
+            subscription.unsubscribe();
+            console.log(`✅ [WEBSOCKET] Unsubscribed de: ${topic}`);
+          }
+        } catch (error) {
+          console.warn(`⚠️ [WEBSOCKET] Error al unsubscribir de ${topic}:`, error);
+        }
+      });
+
+      // Limpiar el Map
+      state.subscriptions.clear();
+    }
+    return state;
+  });
+}
+
 // WebSocket connection with SockJS + STOMP - DEBUG VERSION
 function connectSockJS(token) {
   console.log("🚀 [WEBSOCKET] Iniciando conexión SockJS + STOMP con DEBUG...");
 
-  // IMPORTANTE: Limpiar conexiones anteriores para evitar loops
+  // 🔴 NUEVO: Si ya está conectado, NO reconectar
+  if (stompClient && stompClient.connected && sockJSConnection && sockJSConnection.readyState === 1) {
+    console.log("✅ [WEBSOCKET] Ya está conectado, ignorando nueva conexión");
+    return;
+  }
+
+  // 🔴 NUEVO: Si ya está intentando conectar, NO iniciar otra conexión
+  if (isConnecting) {
+    console.log("⏳ [WEBSOCKET] Ya hay una conexión en progreso, ignorando");
+    return;
+  }
+
+  isConnecting = true;
+
+  // IMPORTANTE: Limpiar conexiones anteriores SOLO si están realmente desconectadas
   if (stompClient && stompClient.connected) {
     console.log("⚠️ [WEBSOCKET] Desconectando cliente STOMP anterior...");
     stompClient.deactivate();
@@ -182,6 +222,7 @@ function connectSockJS(token) {
       logConnectionStatus("STOMP_CONNECT", "Conectado exitosamente a STOMP");
       console.log(`✅ [WEBSOCKET] Conectado STOMP`);
 
+      isConnecting = false; // 🔴 NUEVO: Marcar que ya no está conectando
       updateConnectionStatus(true);
       subscribeToAllTopics();
 
@@ -195,6 +236,10 @@ function connectSockJS(token) {
       logConnectionStatus("STOMP_ERROR", error);
       console.error('❌ [WEBSOCKET] Error de conexión STOMP:', error);
 
+      isConnecting = false; // 🔴 NUEVO: Marcar que no está conectando
+      // 🔴 NUEVO: Limpiar subscriptions en error
+      cleanupSubscriptions();
+
       updateConnectionError(`STOMP Error: ${JSON.stringify(error)}`);
       // NO llamar handleConnectionError() aquí - evitar loops
       // handleConnectionError();
@@ -202,6 +247,11 @@ function connectSockJS(token) {
     onDisconnect: (frame) => {
       logConnectionStatus("STOMP_DISCONNECT", frame);
       console.log('🔌 [WEBSOCKET] Conexión STOMP cerrada:', frame);
+
+      isConnecting = false; // 🔴 NUEVO: Marcar que no está conectando
+      // 🔴 NUEVO: Limpiar subscriptions al desconectarse
+      cleanupSubscriptions();
+
       updateConnectionStatus(false);
     },
     onStompError: function(frame) {
@@ -641,17 +691,10 @@ export function disconnectFromWebSocket() {
 
   stopHeartbeat();
 
-  if (stompClient && stompClient.connected) {
-    // Unsubscribe from all topics
-    wsNotificationService.update(state => {
-      state.subscriptions.forEach((subscription, topic) => {
-        console.log(`📡 [WEBSOCKET] Desuscribiéndose de ${topic}`);
-        subscription.unsubscribe();
-      });
-      state.subscriptions.clear();
-      return state;
-    });
+  // 🔴 ACTUALIZADO: Usar función centralizada de cleanup
+  cleanupSubscriptions();
 
+  if (stompClient && stompClient.connected) {
     // Deactivate STOMP client
     stompClient.deactivate();
   }
