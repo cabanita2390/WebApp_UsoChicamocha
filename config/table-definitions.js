@@ -875,54 +875,60 @@ export const consolidadoVehicleColumns = [
     {
         header: 'Aceite Motor',
         columns: [
-            { header: 'Tipo', accessorFn: row => row.maintenance?.tipoAceite ?? 'N/A', id: 'cv_oil_tipo', size: 100, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Fecha Últ. Cambio', accessorFn: row => formatLocalDate(row.maintenance?.fechaUltimoCambio), id: 'cv_oil_fecha', size: 105, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.maintenance?.kmUltimoCambio), id: 'cv_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Km Próximo', accessorFn: row => formatKm(row.maintenance?.kmProximoCambio), id: 'cv_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Km Restantes', accessorFn: row => row.maintenance?.kmParaCambio ?? 'N/A', id: 'cv_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Uso %', accessorFn: row => (row.maintenance?.percentageUsed ?? 'N/A') + '%', id: 'cv_oil_uso', size: 70, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Estado', accessorFn: row => row.maintenance?.estado ?? 'N/A', id: 'cv_oil_estado', size: 110, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Marca', size: 100, accessorFn: row => row.maintenance?.brandName ?? 'N/A', id: 'cv_oil_marca', meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Cant.', size: 60, accessorFn: row => row.maintenance?.quantity ?? 'N/A', id: 'cv_oil_cantidad', meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Intervalo', size: 80, accessorFn: row => (row.maintenance?.intervalKm ? formatKm(row.maintenance.intervalKm) + ' km' : 'N/A'), id: 'cv_oil_intervalo', meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Fecha Últ. Cambio', accessorFn: row => formatLocalDate(row.maintenance?.fechaUltimoCambio), id: 'cv_oil_fecha', size: 110, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.maintenance?.kmCambio), id: 'cv_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Próximo Cambio', accessorFn: row => formatKm(row.maintenance?.kmProximoCambio), id: 'cv_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Días desde Cambio', accessorFn: row => row.maintenance?.diasDesdeUltimoCambio ?? 'N/A', id: 'cv_oil_dias', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km Restantes', accessorFn: row => formatKm(row.maintenance?.kmParaProximo), id: 'cv_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Filtro Aire', accessorFn: row => row.maintenance?.filtroAire ? 'Sí' : 'No', id: 'cv_oil_filtro', size: 80, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Estado', accessorFn: row => row.maintenance?.estado ?? 'N/A', id: 'cv_oil_estado', size: 100, meta: { cellClass: 'motor-oil-cell' } },
         ],
     },
     {
         id: 'cv_actions',
         header: 'Acciones',
         accessorFn: () => '',
-        size: 252,
+        size: 140,
         meta: { isConsolidadoVehicleActions: true },
     },
 ];
 
-/** Consolidado motos (tab Consolidado → Motos). Mismo estilo que maquinaria: fondos por grupo. */
+/** Consolidado motos (tab Consolidado → Motos). Mismo estilo que vehículos: estructura idéntica. */
 export const consolidadoMotoColumns = [
     {
         header: 'Moto',
         columns: [
             { header: 'Pertenece a', accessorKey: 'departamento', size: 130 },
-            { header: 'Ubicación', accessorFn: row => motoMonitoringUbicacionCell(row), id: 'cm_ubicacion', size: 150 },
             { header: 'Placa', accessorKey: 'placa', size: 90 },
             { header: 'Km Actual', accessorFn: row => formatKm(row.kmActual), id: 'cm_km', size: 90 },
             { header: 'Días sin reporte', accessorKey: 'diasUltimoReporte', id: 'cm_dias_rep', size: 95 },
             { header: 'Fecha Último Reporte', accessorFn: row => formatDateTime(row.fechaUltimoReporte), id: 'cm_fecha_rep', size: 150 },
-            { header: 'Estado Moto', accessorKey: 'estadoMoto', id: 'cm_estado_moto', size: 90 },
         ],
     },
     {
-        header: 'Aceite',
+        header: 'Aceite Motor',
         columns: [
+            { header: 'Marca', size: 100, accessorFn: row => row.oil?.brandName ?? 'N/A', id: 'cm_oil_marca', meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Cant.', size: 60, accessorFn: row => row.oil?.quantity ?? 'N/A', id: 'cm_oil_cantidad', meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Intervalo', size: 80, accessorFn: row => (row.oil?.intervalKm ? formatKm(row.oil.intervalKm) + ' km' : 'N/A'), id: 'cm_oil_intervalo', meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Fecha Últ. Cambio', accessorFn: row => formatLocalDate(row.oil?.fechaUltimoCambio), id: 'cm_oil_fecha', size: 110, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.oil?.kmCambio), id: 'cm_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Km Próximo', accessorFn: row => formatKm(row.oil?.kmProximoCambio), id: 'cm_oil_km_prox', size: 90, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Km Restantes', accessorFn: row => row.oil?.kmParaProximo ?? 'N/A', id: 'cm_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Uso %', accessorFn: row => (row.oil?.percentageUsed ?? 'N/A') + '%', id: 'cm_oil_uso', size: 70, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Estado', accessorFn: row => row.oil?.estado ?? 'N/A', id: 'cm_oil_estado', size: 110, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Próximo Cambio', accessorFn: row => formatKm(row.oil?.kmProximoCambio), id: 'cm_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Días desde Cambio', accessorFn: row => row.oil?.diasDesdeUltimoCambio ?? 'N/A', id: 'cm_oil_dias', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km Restantes', accessorFn: row => formatKm(row.oil?.kmParaProximo), id: 'cm_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Filtro Aire', accessorFn: row => row.oil?.filtroAire ? 'Sí' : 'No', id: 'cm_oil_filtro', size: 80, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Estado', accessorFn: row => row.oil?.estado ?? 'N/A', id: 'cm_oil_estado', size: 100, meta: { cellClass: 'motor-oil-cell' } },
         ],
     },
     {
         id: 'cm_actions',
         header: 'Acciones',
         accessorFn: () => '',
-        meta: { isConsolidadoVehicleActions: true },
+        size: 140,
+        meta: { isConsolidadoMotoActions: true },
     },
 ];
 

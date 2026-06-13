@@ -332,6 +332,7 @@
                   cell.column.columnDef.meta?.isMonitoringDocsAction ||
                   cell.column.columnDef.meta?.isMonitoringOilAction ||
                   cell.column.columnDef.meta?.isConsolidadoVehicleActions ||
+                  cell.column.columnDef.meta?.isConsolidadoMotoActions ||
                   cell.column.columnDef.meta?.isConsolidadoMaqActions ||
                   cell.column.columnDef.meta?.isDocHistoryAction ||
                   cell.column.columnDef.meta?.isFuelHistorial ||
@@ -427,6 +428,17 @@
                       on:click={() => handleAction("update_docs", row.original)}
                     >
                       Actualizar Docs
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isConsolidadoMotoActions}
+                  <div class="actions-cell">
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact mon-action-text--hist"
+                      title="Ver historial de cambios de aceite"
+                      on:click={() => handleAction("monitoring_oil_history", row.original)}
+                    >
+                      Ver historial aceite
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isConsolidadoMaqActions}
