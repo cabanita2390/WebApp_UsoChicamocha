@@ -1,2 +1,12 @@
 node_modules/
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build and generated artifacts
+dist/
+coverage/
+playwright-report/
+test-results/
