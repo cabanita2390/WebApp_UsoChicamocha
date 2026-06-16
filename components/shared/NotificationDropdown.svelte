@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   import { fetchAllAlerts, deleteAlert, alertsLoading, alertsError } from '../../composables/useAlerts.js';
+  import { visibleAlertCount } from '../../stores/ui.js';
 
   export let messages = [];
   export let alerts = [];
@@ -47,6 +48,9 @@
     const docKeywords = ['soat', 'runt', 'seguro', 'technomecánica', 'tecnomecánica', 'licencia'];
     return !docKeywords.some(keyword => text.includes(keyword));
   });
+
+  // Actualizar contador visible en el badge
+  $: visibleAlertCount.set(allAlerts.length + filteredMessages.length);
 
   function deleteNotification(notificationId) {
     dispatch('deleteNotification', notificationId);

@@ -8,6 +8,9 @@ export const notificationMessages = writable([]);
 export const preventiveAlertCount = writable(0);
 export const preventiveAlerts = writable([]);
 
+// --- Contador visible en el dropdown (después de deduplicación) ---
+export const visibleAlertCount = writable(0);
+
 // --- Acciones de Notificaciones ---
 // CORRECCIÓN: Se usa `get` para una comprobación de duplicados más robusta y sincrónica.
 
