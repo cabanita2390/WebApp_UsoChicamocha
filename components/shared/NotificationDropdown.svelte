@@ -104,6 +104,70 @@
   function formatAlertDescription(alert) {
     return `[${alert.tipoAlerta}] ${alert.placa} - ${alert.descripcion}`;
   }
+
+  function getVehicleTypeEmoji(tipoMaquinaria) {
+    switch(tipoMaquinaria) {
+      case 'VEHICULO': return '🚗';
+      case 'MOTOCICLETA': return '🏍️';
+      case 'MAQUINARIA': return '⚙️';
+      default: return '📦';
+    }
+  }
+
+  function getVehicleTypeName(tipoMaquinaria, alert) {
+    // Si tipoMaquinaria está lleno, usarlo directamente
+    if (tipoMaquinaria && tipoMaquinaria !== 'DOCUMENTO') {
+      switch(tipoMaquinaria) {
+        case 'VEHICULO': return 'Vehículo';
+        case 'MOTOCICLETA': return 'Motocicleta';
+        case 'MAQUINARIA': return 'Máquina';
+        default: return tipoMaquinaria;
+      }
+    }
+
+    // Si no está lleno, intentar deducirlo de la descripción
+    if (alert && alert.descripcion) {
+      const desc = alert.descripcion.toLowerCase();
+      if (desc.includes('máquina') || desc.includes('maquina')) return 'Máquina';
+      if (desc.includes('motocicleta') || desc.includes('moto')) return 'Motocicleta';
+      if (desc.includes('vehículo') || desc.includes('vehiculo')) return 'Vehículo';
+    }
+
+    // Última opción: buscar en las alertas de cambio de aceite para ver si la placa aparece ahí
+    if (alert && alert.placa && allAlerts) {
+      const oilChangeAlerts = allAlerts.filter(a => a.tipoAlerta === 'CAMBIO_ACEITE');
+      for (const oilAlert of oilChangeAlerts) {
+        if (oilAlert.descripcion && oilAlert.descripcion.includes(alert.placa)) {
+          if (oilAlert.descripcion.includes('Máquina') || oilAlert.descripcion.includes('máquina')) return 'Máquina';
+          if (oilAlert.descripcion.includes('Motocicleta') || oilAlert.descripcion.includes('motocicleta')) return 'Motocicleta';
+          if (oilAlert.descripcion.includes('Vehículo') || oilAlert.descripcion.includes('vehículo')) return 'Vehículo';
+        }
+      }
+    }
+
+    return 'Activo';
+  }
+
+  function getAlertSubtitle(alert) {
+    // Para alertas de documentos, mostrar de cuál activo es
+    if (alert.tipoAlerta.includes('DOCUMENTO')) {
+      return `${alert.placa}`;
+    }
+    return null;
+  }
+
+  function getDocumentEmoji(tipoAlerta) {
+    if (tipoAlerta.includes('SOAT')) return '🛡️';
+    if (tipoAlerta.includes('RUNT')) return '📋';
+    if (tipoAlerta.includes('TECHNOMECÁNICA') || tipoAlerta.includes('TECNOMECÁNICA')) return '🔧';
+    return '📄';
+  }
+
+  function formatDocumentDescription(alert) {
+    const emoji = getDocumentEmoji(alert.tipoAlerta);
+    const docType = alert.tipoAlerta.replace('DOCUMENTO_', '');
+    return `${emoji} ${docType} próximo a vencer`;
+  }
 </script>
 
 <div class="dropdown-container">
@@ -119,12 +183,23 @@
           style="background-color: {getAlertBgColor(alert.colorEstado)}; border-left: 4px solid {getAlertColor(alert.colorEstado)}; opacity: {isResolving[alert.id] ? 0.5 : 1};"
         >
           <div class="alert-content">
-            <div class="alert-title" style="color: {getAlertColor(alert.colorEstado)}; font-weight: bold;">
-              {alert.tipoAlerta}
-            </div>
-            <div class="alert-text">{alert.placa} - {alert.descripcion}</div>
-            {#if alert.fechaVencimiento}
-              <div class="alert-date">Vence: {new Date(alert.fechaVencimiento).toLocaleDateString('es-CO')}</div>
+            {#if alert.tipoAlerta.includes('DOCUMENTO')}
+              <div class="alert-title" style="color: #1a1a1a; font-weight: bold;">
+                {alert.tipoAlerta}
+              </div>
+              <div class="alert-subtitle">📍 {alert.placa} ({getVehicleTypeName(alert.tipoMaquinaria, alert)})</div>
+              <div class="alert-text">{formatDocumentDescription(alert)}</div>
+              {#if alert.fechaVencimiento}
+                <div class="alert-date">Vence: {new Date(alert.fechaVencimiento).toLocaleDateString('es-CO')}</div>
+              {/if}
+            {:else}
+              <div class="alert-title" style="color: #000; font-weight: 900;">
+                {alert.tipoAlerta}
+              </div>
+              <div class="alert-text">{alert.descripcion}</div>
+              {#if alert.fechaVencimiento}
+                <div class="alert-date">Vence: {new Date(alert.fechaVencimiento).toLocaleDateString('es-CO')}</div>
+              {/if}
             {/if}
           </div>
           <div class="alert-actions">
@@ -220,15 +295,23 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
   }
 
   .alert-title {
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 800;
     text-transform: uppercase;
-    color: #222;
+    color: #000;
     letter-spacing: 0.2px;
+  }
+
+  .alert-subtitle {
+    font-size: 12px;
+    color: #333;
+    font-weight: 700;
+    margin-top: 3px;
+    margin-bottom: 2px;
   }
 
   .alert-text {
