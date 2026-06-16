@@ -37,14 +37,22 @@ export function clearNotifications() {
 
 // --- Acciones de Alertas Preventivas ---
 export function addPreventiveAlert(alert) {
+  console.log('📌 [STORE] Intentando agregar alerta al store:', alert);
   const currentAlerts = get(preventiveAlerts);
+  console.log('📌 [STORE] Alertas actuales:', currentAlerts);
+
   // Evitar duplicados basados en placa + tipo de alerta
   const exists = currentAlerts.some(a => a.placa === alert.placa && a.tipoAlerta === alert.tipoAlerta && a.estado === 'ACTIVA');
   if (exists) {
-    console.log(`Alerta preventiva duplicada ignorada: ${alert.placa} - ${alert.tipoAlerta}`);
+    console.log(`⚠️ [STORE] Alerta preventiva duplicada ignorada: ${alert.placa} - ${alert.tipoAlerta}`);
     return;
   }
-  preventiveAlerts.update(alerts => [alert, ...alerts]);
+
+  preventiveAlerts.update(alerts => {
+    const newAlerts = [alert, ...alerts];
+    console.log('✅ [STORE] Alerta agregada. Total:', newAlerts.length);
+    return newAlerts;
+  });
   preventiveAlertCount.update(n => n + 1);
 }
 

@@ -43,12 +43,6 @@
     activateSound as activateWebSocketSound,
   } from "./composables/useWebSocketNotifications.js";
   import {
-    subscribeToOilChangeAlerts,
-    disconnectOilChangeAlerts,
-    oilChangeAlerts,
-    setGlobalStompClient,
-  } from "./src/composables/useOilChangeAlerts.js";
-  import {
     startAutoRefresh,
     stopAutoRefresh,
     toggleAutoRefresh,
@@ -164,24 +158,7 @@
           console.log("🚀 [APP] Inicializando WebSocket notifications...");
           initializeWebSocketNotifications();
 
-          // ✅ Suscribirse a alertas de cambio de aceite cuando se conecte
-          const unsubscribeWS = wsNotificationService.subscribe((ws) => {
-            if (ws?.isConnected && ws?.stompClient) {
-              console.log("🚀 [APP] WebSocket conectado, configurando alertas de aceite...");
-              setGlobalStompClient(ws.stompClient);
-
-              subscribeToOilChangeAlerts((alert) => {
-                console.log("🔔 Nueva alerta de aceite:", alert);
-                addNotification({
-                  type: "warning",
-                  message: `⚠️ ${alert.placa}: ${alert.alertMessage}`,
-                });
-              });
-
-              // Desuscribirse del monitor de conexión
-              unsubscribeWS();
-            }
-          });
+          // ✅ WebSocket conectado - alertas vienen por useWebSocketNotifications
         }
 
         // ✅ AUTO-REFRESH HABILITADO
@@ -192,7 +169,6 @@
         console.log("🚀 [APP] Usuario desconectado - cerrando streams WebSocket");
         wsInitialized = false;
         disconnectFromWebSocket();
-        disconnectOilChangeAlerts();
         stopAutoRefresh();
       }
     });
@@ -201,7 +177,6 @@
   onDestroy(() => {
     if (unsubscribeAuth) unsubscribeAuth();
     disconnectFromWebSocket();
-    disconnectOilChangeAlerts();
     stopAutoRefresh();
   });
 

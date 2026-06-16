@@ -24,7 +24,8 @@ const NOTIFICATION_TOPICS = {
   OIL_CHANGE: '/topic/notifications/oil-change',
   CONNECTION: '/topic/notifications/connection',
   SOAT_RUNT: '/topic/notifications/soat-runt',
-  ALERTS: '/topic/alerts'
+  ALERTS: '/topic/alerts',
+  UNIFIED_ALERTS: '/topic/alerts/unified'
 };
 
 // Notification types
@@ -342,6 +343,11 @@ function subscribeToAllTopics() {
       topic: NOTIFICATION_TOPICS.ALERTS,
       type: 'alert',
       handler: handleAlertMessage
+    },
+    {
+      topic: NOTIFICATION_TOPICS.UNIFIED_ALERTS,
+      type: 'unified-alert',
+      handler: handleUnifiedAlert
     }
   ];
   
@@ -556,6 +562,29 @@ function handleAlertMessage(message) {
       text,
     });
   }
+}
+
+function handleUnifiedAlert(message) {
+  if (message.type === 'stream_open' || message === 'stream_open') return;
+
+  // Maneja tanto OilChangeAlertPayload como AlertDTO
+  const alertData = {
+    id: message.id || Date.now(),
+    placa: message.placa,
+    tipoAlerta: message.tipoAlerta,
+    tipoMaquinaria: message.tipoMaquinaria || 'DOCUMENTO', // Para AlertDTO que no tiene tipoMaquinaria
+    descripcion: message.descripcion,
+    fechaVencimiento: message.fechaVencimiento,
+    estado: message.estado || 'ACTIVA',
+    colorEstado: message.colorEstado || 'AMARILLO',
+    percentageUsed: message.percentageUsed
+  };
+
+  console.log('📢 [UNIFIED_ALERT] Alerta unificada recibida:', alertData);
+  console.log('🔍 [UNIFIED_ALERT] typeof addPreventiveAlert:', typeof addPreventiveAlert);
+  console.log('🔍 [UNIFIED_ALERT] Llamando a addPreventiveAlert...');
+  addPreventiveAlert(alertData);
+  console.log('✅ [UNIFIED_ALERT] addPreventiveAlert ejecutada');
 }
 
 // Heartbeat to maintain connection

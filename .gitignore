@@ -10,3 +10,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+
+# IDE and runtime logs
+.idea/
+frontend.log

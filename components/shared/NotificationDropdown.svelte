@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { fetchAllAlerts, resolveAlert, deleteAlert, alertsLoading, alertsError } from '../../composables/useAlerts.js';
+  import { fetchAllAlerts, deleteAlert, alertsLoading, alertsError } from '../../composables/useAlerts.js';
 
   export let messages = [];
   export let alerts = [];
@@ -27,29 +27,29 @@
     }
   }
 
-  // Combinar alertas en tiempo real + alertas del servidor
-  $: allAlerts = [
-    ...alerts,
-    ...serverAlerts
-  ];
+  // Combinar alertas en tiempo real + alertas del servidor (evitar duplicados)
+  $: allAlerts = (() => {
+    const seen = new Set();
+    const combined = [...alerts, ...serverAlerts];
+    return combined.filter(alert => {
+      const key = `${alert.placa}_${alert.tipoAlerta}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  })();
+
+  // Filtrar notificaciones simples para excluir alertas de documentos
+  $: filteredMessages = messages.filter(msg => {
+    const text = msg.text?.toLowerCase() || '';
+    const docKeywords = ['soat', 'runt', 'seguro', 'technomecánica', 'tecnomecánica', 'licencia'];
+    return !docKeywords.some(keyword => text.includes(keyword));
+  });
 
   function deleteNotification(notificationId) {
     dispatch('deleteNotification', notificationId);
-  }
-
-  async function resolveAlertFromServer(alertId) {
-    isResolving[alertId] = true;
-    try {
-      await resolveAlert(alertId);
-      // Eliminar de la lista local
-      serverAlerts = serverAlerts.filter(a => a.id !== alertId);
-      dispatch('deleteAlert', alertId);
-      console.log('✅ Alerta resuelta:', alertId);
-    } catch (error) {
-      console.error('❌ Error resolviendo alerta:', error);
-    } finally {
-      isResolving[alertId] = false;
-    }
   }
 
   async function deleteAlertFromServer(alertId) {
@@ -107,13 +107,13 @@
 </script>
 
 <div class="dropdown-container">
-  {#if allAlerts.length === 0 && messages.length === 0}
+  {#if allAlerts.length === 0 && filteredMessages.length === 0}
     <div class="dropdown-item empty">No hay notificaciones ni alertas</div>
   {:else}
     <!-- Sección de Alertas Preventivas -->
     {#if allAlerts.length > 0}
       <div class="dropdown-section-header">🔔 ALERTAS PREVENTIVAS ({allAlerts.length})</div>
-      {#each allAlerts as alert, index (`alert_${index}`)}}
+      {#each allAlerts as alert, index (`alert_${index}`)}
         <div
           class="dropdown-item alert-item"
           style="background-color: {getAlertBgColor(alert.colorEstado)}; border-left: 4px solid {getAlertColor(alert.colorEstado)}; opacity: {isResolving[alert.id] ? 0.5 : 1};"
@@ -129,33 +129,25 @@
           </div>
           <div class="alert-actions">
             <button
-              class="resolve-btn"
-              on:click|stopPropagation={() => resolveAlertFromServer(alert.id)}
-              title="Marcar como resuelta"
-              disabled={isResolving[alert.id]}
-            >
-              ✓
-            </button>
-            <button
               class="delete-btn"
               on:click|stopPropagation={() => deleteAlertFromServer(alert.id)}
               title="Eliminar alerta"
               disabled={isResolving[alert.id]}
             >
-              &times;
+              ✕
             </button>
           </div>
         </div>
       {/each}
-      {#if messages.length > 0}
+      {#if filteredMessages.length > 0}
         <div class="dropdown-divider"></div>
       {/if}
     {/if}
 
     <!-- Sección de Notificaciones Regulares -->
-    {#if messages.length > 0}
+    {#if filteredMessages.length > 0}
       <div class="dropdown-section-header">📧 NOTIFICACIONES</div>
-      {#each messages as notification, index (`notif_${index}`)}
+      {#each filteredMessages as notification, index (`notif_${index}`)}
         <div class="dropdown-item">
           <span>{notification.text}</span>
           <button
@@ -176,75 +168,93 @@
     position: absolute;
     top: 50px;
     right: 10px;
-    width: 400px;
-    max-height: 500px;
+    width: 450px;
+    max-height: 580px;
     overflow-y: auto;
-    background-color: #f0f0f0;
-    border: 1px solid #808080;
+    background: linear-gradient(to bottom, #fff 0%, #f9f9f9 100%);
+    border: 1px solid #d0d0d0;
     border-top: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    border-radius: 0 0 3px 3px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
     z-index: 200;
-    font-family: 'MS Sans Serif', 'Tahoma', sans-serif;
-    font-size: 11px;
-    color: #000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 12px;
+    color: #222;
   }
 
   .dropdown-section-header {
-    padding: 8px 12px;
-    background-color: #e0e0e0;
+    padding: 9px 13px;
+    background: linear-gradient(to right, #f0f0f0, #e8e8e8);
     font-weight: bold;
-    font-size: 10px;
+    font-size: 11px;
     color: #333;
-    border-bottom: 1px solid #c0c0c0;
+    border-bottom: 1px solid #d0d0d0;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   .dropdown-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid #c0c0c0;
-    transition: background-color 0.2s;
+    padding: 9px 13px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.15s;
+  }
+
+  .dropdown-item:hover {
+    background-color: #f9f9f9;
   }
 
   .dropdown-item.alert-item {
-    padding: 10px 12px;
+    padding: 11px 13px;
     align-items: flex-start;
+    gap: 9px;
+  }
+
+  .dropdown-item.alert-item:hover {
+    background-color: #f9f9f9;
   }
 
   .alert-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
   }
 
   .alert-title {
-    font-size: 10px;
+    font-size: 11px;
+    font-weight: 600;
     text-transform: uppercase;
+    color: #222;
+    letter-spacing: 0.2px;
   }
 
   .alert-text {
-    font-size: 11px;
+    font-size: 12px;
     word-wrap: break-word;
+    color: #444;
+    line-height: 1.35;
   }
 
   .alert-date {
-    font-size: 9px;
-    color: #666;
-    font-style: italic;
+    font-size: 11px;
+    color: #d84444;
+    font-weight: 600;
   }
 
   .dropdown-divider {
     height: 1px;
-    background-color: #808080;
-    margin: 0;
+    background-color: #e0e0e0;
+    margin: 2px 0;
   }
 
   .dropdown-item.empty {
     justify-content: center;
-    color: #555;
+    color: #999;
+    padding: 13px 13px;
+    font-size: 11px;
   }
 
   .dropdown-item:last-child {
@@ -253,36 +263,35 @@
 
   .alert-actions {
     display: flex;
-    gap: 4px;
+    gap: 6px;
     flex-shrink: 0;
-    margin-left: 8px;
   }
 
-  .resolve-btn,
   .delete-btn {
-    background: none;
-    border: 1px solid transparent;
-    color: #808080;
+    background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+    border: 1px solid #d0d0d0;
+    color: #666;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
-    padding: 0 4px;
+    padding: 4px 8px;
     line-height: 1;
     flex-shrink: 0;
     transition: all 0.2s;
-  }
-
-  .resolve-btn:hover:not(:disabled) {
-    color: #44cc44;
-    border-color: #44cc44;
+    border-radius: 2px;
   }
 
   .delete-btn:hover:not(:disabled) {
-    color: #ff4444;
-    border-color: #ff4444;
+    color: #fff;
+    background: linear-gradient(135deg, #ff5555 0%, #ff3333 100%);
+    border-color: #ff3333;
+    box-shadow: 0 2px 5px rgba(255, 51, 51, 0.25);
   }
 
-  .resolve-btn:disabled,
+  .delete-btn:active:not(:disabled) {
+    opacity: 0.9;
+  }
+
   .delete-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
