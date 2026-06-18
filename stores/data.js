@@ -645,6 +645,15 @@ function createDataStore() {
             await fetchWithAuth(`moto/${id}`, { method: 'DELETE' });
             update(s => ({ ...s, motos: s.motos.filter(m => m.id !== id) }));
         },
+        restoreMoto: async (motoId) => {
+            const restored = await fetchWithAuth(`moto/${motoId}/restore`, { method: 'POST' });
+            let enriched;
+            update(s => {
+                enriched = enrichVehicleUbicacionRow(restored, s.locations || []);
+                return { ...s, motos: [...s.motos, enriched] };
+            });
+            return enriched;
+        },
 
         // Catálogos (Marcas, Tipos, Áreas, Ubicaciones)
         fetchVehicleBrands: () => fetchAll('vehicleBrands', 'brand/vehicle'),

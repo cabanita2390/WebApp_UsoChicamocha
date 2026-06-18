@@ -17,6 +17,11 @@
   let isExporting = false;
   let errorMessage = "";
 
+  // Soft-delete recovery
+  let softDeletedMotoToRestore = null;
+  let showSoftDeletedModal = false;
+  let isRestoringMoto = false;
+
   let showCvModal = false;
   let isCvLoading = false;
   let curriculumData = null;
@@ -324,10 +329,45 @@
       await data.fetchMotos();
       addNotification({ id: Date.now(), text: "Motocicleta registrada." + docExtra });
     } catch (e) {
-      errorMessage = e.message || "Error al crear motocicleta.";
+      if (e.status === 409 && e.body?.softDeletedVehicle) {
+        softDeletedMotoToRestore = e.body.softDeletedVehicle;
+        showSoftDeletedModal = true;
+        errorMessage = e.body.error || e.message || "Motocicleta eliminada detectada";
+      } else {
+        errorMessage = e.message || "Error al crear motocicleta.";
+      }
     } finally {
       isSubmitting = false;
     }
+  }
+
+  async function handleRestoreMoto() {
+    if (!softDeletedMotoToRestore?.id) return;
+    isRestoringMoto = true;
+    try {
+      const restored = await data.restoreMoto(softDeletedMotoToRestore.id);
+      showSoftDeletedModal = false;
+      softDeletedMotoToRestore = null;
+      errorMessage = "";
+      newMoto = { ...initialMotoState };
+      docSoatVencimiento = "";
+      docTecnoVencimiento = "";
+      docSoatFile = null;
+      docTecnoFile = null;
+      docTarjetaPropiedadFile = null;
+      data.fetchMotos();
+      addNotification({ id: Date.now(), text: "Motocicleta restaurada exitosamente." });
+    } catch (e) {
+      errorMessage = "Error al restaurar motocicleta: " + (e.message || "desconocido");
+    } finally {
+      isRestoringMoto = false;
+    }
+  }
+
+  function handleCreateDifferent() {
+    showSoftDeletedModal = false;
+    softDeletedMotoToRestore = null;
+    errorMessage = "✏️ Por favor, cambia la placa en el formulario de arriba";
   }
 
   async function handleUpdateMoto(event) {
@@ -865,6 +905,50 @@
   {/key}
 {/if}
 
+{#if showSoftDeletedModal && softDeletedMotoToRestore}
+  <div class="modal-overlay" on:click={() => (showSoftDeletedModal = false)}>
+    <div class="modal-content" on:click|stopPropagation>
+      <h3 style="margin-top: 0; color: #d9534f;">Motocicleta Eliminada</h3>
+      <p>{errorMessage}</p>
+
+      <div class="soft-delete-info">
+        <p><strong>Placa:</strong> {softDeletedMotoToRestore.placa}</p>
+        <p><strong>Marca:</strong> {softDeletedMotoToRestore.marca}</p>
+        <p><strong>Tipo:</strong> {softDeletedMotoToRestore.tipoVehiculo}</p>
+      </div>
+
+      <p style="margin-top: 12px; font-size: 12px; color: #606060;">¿Qué deseas hacer?</p>
+
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+        <button
+          type="button"
+          on:click={() => (showSoftDeletedModal = false)}
+          disabled={isRestoringMoto}
+          style="padding: 6px 12px; background: #f0f0f0; border: 1px solid #c0c0c0; cursor: pointer; border-radius: 3px;"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          on:click={handleCreateDifferent}
+          disabled={isRestoringMoto}
+          style="padding: 6px 12px; background: #e8e8e8; border: 1px solid #b0b0b0; cursor: pointer; border-radius: 3px;"
+        >
+          Crear con otra placa
+        </button>
+        <button
+          type="button"
+          on:click={handleRestoreMoto}
+          disabled={isRestoringMoto}
+          style="padding: 6px 12px; background: #5cb85c; color: white; border: 1px solid #4cae4c; cursor: pointer; border-radius: 3px; font-weight: bold;"
+        >
+          {isRestoringMoto ? "Restaurando..." : "Restaurar Motocicleta"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .vehicle-loader {
     display: flex;
@@ -1201,6 +1285,17 @@
     font-size: 11px;
     color: #606060;
     text-align: center;
+  }
+  .soft-delete-info {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 10px;
+    margin: 10px 0;
+    font-size: 12px;
+  }
+  .soft-delete-info p {
+    margin: 4px 0;
   }
 </style>
 
