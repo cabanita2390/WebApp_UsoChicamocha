@@ -17,6 +17,11 @@
   let isExporting = false;
   let errorMessage = "";
 
+  // Soft-delete recovery
+  let softDeletedVehicleToRestore = null;
+  let showSoftDeletedModal = false;
+  let isRestoringVehicle = false;
+
   let showCvModal = false;
   let isCvLoading = false;
   let curriculumData = null;
@@ -360,10 +365,47 @@
       await data.fetchVehicles();
       addNotification({ id: Date.now(), text: "Vehículo creado con éxito." + docExtra });
     } catch (e) {
-      errorMessage = e.message || "Error al crear vehículo.";
+      if (e.status === 409 && e.body?.softDeletedVehicle) {
+        softDeletedVehicleToRestore = e.body.softDeletedVehicle;
+        showSoftDeletedModal = true;
+        errorMessage = e.body.error || e.message || "Vehículo eliminado detectado";
+      } else {
+        errorMessage = e.message || "Error al crear vehículo.";
+      }
     } finally {
       isSubmitting = false;
     }
+  }
+
+  async function handleRestoreVehicle() {
+    if (!softDeletedVehicleToRestore?.id) return;
+    isRestoringVehicle = true;
+    try {
+      const restored = await data.restoreVehicle(softDeletedVehicleToRestore.id);
+      showSoftDeletedModal = false;
+      softDeletedVehicleToRestore = null;
+      errorMessage = "";
+      newVehicle = { ...initialVehicleState };
+      docSoatVencimiento = "";
+      docTecnoVencimiento = "";
+      docTarjetaPropiedadFile = null;
+      docExtintorMes = "";
+      docSoatFile = null;
+      docTecnoFile = null;
+      docExtintorFile = null;
+      data.fetchVehicles();
+      addNotification({ id: Date.now(), text: "Vehículo restaurado exitosamente." });
+    } catch (e) {
+      errorMessage = "Error al restaurar vehículo: " + (e.message || "desconocido");
+    } finally {
+      isRestoringVehicle = false;
+    }
+  }
+
+  function handleCreateDifferent() {
+    showSoftDeletedModal = false;
+    softDeletedVehicleToRestore = null;
+    errorMessage = "✏️ Por favor, cambia la placa en el formulario de arriba";
   }
 
   async function handleUpdateVehicle(event) {
@@ -999,6 +1041,50 @@
   {/key}
 {/if}
 
+{#if showSoftDeletedModal && softDeletedVehicleToRestore}
+  <div class="modal-overlay" on:click={() => (showSoftDeletedModal = false)}>
+    <div class="modal-content" on:click|stopPropagation>
+      <h3 style="margin-top: 0; color: #d9534f;">Vehículo Eliminado</h3>
+      <p>{errorMessage}</p>
+
+      <div class="soft-delete-info">
+        <p><strong>Placa:</strong> {softDeletedVehicleToRestore.placa}</p>
+        <p><strong>Marca:</strong> {softDeletedVehicleToRestore.marca}</p>
+        <p><strong>Tipo:</strong> {softDeletedVehicleToRestore.tipoVehiculo}</p>
+      </div>
+
+      <p style="margin-top: 12px; font-size: 12px; color: #606060;">¿Qué deseas hacer?</p>
+
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+        <button
+          type="button"
+          on:click={() => (showSoftDeletedModal = false)}
+          disabled={isRestoringVehicle}
+          style="padding: 6px 12px; background: #f0f0f0; border: 1px solid #c0c0c0; cursor: pointer; border-radius: 3px;"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          on:click={handleCreateDifferent}
+          disabled={isRestoringVehicle}
+          style="padding: 6px 12px; background: #e8e8e8; border: 1px solid #b0b0b0; cursor: pointer; border-radius: 3px;"
+        >
+          Crear con otra placa
+        </button>
+        <button
+          type="button"
+          on:click={handleRestoreVehicle}
+          disabled={isRestoringVehicle}
+          style="padding: 6px 12px; background: #5cb85c; color: white; border: 1px solid #4cae4c; cursor: pointer; border-radius: 3px; font-weight: bold;"
+        >
+          {isRestoringVehicle ? "Restaurando..." : "Restaurar Vehículo"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .create-form {
     padding: 8px 10px 10px;
@@ -1322,5 +1408,16 @@
     font-size: 11px;
     color: #606060;
     text-align: center;
+  }
+  .soft-delete-info {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 10px;
+    margin: 10px 0;
+    font-size: 12px;
+  }
+  .soft-delete-info p {
+    margin: 4px 0;
   }
 </style>

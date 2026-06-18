@@ -591,6 +591,15 @@ function createDataStore() {
             await fetchWithAuth(`vehicle/${id}`, { method: 'DELETE' });
             update(s => ({ ...s, vehicles: s.vehicles.filter(v => v.id !== id) }));
         },
+        restoreVehicle: async (vehicleId) => {
+            const restored = await fetchWithAuth(`vehicle/${vehicleId}/restore`, { method: 'POST' });
+            let enriched;
+            update(s => {
+                enriched = enrichVehicleUbicacionRow(restored, s.locations || []);
+                return { ...s, vehicles: [...s.vehicles, enriched] };
+            });
+            return enriched;
+        },
 
         /** CRUD motocicletas — GET/POST/PUT/DELETE `/api/v1/moto` (tipo MOTOCICLETA forzado en servidor). */
         fetchMotos: async () => {
