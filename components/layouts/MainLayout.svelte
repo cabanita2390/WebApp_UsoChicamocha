@@ -1,4 +1,5 @@
 <script>
+    import { onMount } from "svelte";
     import { createEventDispatcher } from "svelte";
     import Sidebar from "../shared/Sidebar.svelte";
     import NotificationDropdown from "../shared/NotificationDropdown.svelte";
@@ -14,6 +15,7 @@
         visibleAlertCount,
     } from "../../stores/ui.js";
     import { wsNotificationService } from "../../composables/useWebSocketNotifications.js";
+    import { fetchAllAlerts } from "../../composables/useAlerts.js";
     import { location } from "svelte-spa-router";
     import { getPageTitle } from "../../config/page-titles.js";
 
@@ -22,6 +24,25 @@
 
     const dispatch = createEventDispatcher();
     let showNotifications = false;
+
+    // Cargar notificaciones al montar la aplicación
+    onMount(async () => {
+        try {
+            const response = await fetchAllAlerts(0, 100);
+            const serverAlerts = response.content || [];
+
+            // Actualizar el contador visible con total de alertas + notificaciones
+            $visibleAlertCount = serverAlerts.length + $notificationMessages.length;
+
+            console.log('✅ Notificaciones cargadas al iniciar:', {
+                alerts: serverAlerts.length,
+                notifications: $notificationMessages.length,
+                total: $visibleAlertCount
+            });
+        } catch (error) {
+            console.error('❌ Error cargando notificaciones al iniciar:', error);
+        }
+    });
 
     function toggleNotifications() {
         showNotifications = !showNotifications;

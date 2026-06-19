@@ -29,7 +29,7 @@
     }
   }
 
-  let workOrderForm = { asignadoA: '', detalles: '', orderType: '', maintenanceType: '' };
+  let workOrderForm = { asignadoA: '', detalles: '', orderType: '', maintenanceType: '', maintenanceCategory: '' };
   let showConfirmation = false;
 
   function getStatusClass(status) {
@@ -89,8 +89,9 @@
     dispatch('createVehicleOrder', {
       vehicleInspectionId: rowData.idInspeccion,
       description,
-      orderType: workOrderForm.maintenanceType || null,
-      maintenanceType: workOrderForm.orderType || null,
+      orderType: workOrderForm.orderType || null,
+      maintenanceType: workOrderForm.maintenanceType || null,
+      maintenanceCategory: workOrderForm.maintenanceCategory || null,
     });
     showConfirmation = false;
   }
@@ -121,8 +122,8 @@
       <form class="work-order-form" on:submit={handleSubmit}>
         <div class="form-row">
           <div class="form-group">
-            <label for="orderType">Área de trabajo (opcional):</label>
-            <select bind:value={workOrderForm.orderType} id="orderType">
+            <label for="maintenanceType">Especialidad Técnica (opcional):</label>
+            <select bind:value={workOrderForm.maintenanceType} id="maintenanceType">
               <option value="">— Sin especificar —</option>
               <option value="MECANICO">Mecánico</option>
               <option value="ELECTRICO">Eléctrico</option>
@@ -130,8 +131,8 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="maintenanceType">Tipo de Mantenimiento (opcional):</label>
-            <select bind:value={workOrderForm.maintenanceType} id="maintenanceType">
+            <label for="maintenanceCategory">Tipo de Mantenimiento (opcional):</label>
+            <select bind:value={workOrderForm.maintenanceCategory} id="maintenanceCategory">
               <option value="">— Sin especificar —</option>
               <option value="PREVENTIVO">Preventivo</option>
               <option value="CORRECTIVO">Correctivo</option>
