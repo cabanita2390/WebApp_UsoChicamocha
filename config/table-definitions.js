@@ -1016,6 +1016,19 @@ export const vehicleManagementColumns = [
         size: 85,
     },
     {
+        header: 'Extintor - Vencimiento',
+        accessorFn: row => formatLocalDate(row.extintor?.fechaVencimiento),
+        id: 'veh_extintor_venc',
+        size: 100,
+        meta: { isDateStatus: true },
+    },
+    {
+        header: 'Extintor - Meses',
+        accessorFn: row => row.extintor?.diasRestantes ?? 'N/A',
+        id: 'veh_extintor_meses',
+        size: 85,
+    },
+    {
         id: "curriculum",
         header: "Hoja de Vida",
         size: 110,
@@ -1173,6 +1186,19 @@ export const motoInventoryColumns = [
         header: 'Tecno - Días',
         accessorFn: row => row.tecno?.diasRestantes ?? 'N/A',
         id: 'moto_tecno_dias',
+        size: 85,
+    },
+    {
+        header: 'Extintor - Vencimiento',
+        accessorFn: row => formatLocalDate(row.extintor?.fechaVencimiento),
+        id: 'moto_extintor_venc',
+        size: 100,
+        meta: { isDateStatus: true },
+    },
+    {
+        header: 'Extintor - Meses',
+        accessorFn: row => row.extintor?.diasRestantes ?? 'N/A',
+        id: 'moto_extintor_meses',
         size: 85,
     },
     {

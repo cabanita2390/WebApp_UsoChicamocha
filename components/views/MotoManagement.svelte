@@ -898,6 +898,7 @@
       placa={docModalRow.placa}
       soatVencimiento={docModalRow.soat?.fechaVencimiento ?? null}
       tecnoVencimiento={docModalRow.tecno?.fechaVencimiento ?? null}
+      extintorVencimiento={docModalRow.extintor?.fechaVencimiento ?? null}
       isSubmitting={docModalSubmitting}
       on:submit={handleDocSubmit}
       on:cancel={resetDocModal}
