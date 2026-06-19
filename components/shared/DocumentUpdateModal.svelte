@@ -103,15 +103,13 @@
     error = '';
     let fechaApi = fechaVencimiento || null;
 
-    // Convertir formato de mes (YYYY-MM) a fecha (YYYY-MM-DD) para extintores
+    // Convertir formato de mes (YYYY-MM) a fecha (YYYY-MM-01) para extintores
+    // El extintor se vence el primer día del mes
     if (tipoDocumento === 'EXTINTOR' && fechaVencimiento) {
       const match = fechaVencimiento.match(/^(\d{4})-(\d{2})$/);
       if (match) {
         const [, yearStr, monthStr] = match;
-        const year = Number(yearStr);
-        const month = Number(monthStr);
-        const lastDay = new Date(year, month, 0).getDate();
-        fechaApi = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+        fechaApi = `${yearStr}-${monthStr}-01`;
       }
     }
 

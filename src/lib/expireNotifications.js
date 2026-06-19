@@ -200,11 +200,11 @@ function checkFireExtinguisherExpired(asset, extintorKey, identifier, addNotific
   const extintor = asset[extintorKey];
   if (!extintor) return false;
 
-  // Verificar si está VENCIDO (estado "Vencido" o mesesRestantes < 0)
+  // El extintor se vence el primer día del mes
+  // Si estamos en el mes de vencimiento o después, está vencido
   const estado = String(extintor.estado || '').toLowerCase();
-  const mesesRestantes = extintor.diasRestantes || 0;
 
-  if (estado.includes('vencido') || mesesRestantes < 0) {
+  if (estado.includes('vencido')) {
     const fechaVenc = formatDateForDisplay(extintor.fechaVencimiento);
     const notificationId = `EXPIRED-${identifier}-extintor-${extintor.fechaVencimiento}`;
 
@@ -224,12 +224,11 @@ function checkFireExtinguisherStatus(asset, extintorKey, identifier, addNotifica
   const extintor = asset[extintorKey];
   if (!extintor) return false;
 
-  // Verificar si está en estado "Próximo a Vencer" (próximo mes)
+  // Verificar si está en estado "Próximo a Vencer" (falta 1 mes para que se venza)
   if (extintor.estado) {
     const estado = String(extintor.estado).toLowerCase();
     if (estado.includes('proximo') || estado.includes('próximo')) {
       const fechaVenc = formatDateForDisplay(extintor.fechaVencimiento);
-      const mesesRestantes = extintor.diasRestantes || '?';
       const notificationId = `${identifier}-extintor-${extintor.fechaVencimiento}`;
 
       // Evitar duplicados
@@ -237,7 +236,7 @@ function checkFireExtinguisherStatus(asset, extintorKey, identifier, addNotifica
         shownNotifications.add(notificationId);
         addNotification({
           id: Date.now() + Math.random(),
-          text: `🧯 EXTINTOR de ${identifier} vence en ${mesesRestantes} mes(es) (${fechaVenc}) - Revisión preventiva`,
+          text: `🧯 EXTINTOR de ${identifier} vence próximo mes (${fechaVenc}) - Revisión preventiva`,
         });
         return true;
       }
