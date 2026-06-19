@@ -10,9 +10,9 @@
 
   $: workOrderInfo = overrideData ?? $data.vehicleWorkOrders;
   $: isLoading = $data.isLoading;
-  $: errorMessage = $data.error;
 
   let selectedWorkOrder = null;
+  let isExporting = false;
 
   function handlePageChange(event) {
     data.fetchVehicleWorkOrders(event.detail, workOrderInfo.pageSize);
@@ -43,6 +43,31 @@
   function handleCancelExecute() {
     selectedWorkOrder = null;
   }
+
+  async function handleExport() {
+    isExporting = true;
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/order/vehicle/export`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
+      });
+      if (!response.ok) throw new Error('Error al descargar el archivo');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ordenes_vehiculos.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      addNotification({ id: Date.now(), text: 'Órdenes de vehículos descargadas.' });
+    } catch (e) {
+      addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
+    } finally {
+      isExporting = false;
+    }
+  }
 </script>
 
 <div class="vehicle-module">
@@ -50,17 +75,15 @@
     {#if isLoading}
       <div class="vehicle-loader">
         <Loader />
-        <p>Cargando órdenes...</p>
-      </div>
-    {:else if errorMessage}
-      <div class="vehicle-error">
-        <p>Error: {errorMessage}</p>
-        <button type="button" class="vehicle-btn" style="margin-top:6px" on:click={() => data.fetchVehicleWorkOrders()}>Reintentar</button>
+        <p>Cargando órdenes de trabajo...</p>
       </div>
     {:else}
       <div class="vehicle-toolbar">
         <button type="button" class="vehicle-btn" on:click={() => data.fetchVehicleWorkOrders()}>
           Refrescar
+        </button>
+        <button type="button" class="vehicle-btn vehicle-btn--export" on:click={handleExport} disabled={isExporting}>
+          {isExporting ? 'Descargando...' : 'Exportar Excel'}
         </button>
       </div>
       <div class="vehicle-table-wrap vehicle-table-wrap--inset">

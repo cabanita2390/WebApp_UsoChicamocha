@@ -277,9 +277,9 @@
           </label>
           <label class="field">
             <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:4px;align-items:center">
-              <input type="number" step="0.01" min="0" bind:value={newMachine.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" disabled={isSubmitting} />
-              <select bind:value={newMachine.factoryEfficiencyUnit} disabled={isSubmitting}>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
+              <input type="number" step="0.01" min="0" bind:value={newMachine.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" disabled={isSubmitting} style="padding:3px 4px;font-size:11px;min-height:26px" />
+              <select bind:value={newMachine.factoryEfficiencyUnit} disabled={isSubmitting} style="padding:3px 4px;font-size:11px;min-height:22px">
                 <option value="GAL_PER_HOUR">Gal/h</option>
                 <option value="M3_PER_HOUR">m³/h (gas)</option>
               </select>
@@ -287,9 +287,11 @@
           </label>
           {/if}
         </div>
-        <button type="submit" class="btn-create" disabled={isSubmitting}>
-          {isSubmitting ? "Registrando..." : "Registrar máquina"}
-        </button>
+        <div class="create-actions">
+          <button type="submit" class="btn-create" disabled={isSubmitting}>
+            {isSubmitting ? "Registrando..." : "Registrar máquina"}
+          </button>
+        </div>
       </form>
       {#if errorMessage}
         <p class="error-message">{errorMessage}</p>
@@ -362,9 +364,9 @@
           </label>
           <label class="field">
             <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:4px;align-items:center">
-              <input type="number" step="0.01" min="0" bind:value={machineInEditor.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" />
-              <select bind:value={machineInEditor.factoryEfficiencyUnit}>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
+              <input type="number" step="0.01" min="0" bind:value={machineInEditor.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" style="padding:3px 4px;font-size:11px;min-height:26px" />
+              <select bind:value={machineInEditor.factoryEfficiencyUnit} style="padding:3px 4px;font-size:11px;min-height:22px">
                 <option value="GAL_PER_HOUR">Gal/h</option>
                 <option value="M3_PER_HOUR">m³/h (gas)</option>
               </select>
@@ -445,15 +447,62 @@
 {/if}
 <style>
   /* ── Grid layout compartido (igual que Vehicle/Moto) ─────────────────── */
-  .create-form--compact { padding: 6px 8px 8px; }
+  .create-form--compact {
+    padding: 6px 8px 8px;
+  }
+  .create-form--compact .create-grid {
+    gap: 4px 8px;
+  }
+  .create-form--compact .field {
+    font-size: 10px;
+    gap: 1px;
+  }
+  .create-form--compact .field-lab {
+    font-size: 9px;
+  }
+  .create-form--compact .field-add-btn {
+    padding: 0 4px;
+    font-size: 9px;
+  }
+  .create-form--compact .field input,
+  .create-form--compact .field select {
+    padding: 2px 4px;
+    font-size: 10px;
+    min-height: 22px;
+    line-height: 1.2;
+  }
+  .create-docs-head {
+    margin: 6px 0 2px;
+    padding: 2px 0;
+    font-size: 10px;
+    font-weight: bold;
+    color: #202020;
+    border-bottom: 1px solid #b0b0b0;
+  }
+  .create-docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.25rem), 1fr));
+    gap: 6px 8px;
+    align-items: end;
+  }
+  .create-docs-grid .field-doc {
+    min-width: 0;
+  }
+  .create-form--compact .create-docs-grid {
+    gap: 3px 6px;
+    margin-top: 3px;
+  }
+  .create-form--compact .create-docs-head {
+    font-size: 9px;
+    margin: 4px 0 1px;
+    padding: 1px 0;
+  }
   .create-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.25rem), 1fr));
     gap: 6px 10px;
     align-items: end;
-    margin-bottom: 10px;
   }
-  .create-form--compact .create-grid { gap: 4px 8px; }
   .field {
     display: flex;
     flex-direction: column;
@@ -461,19 +510,46 @@
     min-width: 0;
     font-size: 11px;
   }
-  .create-form--compact .field { font-size: 10px; gap: 1px; }
   .field-lab {
     font-weight: bold;
     font-size: 10px;
     color: #303030;
     white-space: nowrap;
   }
-  .create-form--compact .field-lab { font-size: 9px; }
-  .create-form--compact .field input,
-  .create-form--compact .field select {
-    padding: 2px 4px;
+  .field-lab-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    white-space: normal;
+  }
+  .field-add-btn {
+    flex-shrink: 0;
+    padding: 1px 6px;
     font-size: 10px;
-    min-height: 22px;
+    font-family: inherit;
+    cursor: pointer;
+    background: linear-gradient(to bottom, #f4f4f4 0%, #d8d8d8 100%);
+    border: 1px outset #c0c0c0;
+    color: #000;
+    transition: background 0.15s;
+  }
+  .field-add-btn:hover {
+    background: linear-gradient(to bottom, #f9f9f9 0%, #e0e0e0 100%);
+  }
+  .field input,
+  .field select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 3px 4px;
+    border: 1px inset #c0c0c0;
+    font-family: inherit;
+    font-size: 11px;
+    background: #fff;
+    min-height: 24px;
+  }
+  .field select {
+    cursor: pointer;
   }
   .modal-form-grid {
     display: grid;
@@ -524,6 +600,13 @@
     cursor: pointer;
     font-size: 11px;
     font-family: inherit;
+  }
+  .create-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid #a0a0a0;
   }
   .error-message {
     color: red;

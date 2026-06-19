@@ -580,15 +580,15 @@
             </label>
             <label class="field">
               <span class="field-lab">Eficiencia de fábrica</span>
-              <div style="display:grid;grid-template-columns:1fr 110px;gap:4px;align-items:center">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
                 <input
                   type="number" step="0.01" min="0"
                   bind:value={newMoto.factoryEfficiencyKmPerGallon}
                   placeholder="Ej: 80.0"
                   disabled={isSubmitting}
-                 
+                  style="padding:3px 4px;font-size:11px;min-height:26px"
                 />
-                <select bind:value={newMoto.factoryEfficiencyUnit} disabled={isSubmitting} style="width:130px">
+                <select bind:value={newMoto.factoryEfficiencyUnit} disabled={isSubmitting} style="padding:4px;font-size:12px;min-height:28px">
                   <option value="KM_PER_GALLON">km/Gal</option>
                   <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
                 </select>
@@ -751,14 +751,14 @@
           </label>
           <label class="field">
             <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:4px;align-items:center">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
               <input
                 type="number" step="0.01" min="0"
                 bind:value={motoInEditor.factoryEfficiencyKmPerGallon}
                 placeholder="Ej: 80.0"
-               
+                style="padding:4px;font-size:12px;min-height:28px"
               />
-              <select bind:value={motoInEditor.factoryEfficiencyUnit} style="width:130px">
+              <select bind:value={motoInEditor.factoryEfficiencyUnit} style="padding:4px;font-size:12px;min-height:28px">
                 <option value="KM_PER_GALLON">km/Gal</option>
                 <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
               </select>
