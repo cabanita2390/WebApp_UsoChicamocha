@@ -169,6 +169,15 @@
 
   function formatDocumentDescription(alert) {
     const emoji = getDocumentEmoji(alert.tipoAlerta);
+    // Usar la descripción que viene del servidor para mostrar estado actual
+    // (puede ser "próximo a vencer" o "VENCIDO")
+    if (alert.descripcion) {
+      const descripcion = alert.descripcion
+        .replace(/^Documento /, '')
+        .replace(/^Document /, '');
+      return `${emoji} ${descripcion}`;
+    }
+    // Fallback si no hay descripción
     const docType = alert.tipoAlerta.replace('DOCUMENTO_', '');
     return `${emoji} ${docType} próximo a vencer`;
   }
