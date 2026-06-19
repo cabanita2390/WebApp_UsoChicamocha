@@ -172,6 +172,22 @@
     const docType = alert.tipoAlerta.replace('DOCUMENTO_', '');
     return `${emoji} ${docType} próximo a vencer`;
   }
+
+  function formatDocumentDate(alert) {
+    if (!alert.fechaVencimiento) return '';
+
+    const fecha = new Date(alert.fechaVencimiento);
+
+    // Para extintores, mostrar solo mes/año
+    if (alert.tipoAlerta.includes('EXTINTOR')) {
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+      const año = fecha.getFullYear();
+      return `${mes}/${año}`;
+    }
+
+    // Para otros documentos, mostrar fecha completa
+    return fecha.toLocaleDateString('es-CO');
+  }
 </script>
 
 <div class="dropdown-container">
@@ -194,7 +210,7 @@
               <div class="alert-subtitle">📍 {alert.placa} ({getVehicleTypeName(alert.tipoMaquinaria, alert)})</div>
               <div class="alert-text">{formatDocumentDescription(alert)}</div>
               {#if alert.fechaVencimiento}
-                <div class="alert-date">Vence: {new Date(alert.fechaVencimiento).toLocaleDateString('es-CO')}</div>
+                <div class="alert-date">Vence: {formatDocumentDate(alert)}</div>
               {/if}
             {:else}
               <div class="alert-title" style="color: #000; font-weight: 900;">
@@ -202,7 +218,7 @@
               </div>
               <div class="alert-text">{alert.descripcion}</div>
               {#if alert.fechaVencimiento}
-                <div class="alert-date">Vence: {new Date(alert.fechaVencimiento).toLocaleDateString('es-CO')}</div>
+                <div class="alert-date">Vence: {formatDocumentDate(alert)}</div>
               {/if}
             {/if}
           </div>
