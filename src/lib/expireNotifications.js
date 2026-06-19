@@ -28,6 +28,14 @@ export function checkExpiringDocuments(vehicles, motos, machines, addNotificatio
       if (checkDocumentStatus(v, 'Tecno', 'tecno', v.placa, addNotification)) {
         hasNotifications = true;
       }
+      // Vencidos (prioridad alta - rojo)
+      if (checkFireExtinguisherExpired(v, 'extintor', v.placa, addNotification)) {
+        hasNotifications = true;
+      }
+      // Próximos a vencer (prioridad normal - amarillo)
+      if (checkFireExtinguisherStatus(v, 'extintor', v.placa, addNotification)) {
+        hasNotifications = true;
+      }
       if (checkOilChangeStatus(v, 'oil', v.placa, addNotification)) {
         hasNotifications = true;
       }
@@ -49,6 +57,14 @@ export function checkExpiringDocuments(vehicles, motos, machines, addNotificatio
         hasNotifications = true;
       }
       if (checkDocumentStatus(m, 'Tecno', 'tecno', m.placa, addNotification)) {
+        hasNotifications = true;
+      }
+      // Vencidos (prioridad alta - rojo)
+      if (checkFireExtinguisherExpired(m, 'extintor', m.placa, addNotification)) {
+        hasNotifications = true;
+      }
+      // Próximos a vencer (prioridad normal - amarillo)
+      if (checkFireExtinguisherStatus(m, 'extintor', m.placa, addNotification)) {
         hasNotifications = true;
       }
       if (checkOilChangeStatus(m, 'oil', m.placa, addNotification)) {
@@ -175,6 +191,56 @@ function checkDocumentStatus(asset, docType, docKey, identifier, addNotification
         text: `⚠️ ${docType} de ${identifier} vence en ${diasRestantes} días (${fechaVenc})`,
       });
       return true;
+    }
+  }
+  return false;
+}
+
+function checkFireExtinguisherExpired(asset, extintorKey, identifier, addNotification) {
+  const extintor = asset[extintorKey];
+  if (!extintor) return false;
+
+  // Verificar si está VENCIDO (estado "Vencido" o mesesRestantes < 0)
+  const estado = String(extintor.estado || '').toLowerCase();
+  const mesesRestantes = extintor.diasRestantes || 0;
+
+  if (estado.includes('vencido') || mesesRestantes < 0) {
+    const fechaVenc = formatDateForDisplay(extintor.fechaVencimiento);
+    const notificationId = `EXPIRED-${identifier}-extintor-${extintor.fechaVencimiento}`;
+
+    if (!shownNotifications.has(notificationId)) {
+      shownNotifications.add(notificationId);
+      addNotification({
+        id: Date.now() + Math.random(),
+        text: `🚨 EXTINTOR de ${identifier} VENCIDO (${fechaVenc}) - Acción inmediata`,
+      });
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkFireExtinguisherStatus(asset, extintorKey, identifier, addNotification) {
+  const extintor = asset[extintorKey];
+  if (!extintor) return false;
+
+  // Verificar si está en estado "Próximo a Vencer" (próximo mes)
+  if (extintor.estado) {
+    const estado = String(extintor.estado).toLowerCase();
+    if (estado.includes('proximo') || estado.includes('próximo')) {
+      const fechaVenc = formatDateForDisplay(extintor.fechaVencimiento);
+      const mesesRestantes = extintor.diasRestantes || '?';
+      const notificationId = `${identifier}-extintor-${extintor.fechaVencimiento}`;
+
+      // Evitar duplicados
+      if (!shownNotifications.has(notificationId)) {
+        shownNotifications.add(notificationId);
+        addNotification({
+          id: Date.now() + Math.random(),
+          text: `🧯 EXTINTOR de ${identifier} vence en ${mesesRestantes} mes(es) (${fechaVenc}) - Revisión preventiva`,
+        });
+        return true;
+      }
     }
   }
   return false;
