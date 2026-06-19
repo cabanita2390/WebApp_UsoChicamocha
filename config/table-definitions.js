@@ -129,18 +129,30 @@ export const workOrderColumns = [
  },
  {
   accessorFn: (row) => {
-    const type = row.order?.maintenanceType;
-    if (!type) return '—';
-    const typeMap = {
-      'PREVENTIVO': 'Preventivo',
-      'CORRECTIVO': 'Correctivo',
-      'MECANICA': 'Mecánico',
-      'ELECTRICA': 'Eléctrico',
-      'HIDRAULICA': 'Hidráulico'
+    const specialty = row.order?.maintenanceType;
+    if (!specialty) return '—';
+    const specialtyMap = {
+      'MECANICO': 'Mecánico',
+      'ELECTRICO': 'Eléctrico',
+      'ESTRUCTURAL': 'Estructural'
     };
-    return typeMap[type] || type;
+    return specialtyMap[specialty] || specialty;
   },
-  id: 'mantenimiento',
+  id: 'especialidad_tecnica',
+  header: 'Especialidad Técnica',
+  size: 130,
+ },
+ {
+  accessorFn: (row) => {
+    const category = row.order?.maintenanceCategory;
+    if (!category) return '—';
+    const categoryMap = {
+      'PREVENTIVO': 'Preventivo',
+      'CORRECTIVO': 'Correctivo'
+    };
+    return categoryMap[category] || category;
+  },
+  id: 'mantenimiento_categoria',
   header: 'Tipo de Mantenimiento',
   size: 130,
  },
@@ -943,7 +955,6 @@ export const reportMotoColumns = [
     { header: 'Estado ACTUAL', accessorKey: 'estadoVisual', size: 130, meta: { isStatus: true } },
     { header: 'Observaciones', accessorKey: 'observacionesFinales', size: 220, meta: { isMultiline: true } },
     { header: 'Responsable', accessorKey: 'responsable', size: 120 },
-    { header: `LIC. CONDUCTOR`, accessorKey: 'checkLicencia', size: 120, meta: { isStatus: true } },
 ];
 
 export const maintenanceMotoColumns = [
@@ -1110,18 +1121,28 @@ export const vehicleWorkOrderColumns = [
     },
     {
         accessorFn: (row) => {
-            const type = row.order?.maintenanceType;
-            if (!type) return '—';
-            const typeMap = {
-                'PREVENTIVO': 'Preventivo',
-                'CORRECTIVO': 'Correctivo',
-                'MECANICA': 'Mecánico',
-                'ELECTRICA': 'Eléctrico',
-                'HIDRAULICA': 'Hidráulico'
+            const specialty = row.order?.maintenanceType;
+            if (!specialty) return '—';
+            const specialtyMap = {
+                'MECANICO': 'Mecánico',
+                'ELECTRICO': 'Eléctrico',
+                'ESTRUCTURAL': 'Estructural'
             };
-            return typeMap[type] || type;
+            return specialtyMap[specialty] || specialty;
         },
-        id: 'vo_mantenimiento', header: 'Tipo de Mantenimiento', size: 130,
+        id: 'vo_especialidad_tecnica', header: 'Especialidad Técnica', size: 130,
+    },
+    {
+        accessorFn: (row) => {
+            const category = row.order?.maintenanceCategory;
+            if (!category) return '—';
+            const categoryMap = {
+                'PREVENTIVO': 'Preventivo',
+                'CORRECTIVO': 'Correctivo'
+            };
+            return categoryMap[category] || category;
+        },
+        id: 'vo_mantenimiento_categoria', header: 'Tipo de Mantenimiento', size: 130,
     },
     {
         accessorFn: (row) => {
@@ -1186,19 +1207,6 @@ export const motoInventoryColumns = [
         header: 'Tecno - Días',
         accessorFn: row => row.tecno?.diasRestantes ?? 'N/A',
         id: 'moto_tecno_dias',
-        size: 85,
-    },
-    {
-        header: 'Extintor - Vencimiento',
-        accessorFn: row => formatLocalDate(row.extintor?.fechaVencimiento),
-        id: 'moto_extintor_venc',
-        size: 100,
-        meta: { isDateStatus: true },
-    },
-    {
-        header: 'Extintor - Meses',
-        accessorFn: row => row.extintor?.diasRestantes ?? 'N/A',
-        id: 'moto_extintor_meses',
         size: 85,
     },
     {

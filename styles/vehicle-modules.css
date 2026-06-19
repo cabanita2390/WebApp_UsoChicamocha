@@ -35,6 +35,8 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  width: 100%;
+  min-width: 0;
 }
 
 .vehicle-btn {
@@ -44,6 +46,8 @@
   font-family: inherit;
   font-size: 10px;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .vehicle-btn:hover {
