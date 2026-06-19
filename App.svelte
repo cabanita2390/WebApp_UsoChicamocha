@@ -32,6 +32,7 @@
     addNotification,
     notificationMessages,
     removeNotification,
+    visibleAlertCount,
   } from "./stores/ui.js";
   import { data } from "./stores/data.js";
   import {
@@ -277,7 +278,7 @@
 
 <svelte:head>
   <title
-    >{$notificationCount > 0 ? `(${$notificationCount}) ` : ""}{browserTabTitle}</title
+    >{$visibleAlertCount > 0 ? `(${$visibleAlertCount}) ` : ""}{browserTabTitle}</title
   >
 </svelte:head>
 
