@@ -27,6 +27,22 @@
 
   function formatDisplay(raw) {
     if (!raw) return 'Sin fecha registrada';
+    // Para extintores, mostrar solo mes/año
+    if (tipoDocumento === 'EXTINTOR') {
+      if (typeof raw === 'string') {
+        const match = raw.match(/^(\d{4})-(\d{2})/);
+        if (match) {
+          const [, year, month] = match;
+          return `${month}/${year}`;
+        }
+      }
+      if (Array.isArray(raw) && raw.length >= 2) {
+        const [year, month] = raw;
+        return `${String(month).padStart(2, '0')}/${year}`;
+      }
+      return String(raw);
+    }
+    // Para otros documentos, mostrar día/mes/año
     const s = toDateInput(raw);
     if (!s) return String(raw);
     const d = new Date(`${s}T12:00:00`);
@@ -47,12 +63,20 @@
           : null;
 
   $: {
-    fechaVencimiento =
-      tipoDocumento === 'EXTINTOR' && extintorVencimiento
-        ? String(extintorVencimiento).slice(0, 7)
-        : tipoDocumento === 'TARJETA DE PROPIEDAD'
-          ? ''
-          : toDateInput(currentRaw);
+    if (tipoDocumento === 'EXTINTOR') {
+      // Para extintores: formato YYYY-MM
+      if (extintorVencimiento) {
+        const ext = String(extintorVencimiento);
+        const match = ext.match(/^(\d{4})-(\d{2})/);
+        fechaVencimiento = match ? `${match[1]}-${match[2]}` : ext.slice(0, 7);
+      } else {
+        fechaVencimiento = '';
+      }
+    } else if (tipoDocumento === 'TARJETA DE PROPIEDAD') {
+      fechaVencimiento = '';
+    } else {
+      fechaVencimiento = toDateInput(currentRaw);
+    }
   }
 
   $: tipoLabel =
@@ -67,7 +91,9 @@
   function handleSubmit() {
     const esTarjeta = tipoDocumento === 'TARJETA DE PROPIEDAD';
     if (!esTarjeta && !fechaVencimiento) {
-      error = 'Seleccione una fecha (o mes para extintor).';
+      error = tipoDocumento === 'EXTINTOR'
+        ? 'Seleccione un mes para el extintor.'
+        : 'Seleccione una fecha de vencimiento.';
       return;
     }
     if (esTarjeta && (!archivo || !archivo.length)) {
@@ -76,11 +102,19 @@
     }
     error = '';
     let fechaApi = fechaVencimiento || null;
-    if (tipoDocumento === 'EXTINTOR' && fechaVencimiento && fechaVencimiento.length === 7) {
-      const [y, m] = fechaVencimiento.split('-').map(Number);
-      const last = new Date(y, m, 0).getDate();
-      fechaApi = `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+
+    // Convertir formato de mes (YYYY-MM) a fecha (YYYY-MM-DD) para extintores
+    if (tipoDocumento === 'EXTINTOR' && fechaVencimiento) {
+      const match = fechaVencimiento.match(/^(\d{4})-(\d{2})$/);
+      if (match) {
+        const [, yearStr, monthStr] = match;
+        const year = Number(yearStr);
+        const month = Number(monthStr);
+        const lastDay = new Date(year, month, 0).getDate();
+        fechaApi = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+      }
     }
+
     const file = archivo && archivo.length ? archivo[0] : null;
     dispatch('submit', { tipoDocumento, fechaVencimiento: fechaApi, file });
   }
@@ -125,8 +159,14 @@
       {/if}
       {#if tipoDocumento === 'EXTINTOR'}
         <label>
-          Vigencia (mes)
-          <input type="month" bind:value={fechaVencimiento} disabled={isSubmitting} />
+          Mes de vencimiento
+          <input
+            type="month"
+            bind:value={fechaVencimiento}
+            disabled={isSubmitting}
+            placeholder="YYYY-MM"
+            title="Seleccione el mes de vencimiento (se almacena como último día del mes)"
+          />
         </label>
       {:else if tipoDocumento !== 'TARJETA DE PROPIEDAD'}
         <label>
