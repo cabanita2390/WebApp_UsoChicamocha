@@ -18,11 +18,13 @@ export function addNotification(notification) {
   // Se obtiene el valor actual de la lista de mensajes de forma sincrónica.
   const currentMessages = get(notificationMessages);
   const exists = currentMessages.some(msg => msg.id === notification.id);
+
   // Si la notificación ya existe en la lista, no se hace nada.
   if (exists) {
     console.log(`Notificación duplicada ignorada: ${notification.id}`);
     return;
   }
+
   // Si no es un duplicado, se actualizan los stores.
   notificationMessages.update(messages => [notification, ...messages]);
   notificationCount.update(n => n + 1);

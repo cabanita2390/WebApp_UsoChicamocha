@@ -3,148 +3,34 @@ const shownNotifications = new Set();
 const NOTIFICATION_CACHE_TIME = 3600000; // 1 hora
 
 /**
- * Genera notificaciones para documentos próximos a vencer
- * Identifica SOAT, Tecno, Licencia y otros documentos en estado "Regular"
+ * Genera notificaciones SOLO para cambios de aceite
+ * Los documentos (SOAT, Tecno, Extintor, Licencia) se manejan como alertas preventivas en el servidor
  */
 export function checkExpiringDocuments(vehicles, motos, machines, addNotification) {
   if (!addNotification) return;
 
   let hasNotifications = false;
 
-  // Verificar vehículos - PRIMERO VENCIDOS, LUEGO PRÓXIMOS
+  // Verificar vehículos - SOLO notificaciones de cambio de aceite
   if (Array.isArray(vehicles)) {
     vehicles.forEach((v) => {
-      // Vencidos (prioridad alta - rojo)
-      if (checkDocumentExpired(v, 'SOAT', 'soat', v.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      if (checkDocumentExpired(v, 'Tecno', 'tecno', v.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      // Próximos a vencer (prioridad normal - amarillo)
-      if (checkDocumentStatus(v, 'SOAT', 'soat', v.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      if (checkDocumentStatus(v, 'Tecno', 'tecno', v.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      // Vencidos (prioridad alta - rojo)
-      if (checkFireExtinguisherExpired(v, 'extintor', v.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      // Próximos a vencer (prioridad normal - amarillo)
-      if (checkFireExtinguisherStatus(v, 'extintor', v.placa, addNotification)) {
-        hasNotifications = true;
-      }
       if (checkOilChangeStatus(v, 'oil', v.placa, addNotification)) {
         hasNotifications = true;
       }
     });
   }
 
-  // Verificar motos - PRIMERO VENCIDOS, LUEGO PRÓXIMOS
+  // Verificar motos - SOLO notificaciones de cambio de aceite
   if (Array.isArray(motos)) {
     motos.forEach((m) => {
-      // Vencidos (prioridad alta - rojo)
-      if (checkDocumentExpired(m, 'SOAT', 'soat', m.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      if (checkDocumentExpired(m, 'Tecno', 'tecno', m.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      // Próximos a vencer (prioridad normal - amarillo)
-      if (checkDocumentStatus(m, 'SOAT', 'soat', m.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      if (checkDocumentStatus(m, 'Tecno', 'tecno', m.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      // Vencidos (prioridad alta - rojo)
-      if (checkFireExtinguisherExpired(m, 'extintor', m.placa, addNotification)) {
-        hasNotifications = true;
-      }
-      // Próximos a vencer (prioridad normal - amarillo)
-      if (checkFireExtinguisherStatus(m, 'extintor', m.placa, addNotification)) {
-        hasNotifications = true;
-      }
       if (checkOilChangeStatus(m, 'oil', m.placa, addNotification)) {
         hasNotifications = true;
       }
     });
   }
 
-  // Verificar máquinas - PRIMERO VENCIDOS, LUEGO PRÓXIMOS
-  if (Array.isArray(machines)) {
-    machines.forEach((m) => {
-      // SOAT - Vencidos
-      if (m.soat) {
-        const notifIdExp = `EXPIRED-machine-soat-${m.id || m.name}`;
-        if (!shownNotifications.has(notifIdExp)) {
-          const fechaVenc = formatDateForDisplay(m.soat);
-          // Asumir vencido si la fecha es pasada
-          const today = new Date();
-          const docDate = parseDate(m.soat);
-          if (docDate && docDate < today) {
-            shownNotifications.add(notifIdExp);
-            addNotification({
-              id: Date.now() + Math.random(),
-              text: `🚨 SOAT de ${m.name || 'máquina'} VENCIDO (${fechaVenc}) - Acción inmediata`,
-            });
-            hasNotifications = true;
-          }
-        }
-      }
-      // SOAT - Próximos a vencer
-      if (m.soat) {
-        const notifId = `machine-soat-${m.id || m.name}`;
-        if (!shownNotifications.has(notifId)) {
-          const fechaVenc = formatDateForDisplay(m.soat);
-          const notifIdExp = `EXPIRED-machine-soat-${m.id || m.name}`;
-          if (!shownNotifications.has(notifIdExp)) {
-            addNotification({
-              id: Date.now() + Math.random(),
-              text: `⚠️ SOAT de ${m.name || 'máquina'} próximo a vencer: ${fechaVenc}`,
-            });
-            shownNotifications.add(notifId);
-            hasNotifications = true;
-          }
-        }
-      }
-      // Seguro - Vencidos
-      if (m.runt) {
-        const notifIdExp = `EXPIRED-machine-runt-${m.id || m.name}`;
-        if (!shownNotifications.has(notifIdExp)) {
-          const fechaVenc = formatDateForDisplay(m.runt);
-          const today = new Date();
-          const docDate = parseDate(m.runt);
-          if (docDate && docDate < today) {
-            shownNotifications.add(notifIdExp);
-            addNotification({
-              id: Date.now() + Math.random(),
-              text: `🚨 Seguro de ${m.name || 'máquina'} VENCIDO (${fechaVenc}) - Acción inmediata`,
-            });
-            hasNotifications = true;
-          }
-        }
-      }
-      // Seguro - Próximos a vencer
-      if (m.runt) {
-        const notifId = `machine-runt-${m.id || m.name}`;
-        if (!shownNotifications.has(notifId)) {
-          const fechaVenc = formatDateForDisplay(m.runt);
-          const notifIdExp = `EXPIRED-machine-runt-${m.id || m.name}`;
-          if (!shownNotifications.has(notifIdExp)) {
-            addNotification({
-              id: Date.now() + Math.random(),
-              text: `⚠️ Seguro de ${m.name || 'máquina'} próximo a vencer: ${fechaVenc}`,
-            });
-            shownNotifications.add(notifId);
-            hasNotifications = true;
-          }
-        }
-      }
-    });
-  }
+  // Máquinas: Los documentos (SOAT, Seguro) se manejan como alertas preventivas en el servidor
+  // No generar notificaciones simples duplicadas
 
   return hasNotifications;
 }

@@ -512,14 +512,12 @@ function handleOilChangeMessage(message) {
 }
 
 function handleSoatRuntMessage(message) {
+  // DESHABILITADO: Las alertas SOAT/RUNT ya se generan como alertas preventivas en el servidor
+  // No crear notificaciones simples duplicadas
   if (message.type === 'stream_open' || message === 'stream_open') {
     return;
   }
-  
-  addNotification({
-    id: message.id || Date.now(),
-    text: message.message || 'Notificación SOAT/RUNT'
-  });
+  // Las alertas preventivas se cargan desde el servidor - no crear notificaciones simples
 }
 
 function handleConnectionMessage(message) {
