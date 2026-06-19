@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import { fetchAllAlerts, deleteAlert, alertsLoading, alertsError } from '../../composables/useAlerts.js';
   import { visibleAlertCount } from '../../stores/ui.js';
@@ -12,15 +13,20 @@
   let hasLoadedFromServer = false;
   let isResolving = {};
 
-  // Cargar alertas del servidor cuando se abre el dropdown
-  $: if (isOpen && !hasLoadedFromServer) {
+  // Cargar alertas al montar el componente
+  onMount(() => {
+    loadServerAlerts();
+  });
+
+  // Recargar alertas cuando se abre el dropdown
+  $: if (isOpen && hasLoadedFromServer) {
     loadServerAlerts();
   }
 
   async function loadServerAlerts() {
     hasLoadedFromServer = true;
     try {
-      const response = await fetchAllAlerts(0, 50, { estado: 'ACTIVA' });
+      const response = await fetchAllAlerts(0, 100);
       serverAlerts = response.content || [];
       console.log('✅ Alertas cargadas del servidor:', serverAlerts);
     } catch (error) {
@@ -42,15 +48,26 @@
     });
   })();
 
-  // Filtrar notificaciones simples para excluir alertas de documentos
+  // Filtrar notificaciones para evitar duplicados con alertas
   $: filteredMessages = messages.filter(msg => {
     const text = msg.text?.toLowerCase() || '';
-    const docKeywords = ['soat', 'runt', 'seguro', 'technomecánica', 'tecnomecánica', 'licencia'];
-    return !docKeywords.some(keyword => text.includes(keyword));
+    // Excluir si el mensaje ya está en las alertas del servidor
+    const isDuplicate = serverAlerts.some(alert => {
+      const alertText = (alert.descripcion || '').toLowerCase();
+      const alertPlaca = (alert.placa || '').toLowerCase();
+
+      // Si el mensaje menciona el mismo elemento y tipo de alerta
+      return text.includes(alertPlaca) || text.includes(alertText);
+    });
+    return !isDuplicate;
   });
 
-  // Actualizar contador visible en el badge
-  $: visibleAlertCount.set(allAlerts.length + filteredMessages.length);
+  // Actualizar contador visible en el badge (suma de alertas preventivas + notificaciones simples)
+  $: {
+    const totalCount = allAlerts.length + filteredMessages.length;
+    visibleAlertCount.set(totalCount);
+    console.log('📊 Contador actualizado:', { alertas: allAlerts.length, notificaciones: filteredMessages.length, total: totalCount });
+  }
 
   function deleteNotification(notificationId) {
     dispatch('deleteNotification', notificationId);
@@ -95,7 +112,7 @@
   function getAlertBgColor(colorEstado) {
     switch(colorEstado) {
       case 'ROJO':
-        return '#ffe8e8';
+        return '#ffe0e0';
       case 'AMARILLO':
         return '#fff5e8';
       case 'VERDE':
@@ -209,25 +226,25 @@
       {#each allAlerts as alert, index (`alert_${index}`)}
         <div
           class="dropdown-item alert-item"
-          style="background-color: {getAlertBgColor(alert.colorEstado)}; border-left: 4px solid {getAlertColor(alert.colorEstado)}; opacity: {isResolving[alert.id] ? 0.5 : 1};"
+          style="background: {getAlertBgColor(alert.colorEstado)} !important; border-left: 4px solid {getAlertColor(alert.colorEstado)}; opacity: {isResolving[alert.id] ? 0.5 : 1};"
         >
           <div class="alert-content">
             {#if alert.tipoAlerta.includes('DOCUMENTO')}
-              <div class="alert-title" style="color: #1a1a1a; font-weight: bold;">
+              <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#1a1a1a'}; font-weight: bold;">
                 {alert.tipoAlerta}
               </div>
-              <div class="alert-subtitle">📍 {alert.placa} ({getVehicleTypeName(alert.tipoMaquinaria, alert)})</div>
-              <div class="alert-text">{formatDocumentDescription(alert)}</div>
+              <div class="alert-subtitle" style="color: {alert.colorEstado === 'ROJO' ? '#d32f2f' : '#333'};">📍 {alert.placa} ({getVehicleTypeName(alert.tipoMaquinaria, alert)})</div>
+              <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{formatDocumentDescription(alert)}</div>
               {#if alert.fechaVencimiento}
-                <div class="alert-date">Vence: {formatDocumentDate(alert)}</div>
+                <div class="alert-date" style="color: {alert.colorEstado === 'ROJO' ? '#b71c1c' : '#d84444'};">Vence: {formatDocumentDate(alert)}</div>
               {/if}
             {:else}
-              <div class="alert-title" style="color: #000; font-weight: 900;">
+              <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#000'}; font-weight: 900;">
                 {alert.tipoAlerta}
               </div>
-              <div class="alert-text">{alert.descripcion}</div>
+              <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{alert.descripcion}</div>
               {#if alert.fechaVencimiento}
-                <div class="alert-date">Vence: {formatDocumentDate(alert)}</div>
+                <div class="alert-date" style="color: {alert.colorEstado === 'ROJO' ? '#b71c1c' : '#d84444'};">Vence: {formatDocumentDate(alert)}</div>
               {/if}
             {/if}
           </div>
@@ -275,7 +292,7 @@
     width: 450px;
     max-height: 580px;
     overflow-y: auto;
-    background: linear-gradient(to bottom, #fff 0%, #f9f9f9 100%);
+    background: linear-gradient(to bottom, #fff 0%, #f0f0f0 100%);
     border: 1px solid #d0d0d0;
     border-top: none;
     border-radius: 0 0 3px 3px;
@@ -288,11 +305,11 @@
 
   .dropdown-section-header {
     padding: 9px 13px;
-    background: linear-gradient(to right, #f0f0f0, #e8e8e8);
+    background: linear-gradient(to right, #e0e0e0, #c8c8c8);
     font-weight: bold;
     font-size: 11px;
-    color: #333;
-    border-bottom: 1px solid #d0d0d0;
+    color: #222;
+    border-bottom: 1px solid #b0b0b0;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -302,12 +319,13 @@
     justify-content: space-between;
     align-items: center;
     padding: 9px 13px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid #e0e0e0;
     transition: background-color 0.15s;
+    background: linear-gradient(to bottom, #fafafa 0%, #f5f5f5 100%);
   }
 
   .dropdown-item:hover {
-    background-color: #f9f9f9;
+    background: linear-gradient(to bottom, #f0f0f0 0%, #e8e8e8 100%);
   }
 
   .dropdown-item.alert-item {
@@ -317,7 +335,7 @@
   }
 
   .dropdown-item.alert-item:hover {
-    background-color: #f9f9f9;
+    background: linear-gradient(to bottom, #f0f0f0 0%, #e8e8e8 100%);
   }
 
   .alert-content {
