@@ -5,27 +5,7 @@
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
 
-  /** Refuerzo: una fila por placa (más reciente primero), por si el API devolviera duplicados. */
-  function latestPerPlaca(rows) {
-    if (!Array.isArray(rows) || rows.length === 0) return [];
-    const sorted = [...rows].sort((a, b) => {
-      const ta = a?.fechaRegistro ? new Date(a.fechaRegistro).getTime() : 0;
-      const tb = b?.fechaRegistro ? new Date(b.fechaRegistro).getTime() : 0;
-      return tb - ta;
-    });
-    const seen = new Set();
-    const out = [];
-    for (const r of sorted) {
-      const raw = r?.placa != null ? String(r.placa).trim() : '';
-      const key = raw ? raw.toUpperCase() : `id:${r?.idInspeccion ?? ''}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(r);
-    }
-    return out;
-  }
-
-  $: latest = latestPerPlaca($data.motoInspections);
+  $: latest = $data.motoInspections;
   $: isLoading = $data.isLoading;
   $: errorMessage = $data.error;
   $: total = Array.isArray(latest) ? latest.length : 0;

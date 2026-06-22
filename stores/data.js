@@ -158,7 +158,7 @@ function createDataStore() {
         fetchInspectionImages: async (inspectionId) => {
             try {
                 // 1. Llama a la API con auth
-                const images = await fetchWithAuth(`inspection/${inspectionId}/images`);
+                const images = await fetchWithAuth(`j/${inspectionId}/images`);
 
                 if (!images || !Array.isArray(images)) {
                     return []; // Devuelve un array vacío si no hay imágenes

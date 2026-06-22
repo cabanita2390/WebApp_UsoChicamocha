@@ -429,11 +429,15 @@
         <div class="loader-container">
           <Loader />
         </div>
-      {:else if curriculumData && curriculumData.results}
-        {#if curriculumData.results.length > 0}
-          <div class="table-wrapper modal-table">
-            <DataGrid columns={curriculumColumns} data={curriculumData.results} />
-          </div>
+      {:else if curriculumData && curriculumData.inspections}
+        {#if curriculumData.inspections.length > 0}
+          {#if curriculumData.inspections.flatMap(insp => insp.results).length > 0}
+            <div class="table-wrapper modal-table">
+              <DataGrid columns={curriculumColumns} data={curriculumData.inspections.flatMap(insp => insp.results)} />
+            </div>
+          {:else}
+            <p>No hay registros en la hoja de vida para esta máquina.</p>
+          {/if}
         {:else}
           <p>No hay registros en la hoja de vida para esta máquina.</p>
         {/if}
