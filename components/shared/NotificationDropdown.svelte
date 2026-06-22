@@ -123,7 +123,17 @@
   }
 
   function formatAlertDescription(alert) {
-    return `[${alert.tipoAlerta}] ${alert.placa} - ${alert.descripcion}`;
+    return alert.descripcion || '';
+  }
+
+  function getAlertTitle(alert) {
+    return alert.tipoAlerta.replace(/_/g, ' ');
+  }
+
+  function buildAlertSubtitle(alert) {
+    const emoji = getVehicleTypeEmoji(alert.tipoMaquinaria);
+    const typeName = getVehicleTypeName(alert.tipoMaquinaria, alert);
+    return `${emoji} ${typeName} — ${alert.placa}`;
   }
 
   function getVehicleTypeEmoji(tipoMaquinaria) {
@@ -131,39 +141,29 @@
       case 'VEHICULO': return '🚗';
       case 'MOTOCICLETA': return '🏍️';
       case 'MAQUINARIA': return '⚙️';
+      case 'USUARIO': return '👤';
       default: return '📦';
     }
   }
 
   function getVehicleTypeName(tipoMaquinaria, alert) {
-    // Si tipoMaquinaria está lleno, usarlo directamente
-    if (tipoMaquinaria && tipoMaquinaria !== 'DOCUMENTO') {
+    // Usar tipoMaquinaria si existe y es válido
+    if (tipoMaquinaria) {
       switch(tipoMaquinaria) {
         case 'VEHICULO': return 'Vehículo';
         case 'MOTOCICLETA': return 'Motocicleta';
         case 'MAQUINARIA': return 'Máquina';
+        case 'USUARIO': return 'Usuario';
         default: return tipoMaquinaria;
       }
     }
 
-    // Si no está lleno, intentar deducirlo de la descripción
+    // Fallback: deducir de la descripción
     if (alert && alert.descripcion) {
       const desc = alert.descripcion.toLowerCase();
       if (desc.includes('máquina') || desc.includes('maquina')) return 'Máquina';
       if (desc.includes('motocicleta') || desc.includes('moto')) return 'Motocicleta';
       if (desc.includes('vehículo') || desc.includes('vehiculo')) return 'Vehículo';
-    }
-
-    // Última opción: buscar en las alertas de cambio de aceite para ver si la placa aparece ahí
-    if (alert && alert.placa && allAlerts) {
-      const oilChangeAlerts = allAlerts.filter(a => a.tipoAlerta === 'CAMBIO_ACEITE');
-      for (const oilAlert of oilChangeAlerts) {
-        if (oilAlert.descripcion && oilAlert.descripcion.includes(alert.placa)) {
-          if (oilAlert.descripcion.includes('Máquina') || oilAlert.descripcion.includes('máquina')) return 'Máquina';
-          if (oilAlert.descripcion.includes('Motocicleta') || oilAlert.descripcion.includes('motocicleta')) return 'Motocicleta';
-          if (oilAlert.descripcion.includes('Vehículo') || oilAlert.descripcion.includes('vehículo')) return 'Vehículo';
-        }
-      }
     }
 
     return 'Activo';
@@ -240,9 +240,12 @@
               {/if}
             {:else}
               <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#000'}; font-weight: 900;">
-                {alert.tipoAlerta}
+                {getAlertTitle(alert)}
               </div>
-              <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{alert.descripcion}</div>
+              <div class="alert-subtitle" style="color: {alert.colorEstado === 'ROJO' ? '#d32f2f' : '#333'};">
+                {buildAlertSubtitle(alert)}
+              </div>
+              <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{formatAlertDescription(alert)}</div>
               {#if alert.fechaVencimiento}
                 <div class="alert-date" style="color: {alert.colorEstado === 'ROJO' ? '#b71c1c' : '#d84444'};">Vence: {formatDocumentDate(alert)}</div>
               {/if}
