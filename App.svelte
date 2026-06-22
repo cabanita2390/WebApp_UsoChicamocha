@@ -171,6 +171,13 @@
         wsInitialized = false;
         disconnectFromWebSocket();
         stopAutoRefresh();
+
+        // Resetear alertas y notificaciones
+        preventiveAlerts.set([]);
+        preventiveAlertCount.set(0);
+        visibleAlertCount.set(0);
+        notificationMessages.set([]);
+        console.log("🧹 [APP] Alertas y notificaciones limpiadas al cerrar sesión");
       }
     });
   });

@@ -25,23 +25,31 @@
     const dispatch = createEventDispatcher();
     let showNotifications = false;
 
-    // Cargar notificaciones al montar la aplicación
-    onMount(async () => {
-        try {
-            const response = await fetchAllAlerts(0, 100);
-            const serverAlerts = response.content || [];
+    // Sincronizar contador con preventiveAlerts del store (cargado por App.svelte)
+    onMount(() => {
+        // Suscribirse a cambios en preventiveAlerts para actualizar el contador
+        const unsubscribeAlerts = preventiveAlerts.subscribe(alerts => {
+            if (alerts && Array.isArray(alerts)) {
+                $visibleAlertCount = alerts.length + $notificationMessages.length;
+                console.log('✅ Contador sincronizado:', {
+                    alerts: alerts.length,
+                    notifications: $notificationMessages.length,
+                    total: $visibleAlertCount
+                });
+            }
+        });
 
-            // Actualizar el contador visible con total de alertas + notificaciones
-            $visibleAlertCount = serverAlerts.length + $notificationMessages.length;
+        // Suscribirse a cambios en notificationMessages también
+        const unsubscribeMessages = notificationMessages.subscribe(messages => {
+            if ($preventiveAlerts) {
+                $visibleAlertCount = $preventiveAlerts.length + (messages?.length || 0);
+            }
+        });
 
-            console.log('✅ Notificaciones cargadas al iniciar:', {
-                alerts: serverAlerts.length,
-                notifications: $notificationMessages.length,
-                total: $visibleAlertCount
-            });
-        } catch (error) {
-            console.error('❌ Error cargando notificaciones al iniciar:', error);
-        }
+        return () => {
+            unsubscribeAlerts();
+            unsubscribeMessages();
+        };
     });
 
     function toggleNotifications() {
