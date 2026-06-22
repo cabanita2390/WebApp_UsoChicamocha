@@ -6,6 +6,7 @@
   import {
     machineColumns,
     curriculumColumns,
+    machineInspectionColumns,
   } from "../../config/table-definitions.js";
   import { onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
@@ -431,15 +432,11 @@
         </div>
       {:else if curriculumData && curriculumData.inspections}
         {#if curriculumData.inspections.length > 0}
-          {#if curriculumData.inspections.flatMap(insp => insp.results).length > 0}
-            <div class="table-wrapper modal-table">
-              <DataGrid columns={curriculumColumns} data={curriculumData.inspections.flatMap(insp => insp.results)} />
-            </div>
-          {:else}
-            <p>No hay registros en la hoja de vida para esta máquina.</p>
-          {/if}
+          <div class="table-wrapper modal-table">
+            <DataGrid columns={curriculumColumns} data={curriculumData.inspections.flatMap(insp => insp.results)} />
+          </div>
         {:else}
-          <p>No hay registros en la hoja de vida para esta máquina.</p>
+          <p>No hay inspecciones preoperacionales para esta máquina.</p>
         {/if}
       {/if}
 

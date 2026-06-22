@@ -1,19 +1,37 @@
 <script>
+  import { onMount } from 'svelte';
   import { reportMotoColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
   import { ui, addNotification } from '../../stores/ui.js';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
 
-  $: latest = $data.motoInspections;
+  $: inspections = $data.motoInspections.data;
+  $: totalPages = $data.motoInspections.totalPages;
+  $: currentPage = $data.motoInspections.currentPage;
+  $: pageSize = $data.motoInspections.pageSize;
+  $: totalElements = $data.motoInspections.totalElements;
   $: isLoading = $data.isLoading;
   $: errorMessage = $data.error;
-  $: total = Array.isArray(latest) ? latest.length : 0;
 
   let isExporting = false;
 
+  onMount(() => {
+    if (!$data.motoInspections || !$data.motoInspections.data || $data.motoInspections.data.length === 0) {
+      data.fetchMotoInspections(0, 20);
+    }
+  });
+
   async function handleRefresh() {
-    await data.fetchMotoInspections();
+    await data.fetchMotoInspections(currentPage, pageSize, { reload: true });
+  }
+
+  async function handlePageChange(event) {
+    await data.fetchMotoInspections(event.detail, pageSize, { reload: false });
+  }
+
+  async function handleSizeChange(event) {
+    await data.fetchMotoInspections(0, event.detail, { reload: false });
   }
 
   async function handleExport() {
@@ -71,13 +89,14 @@
       <div class="vehicle-table-wrap vehicle-table-wrap--inset">
         <DataGrid
           columns={reportMotoColumns}
-          data={latest}
+          data={inspections}
           fixedLayout={false}
-          totalElements={total}
-          totalPages={1}
-          currentPage={0}
-          pageSize={Math.max(total, 1)}
-          showPagination={false}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          on:pageChange={handlePageChange}
+          on:sizeChange={handleSizeChange}
           on:cellContextMenu={handleCellContextMenu}
         />
       </div>
