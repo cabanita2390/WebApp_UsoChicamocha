@@ -706,6 +706,9 @@ function handleDataUpdate(currentView, message) {
         data.fetchVehicles();
       } else if (currentView === 'vehicles') {
         data.fetchVehicles();
+      } else if (currentView === 'consolidado') {
+        console.log('🔄 [CONSOLIDADO] Refrescando vehículos en consolidado...');
+        data.fetchVehicleMonitoring();
       }
       break;
     case 'moto-inspections-updated':
@@ -714,6 +717,9 @@ function handleDataUpdate(currentView, message) {
         data.fetchMotos();
       } else if (currentView === 'moto-inventory') {
         data.fetchMotos();
+      } else if (currentView === 'consolidado') {
+        console.log('🔄 [CONSOLIDADO] Refrescando motos en consolidado...');
+        data.fetchMotoMonitoring();
       }
       break;
   }

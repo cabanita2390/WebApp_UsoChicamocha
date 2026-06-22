@@ -9,6 +9,7 @@
     getSortedRowModel,
   } from "@tanstack/svelte-table";
   import { getFileUrl } from "../../stores/api";
+  import { getStatusTailwindClass } from "../../config/table-definitions.js";
 
   export let columns = [];
   export let data = [];
@@ -244,6 +245,17 @@
         return "condition-optimo";
     }
     return "";
+  }
+
+  function getStatusCellClass(color) {
+    const classes = {
+      'red': 'status-cell-red',
+      'yellow': 'status-cell-yellow',
+      'blue': 'status-cell-blue',
+      'green': 'status-cell-green',
+      'gray': 'status-cell-gray'
+    };
+    return classes[color] || classes['gray'];
   }
 </script>
 
@@ -570,6 +582,17 @@
                       handleStatusClick(row.original, cell.column.columnDef)}
                   >
                     {v ?? "N/A"}
+                  </button>
+                {:else if cell.column.columnDef.meta?.isStatusCell}
+                  {@const status = cell.column.columnDef.meta.getStatus(row.original)}
+                  {@const v = cell.getContext().getValue()}
+                  {@const colorClass = getStatusCellClass(status?.color)}
+                  <button
+                    type="button"
+                    class="status-btn status-cell-btn {colorClass}"
+                    on:click={() => handleStatusClick(row.original, cell.column.columnDef)}
+                  >
+                    {v == null || v === "" ? "N/A" : new Intl.NumberFormat("es-CO").format(Number(v))}
                   </button>
                 {:else if cell.column.columnDef.meta?.isOrigin || cell.column.columnDef.meta?.isCondition}
                   {@const cellValue = cell.getContext().getValue()}
@@ -1083,5 +1106,49 @@
   :global(th.tecno-cell),
   :global(td.tecno-cell) {
     background-color: #f3e5f5 !important;
+  }
+
+  /* Status cell badges (semáforo) */
+  .status-cell-btn {
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s ease;
+  }
+
+  .status-cell-btn:hover {
+    opacity: 0.9;
+    transform: scale(0.98);
+  }
+
+  .status-cell-red {
+    background-color: #ffebee;
+    color: #c62828;
+    border-left: 3px solid #d32f2f;
+  }
+
+  .status-cell-yellow {
+    background-color: #fff8e1;
+    color: #e65100;
+    border-left: 3px solid #f57f17;
+  }
+
+  .status-cell-blue {
+    background-color: #e1f5fe;
+    color: #01579b;
+    border-left: 3px solid #0277bd;
+  }
+
+  .status-cell-green {
+    background-color: #e8f5e9;
+    color: #1b5e20;
+    border-left: 3px solid #388e3c;
+  }
+
+  .status-cell-gray {
+    background-color: #f5f5f5;
+    color: #424242;
+    border-left: 3px solid #616161;
   }
 </style>
