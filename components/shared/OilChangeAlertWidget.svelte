@@ -19,8 +19,8 @@
     const unsubscribe = oilChangeAlerts.subscribe(alerts => {
       filteredAlerts = Object.values(alerts || {})
         .sort((a, b) => {
-          // Ordenar: RED primero, luego YELLOW, BLUE, GREEN
-          const priority = { RED: 0, YELLOW: 1, BLUE: 2, GREEN: 3 };
+          // Ordenar: ROJO/RED primero, luego AMARILLO/YELLOW, BLUE, VERDE/GREEN
+          const priority = { RED: 0, ROJO: 0, YELLOW: 1, AMARILLO: 1, BLUE: 2, GREEN: 3, VERDE: 3 };
           return (priority[a.alertColor] || 4) - (priority[b.alertColor] || 4);
         });
     });
@@ -35,9 +35,12 @@
   function getEmoji(color) {
     return {
       GREEN: '✅',
+      VERDE: '✅',
       BLUE: '🔵',
       YELLOW: '🟡',
-      RED: '🔴'
+      AMARILLO: '🟡',
+      RED: '🔴',
+      ROJO: '🔴'
     }[color] || '⚪';
   }
 </script>
@@ -108,8 +111,8 @@
     <!-- Resumen -->
     <div class="summary mt-6 text-sm text-gray-600 bg-gray-50 p-3 rounded">
       <p>
-        {filteredAlerts.filter(a => a.alertColor === 'RED').length} 🔴 URGENTES |
-        {filteredAlerts.filter(a => a.alertColor === 'YELLOW').length} 🟡 PRÓXIMOS |
+        {filteredAlerts.filter(a => a.alertColor === 'RED' || a.alertColor === 'ROJO').length} 🔴 URGENTES |
+        {filteredAlerts.filter(a => a.alertColor === 'YELLOW' || a.alertColor === 'AMARILLO').length} 🟡 PRÓXIMOS |
         {filteredAlerts.filter(a => a.alertColor === 'BLUE').length} 🔵 PROGRAMADOS
       </p>
     </div>

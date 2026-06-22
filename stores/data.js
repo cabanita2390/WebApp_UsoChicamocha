@@ -16,7 +16,7 @@ function createDataStore() {
         /** Lista completa de inspecciones vehículo (API devuelve array, no página Spring). */
         vehicleInspectionsFull: [],
         vehicleWorkOrders: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
-        motoInspections: [],
+        motoInspections: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
         motoInspectionsHistory: [],
         motoMaintenance: [],
         vehicleMaintenance: [],
@@ -275,6 +275,7 @@ function createDataStore() {
         fetchConsolidadoData: async () => {
             setLoading(true);
             try {
+                console.log('\ud83d\udcca [CONSOLIDADO] Refrescando datos del consolidado...');
                 const result = await fetchWithAuth('oil-changes/consolidated', { version: null });
                 const dataToStore = Array.isArray(result?.content) ? result.content : (Array.isArray(result) ? result : []);
                 const norm = (s) =>
@@ -286,9 +287,11 @@ function createDataStore() {
                     distrito: dataToStore.filter((item) => norm(item?.machine?.belongsTo) === 'distrito'),
                     asociacion: dataToStore.filter((item) => norm(item?.machine?.belongsTo) === 'asociacion'),
                 };
+                console.log('\u2705 [CONSOLIDADO] Datos refrescados:', consolidatedData);
                 update(s => ({ ...s, consolidated: consolidatedData, isLoading: false, error: null }));
                 return consolidatedData;
             } catch (err) {
+                console.error('\u274c [CONSOLIDADO] Error al refrescar:', err.message);
                 setError(err.message);
                 throw err;
             }
@@ -539,7 +542,7 @@ function createDataStore() {
             return fetchWithAuth(`vehicle-inspection/validar-kilometraje?${q.toString()}`);
         },
         /** Última inspección por placa (API deduplica por moto). */
-        fetchMotoInspections: () => fetchAll('motoInspections', 'moto/inspections/reports'),
+        fetchMotoInspections: (page = 0, size = 20) => fetchPaginated('motoInspections', 'moto/inspections/reports', page, size),
         /** Historial completo de inspecciones de motos (todas, más recientes primero). */
         fetchMotoInspectionsHistory: () => fetchAll('motoInspectionsHistory', 'moto/inspections/reports/history'),
 
