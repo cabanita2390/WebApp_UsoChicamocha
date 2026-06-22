@@ -425,6 +425,27 @@ function vehiculoInspeccionLabel(row) {
     return p || m || 'N/A';
 }
 
+// Helper para calcular porcentaje de uso
+function calculatePercentageUsed(remainingHours, averageChangeHours) {
+    // Validar valores
+    if (remainingHours === null || remainingHours === undefined || averageChangeHours === null || averageChangeHours === undefined) return null;
+    if (averageChangeHours === 0) return null;
+
+    const remaining = Number(remainingHours);
+    const average = Number(averageChangeHours);
+
+    if (isNaN(remaining) || isNaN(average)) return null;
+
+    // Si remainingHours es negativo, significa que ya pasó el cambio (100% de uso)
+    if (remaining < 0) return 100;
+
+    // Calcular porcentaje: (promedio - restante) / promedio * 100
+    const percentageUsed = ((average - remaining) / average) * 100;
+
+    // Limitar entre 0 y 100
+    return Math.max(0, Math.min(100, percentageUsed));
+}
+
 export const createConsolidadoColumns = (owner) => [
     {
         header: `Propiedad de ${owner}`,
@@ -444,7 +465,23 @@ export const createConsolidadoColumns = (owner) => [
             { header: 'Horómetro Últ. Cambio', size: 100, accessorFn: row => row.consolidateMotorOil?.hourMeterLastUpdate ?? 'N/A', id: 'motor_horometro_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Próximo Cambio', size: 80, accessorFn: row => row.consolidateMotorOil?.hourMeterNextUpdate ?? 'N/A', id: 'motor_proximo_cambio', meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Tiempo Últ. Cambio', size: 100, accessorFn: row => row.consolidateMotorOil?.timeLastUpdateMouths ?? 'N/A', id: 'motor_tiempo_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Horas Restantes', size: 80, accessorFn: row => row.consolidateMotorOil?.remainingHoursNextUpdateMouths ?? 'N/A', id: 'motor_horas_restantes', meta: { cellClass: 'motor-oil-cell' } },
+            {
+                header: 'Horas Restantes',
+                size: 100,
+                accessorFn: row => row.consolidateMotorOil?.remainingHoursNextUpdateMouths ?? 'N/A',
+                id: 'motor_horas_restantes',
+                meta: {
+                    cellClass: 'motor-oil-cell',
+                    isStatusCell: true,
+                    getStatus: (row) => {
+                        const percentage = calculatePercentageUsed(
+                            row.consolidateMotorOil?.remainingHoursNextUpdateMouths,
+                            row.consolidateMotorOil?.averageChangeHours
+                        );
+                        return { percentage, color: getStatusColor(percentage) };
+                    }
+                }
+            },
         ]
     },
     {
@@ -457,7 +494,23 @@ export const createConsolidadoColumns = (owner) => [
             { header: 'Horómetro Últ. Cambio', size: 100, accessorFn: row => row.consolidateHydraulicOil?.hourMeterLastUpdate ?? 'N/A', id: 'hidraulico_horometro_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
             { header: 'Próximo Cambio', size: 80, accessorFn: row => row.consolidateHydraulicOil?.hourMeterNextUpdate ?? 'N/A', id: 'hidraulico_proximo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
             { header: 'Tiempo Últ. Cambio', size: 100, accessorFn: row => row.consolidateHydraulicOil?.timeLastUpdateMouths ?? 'N/A', id: 'hidraulico_tiempo_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
-            { header: 'Horas Restantes', size: 80, accessorFn: row => row.consolidateHydraulicOil?.remainingHoursNextUpdateMouths ?? 'N/A', id: 'hidraulico_horas_restantes', meta: { cellClass: 'hydraulic-oil-cell' } },
+            {
+                header: 'Horas Restantes',
+                size: 100,
+                accessorFn: row => row.consolidateHydraulicOil?.remainingHoursNextUpdateMouths ?? 'N/A',
+                id: 'hidraulico_horas_restantes',
+                meta: {
+                    cellClass: 'hydraulic-oil-cell',
+                    isStatusCell: true,
+                    getStatus: (row) => {
+                        const percentage = calculatePercentageUsed(
+                            row.consolidateHydraulicOil?.remainingHoursNextUpdateMouths,
+                            row.consolidateHydraulicOil?.averageChangeHours
+                        );
+                        return { percentage, color: getStatusColor(percentage) };
+                    }
+                }
+            },
         ]
     },
     {
@@ -503,6 +556,38 @@ const formatCurrency = (value) => new Intl.NumberFormat('es-CO', {
 }).format(value || 0);
 
 const formatKm = (value) => new Intl.NumberFormat('es-CO').format(value || 0);
+
+// Helper para obtener color/semáforo basado en porcentaje de uso
+export function getStatusColor(percentageUsed) {
+    if (percentageUsed === null || percentageUsed === undefined || isNaN(percentageUsed)) {
+        return 'gray';
+    }
+    if (percentageUsed >= 90) return 'red';      // 🔴 URGENTE (90%+)
+    if (percentageUsed >= 70) return 'yellow';   // 🟡 PRÓXIMO (70-89%)
+    return 'green';                               // ✅ OK (0-69%)
+}
+
+// Helper para obtener clase Tailwind basada en color
+export function getStatusTailwindClass(color) {
+    const classes = {
+        'red': 'bg-red-100 text-red-800 border-l-4 border-red-300',
+        'yellow': 'bg-yellow-100 text-yellow-800 border-l-4 border-yellow-300',
+        'green': 'bg-green-100 text-green-800 border-l-4 border-green-300',
+        'gray': 'bg-gray-100 text-gray-800 border-l-4 border-gray-300'
+    };
+    return classes[color] || classes['gray'];
+}
+
+// Helper para obtener emoji/badge basado en color
+export function getStatusBadge(color) {
+    const badges = {
+        'red': '🔴 URGENTE',
+        'yellow': '🟡 PRÓXIMO',
+        'green': '✅ OK',
+        'gray': '⚪ SIN DATOS'
+    };
+    return badges[color] || badges['gray'];
+}
 
 /** Monitoreo moto: `ubicacionBase` del vehículo; si no, unidad de la última inspección (`responsable` en el DTO). */
 const motoMonitoringUbicacionCell = (row) => {
@@ -865,7 +950,23 @@ export const consolidadoVehicleColumns = [
             { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.maintenance?.kmCambio), id: 'cv_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Próximo Cambio', accessorFn: row => formatKm(row.maintenance?.kmProximoCambio), id: 'cv_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Días desde Cambio', accessorFn: row => row.maintenance?.diasDesdeUltimoCambio ?? 'N/A', id: 'cv_oil_dias', size: 95, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Km Restantes', accessorFn: row => formatKm(row.maintenance?.kmParaProximo), id: 'cv_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
+            {
+                header: 'Km Restantes',
+                accessorFn: row => row.maintenance?.kmParaProximo ?? 'N/A',
+                id: 'cv_oil_km_rest',
+                size: 90,
+                meta: {
+                    cellClass: 'motor-oil-cell',
+                    isStatusCell: true,
+                    getStatus: (row) => {
+                        const percentage = calculatePercentageUsed(
+                            row.maintenance?.kmParaProximo,
+                            row.maintenance?.intervalKm
+                        );
+                        return { percentage, color: getStatusColor(percentage) };
+                    }
+                }
+            },
             { header: 'Filtro Aire', accessorFn: row => row.maintenance?.filtroAire ? 'Sí' : 'No', id: 'cv_oil_filtro', size: 80, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Estado', accessorFn: row => row.maintenance?.estado ?? 'N/A', id: 'cv_oil_estado', size: 100, meta: { cellClass: 'motor-oil-cell' } },
         ],
@@ -901,7 +1002,23 @@ export const consolidadoMotoColumns = [
             { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.oil?.kmCambio), id: 'cm_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Próximo Cambio', accessorFn: row => formatKm(row.oil?.kmProximoCambio), id: 'cm_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Días desde Cambio', accessorFn: row => row.oil?.diasDesdeUltimoCambio ?? 'N/A', id: 'cm_oil_dias', size: 95, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Km Restantes', accessorFn: row => formatKm(row.oil?.kmParaProximo), id: 'cm_oil_km_rest', size: 90, meta: { cellClass: 'motor-oil-cell' } },
+            {
+                header: 'Km Restantes',
+                accessorFn: row => row.oil?.kmParaProximo ?? 'N/A',
+                id: 'cm_oil_km_rest',
+                size: 90,
+                meta: {
+                    cellClass: 'motor-oil-cell',
+                    isStatusCell: true,
+                    getStatus: (row) => {
+                        const percentage = calculatePercentageUsed(
+                            row.oil?.kmParaProximo,
+                            row.oil?.intervalKm
+                        );
+                        return { percentage, color: getStatusColor(percentage) };
+                    }
+                }
+            },
             { header: 'Filtro Aire', accessorFn: row => row.oil?.filtroAire ? 'Sí' : 'No', id: 'cm_oil_filtro', size: 80, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Estado', accessorFn: row => row.oil?.estado ?? 'N/A', id: 'cm_oil_estado', size: 100, meta: { cellClass: 'motor-oil-cell' } },
         ],
@@ -1203,6 +1320,48 @@ export const motoInventoryColumns = [
         header: 'Acciones',
         size: 100,
         meta: { isAction: true },
+    },
+];
+
+/** Inspecciones preoperacionales de máquinas. */
+export const machineInspectionColumns = [
+    {
+        header: 'Fecha',
+        accessorFn: (row) => {
+            if (!row.dateStamp) return 'N/A';
+            const d = new Date(row.dateStamp);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        },
+        id: 'insp_fecha',
+        size: 100,
+    },
+    {
+        header: 'Horas',
+        accessorFn: (row) => (row.hourMeter != null ? row.hourMeter.toFixed(2) : 'N/A'),
+        id: 'insp_horas',
+        size: 80,
+    },
+    { header: 'Fugas', accessorKey: 'leakStatus', id: 'insp_fugas', size: 80 },
+    { header: 'Frenos', accessorKey: 'brakeStatus', id: 'insp_frenos', size: 80 },
+    { header: 'Correas/Poleas', accessorKey: 'beltsPulleysStatus', id: 'insp_correas', size: 100 },
+    { header: 'Carriles Llantas', accessorKey: 'tireLanesStatus', id: 'insp_llantas', size: 100 },
+    { header: 'Encendido', accessorKey: 'carIgnitionStatus', id: 'insp_encendido', size: 80 },
+    { header: 'Eléctrico', accessorKey: 'electricalStatus', id: 'insp_electrico', size: 80 },
+    { header: 'Mecánico', accessorKey: 'mechanicalStatus', id: 'insp_mecanico', size: 80 },
+    { header: 'Temperatura', accessorKey: 'temperatureStatus', id: 'insp_temp', size: 90 },
+    { header: 'Aceite Motor', accessorKey: 'oilStatus', id: 'insp_aceite', size: 90 },
+    { header: 'Hidráulico', accessorKey: 'hydraulicStatus', id: 'insp_hidraulico', size: 90 },
+    { header: 'Refrigerante', accessorKey: 'coolantStatus', id: 'insp_refrigerante', size: 90 },
+    { header: 'Estructura', accessorKey: 'structuralStatus', id: 'insp_estructura', size: 80 },
+    {
+        header: 'Observaciones',
+        accessorKey: 'observations',
+        id: 'insp_obs',
+        size: 300,
+        meta: { isMultiline: true }
     },
 ];
 
