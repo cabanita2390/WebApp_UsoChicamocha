@@ -72,7 +72,7 @@
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2">
               <span class="text-xl">{getEmoji(alert.alertColor)}</span>
-              <span class="font-bold text-lg">{alert.placa}</span>
+              <span class="font-bold text-lg">{alert.machineName || alert.placa}</span>
               <span class="badge">{getAlertBadge(alert.alertColor)}</span>
             </div>
             <span class="text-sm opacity-75">{alert.tipoMaquinaria}</span>

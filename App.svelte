@@ -51,6 +51,7 @@
     isAutoRefreshActive,
   } from "./composables/useAutoRefresh.js";
   import { fetchAllAlerts } from "./composables/useAlerts.js";
+  import fetchWithAuth from "./stores/api.js";
   import { preventiveAlerts, preventiveAlertCount } from "./stores/ui.js";
   import ImageCarouselModal from "./components/shared/ImageCarouselModal.svelte";
 
@@ -95,7 +96,9 @@
   async function loadInitialAlerts() {
     try {
       console.log("📢 [APP] Cargando alertas iniciales al iniciar sesión...");
-      const response = await fetchAllAlerts(0, 50, { estado: "ACTIVA" });
+
+      // Cargar alertas del servidor
+      const response = await fetchAllAlerts(0, 200, { estado: "ACTIVA" });
       console.log("📢 [APP] Respuesta del API:", response);
 
       let alertas = [];
