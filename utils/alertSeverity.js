@@ -20,7 +20,24 @@ export function getSeverityInfo(colorEstado) {
 }
 
 export function sortAlertsBySeverity(alerts) {
+  const typeOrder = {
+    'DOCUMENTO_TECNOMECANICA': 0,
+    'DOCUMENTO_SOAT': 0,
+    'DOCUMENTO_EXTINTOR': 0,
+    'CAMBIO_ACEITE_VEHICULO': 1,  // Vehículos segundo
+    'CAMBIO_ACEITE_MAQUINARIA': 2   // Máquinas al final
+  };
+
   return [...alerts].sort((a, b) => {
+    // Primero ordenar por tipo de alerta
+    const typeOrderA = typeOrder[a.tipoAlerta] ?? 999;
+    const typeOrderB = typeOrder[b.tipoAlerta] ?? 999;
+
+    if (typeOrderA !== typeOrderB) {
+      return typeOrderA - typeOrderB;
+    }
+
+    // Si son del mismo tipo, ordenar por severidad (ROJO, AMARILLO, VERDE)
     const severityA = getSeverityLevel(a.colorEstado);
     const severityB = getSeverityLevel(b.colorEstado);
     return severityA - severityB;
