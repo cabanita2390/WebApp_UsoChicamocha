@@ -146,7 +146,12 @@
   }
 
   function getAlertTitle(alert) {
-    return alert.tipoAlerta.replace(/_/g, ' ');
+    const title = alert.tipoAlerta.replace(/_/g, ' ');
+    // Si es un documento, extraer el tipo específico (ej: "DOCUMENTO_CAMBIO_ACEITE" → "CAMBIO ACEITE")
+    if (alert.tipoAlerta.includes('DOCUMENTO_')) {
+      return alert.tipoAlerta.replace('DOCUMENTO_', '').replace(/_/g, ' ');
+    }
+    return title;
   }
 
   function buildAlertSubtitle(alert) {
@@ -252,7 +257,7 @@
           <div class="alert-content">
             {#if alert.tipoAlerta.includes('DOCUMENTO')}
               <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#1a1a1a'}; font-weight: bold;">
-                {alert.tipoAlerta}
+                {getAlertTitle(alert)}
               </div>
               <div class="alert-subtitle" style="color: {alert.colorEstado === 'ROJO' ? '#d32f2f' : '#333'};">📍 {alert.placa} ({getVehicleTypeName(alert.tipoMaquinaria, alert)})</div>
               <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{formatDocumentDescription(alert)}</div>
@@ -302,7 +307,7 @@
           <div class="alert-content">
             {#if alert.tipoAlerta.includes('DOCUMENTO')}
               <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#1a1a1a'}; font-weight: bold;">
-                {alert.tipoAlerta}
+                {getAlertTitle(alert)}
               </div>
               <div class="alert-subtitle" style="color: {alert.colorEstado === 'ROJO' ? '#d32f2f' : '#333'};">📍 {alert.placa} ({getVehicleTypeName(alert.tipoMaquinaria, alert)})</div>
               <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{formatDocumentDescription(alert)}</div>
@@ -352,7 +357,7 @@
           <div class="alert-content">
             {#if alert.tipoAlerta.includes('DOCUMENTO')}
               <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#1a1a1a'}; font-weight: bold;">
-                {alert.tipoAlerta}
+                {getAlertTitle(alert)}
               </div>
               <div class="alert-subtitle" style="color: {alert.colorEstado === 'ROJO' ? '#d32f2f' : '#333'};">📍 {alert.placa} ({getVehicleTypeName(alert.tipoMaquinaria, alert)})</div>
               <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{formatDocumentDescription(alert)}</div>
