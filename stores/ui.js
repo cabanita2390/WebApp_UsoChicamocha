@@ -1,4 +1,5 @@
-import { writable, get } from 'svelte/store';
+import { writable, get, derived } from 'svelte/store';
+import { sortAlertsBySeverity } from '../utils/alertSeverity.js';
 
 // --- Stores de Notificaciones (en memoria, no persistir) ---
 export const notificationCount = writable(0);
@@ -8,24 +9,24 @@ export const notificationMessages = writable([]);
 export const preventiveAlertCount = writable(0);
 export const preventiveAlerts = writable([]);
 
+// --- Store derivado: Alertas ordenadas por severidad ---
+export const sortedPreventiveAlerts = derived(preventiveAlerts, ($alerts) => {
+  return sortAlertsBySeverity($alerts);
+});
+
 // --- Contador visible en el dropdown (después de deduplicación) ---
 export const visibleAlertCount = writable(0);
 
 // --- Acciones de Notificaciones ---
-// CORRECCIÓN: Se usa `get` para una comprobación de duplicados más robusta y sincrónica.
-
 export function addNotification(notification) {
-  // Se obtiene el valor actual de la lista de mensajes de forma sincrónica.
   const currentMessages = get(notificationMessages);
   const exists = currentMessages.some(msg => msg.id === notification.id);
 
-  // Si la notificación ya existe en la lista, no se hace nada.
   if (exists) {
     console.log(`Notificación duplicada ignorada: ${notification.id}`);
     return;
   }
 
-  // Si no es un duplicado, se actualizan los stores.
   notificationMessages.update(messages => [notification, ...messages]);
   notificationCount.update(n => n + 1);
 }
@@ -47,7 +48,10 @@ export function addPreventiveAlert(alert) {
   console.log('📌 [STORE] Alertas actuales:', currentAlerts);
 
   // Evitar duplicados basados en placa + tipo de alerta
-  const exists = currentAlerts.some(a => a.placa === alert.placa && a.tipoAlerta === alert.tipoAlerta && a.estado === 'ACTIVA');
+  const exists = currentAlerts.some(
+    a => a.placa === alert.placa && a.tipoAlerta === alert.tipoAlerta && a.estado === 'ACTIVA'
+  );
+
   if (exists) {
     console.log(`⚠️ [STORE] Alerta preventiva duplicada ignorada: ${alert.placa} - ${alert.tipoAlerta}`);
     return;

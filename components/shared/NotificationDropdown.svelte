@@ -3,6 +3,7 @@
   import { createEventDispatcher } from 'svelte';
   import { fetchAllAlerts, deleteAlert, alertsLoading, alertsError } from '../../composables/useAlerts.js';
   import { visibleAlertCount } from '../../stores/ui.js';
+  import { sortAlertsBySeverity, getSeverityInfo } from '../../utils/alertSeverity.js';
 
   export let messages = [];
   export let alerts = [];
@@ -34,11 +35,12 @@
     }
   }
 
-  // Combinar alertas en tiempo real + alertas del servidor (evitar duplicados)
+  // Combinar, deduplicar y ordenar alertas por severidad
   $: allAlerts = (() => {
     const seen = new Set();
     const combined = [...alerts, ...serverAlerts];
-    return combined.filter(alert => {
+
+    const deduped = combined.filter(alert => {
       const key = `${alert.placa}_${alert.tipoAlerta}`;
       if (seen.has(key)) {
         return false;
@@ -46,23 +48,40 @@
       seen.add(key);
       return true;
     });
+
+    return sortAlertsBySeverity(deduped);
+  })();
+
+  // Agrupar alertas por severidad
+  $: alertsByGroup = (() => {
+    const groups = {
+      critical: [],
+      warning: [],
+      info: []
+    };
+
+    allAlerts.forEach(alert => {
+      const severity = getSeverityInfo(alert.colorEstado);
+      if (severity.level === 0) groups.critical.push(alert);
+      else if (severity.level === 1) groups.warning.push(alert);
+      else groups.info.push(alert);
+    });
+
+    return groups;
   })();
 
   // Filtrar notificaciones para evitar duplicados con alertas
   $: filteredMessages = messages.filter(msg => {
     const text = msg.text?.toLowerCase() || '';
-    // Excluir si el mensaje ya está en las alertas del servidor
     const isDuplicate = serverAlerts.some(alert => {
       const alertText = (alert.descripcion || '').toLowerCase();
       const alertPlaca = (alert.placa || '').toLowerCase();
-
-      // Si el mensaje menciona el mismo elemento y tipo de alerta
       return text.includes(alertPlaca) || text.includes(alertText);
     });
     return !isDuplicate;
   });
 
-  // Actualizar contador visible en el badge (suma de alertas preventivas + notificaciones simples)
+  // Actualizar contador visible en el badge
   $: {
     const totalCount = allAlerts.length + filteredMessages.length;
     visibleAlertCount.set(totalCount);
@@ -220,12 +239,14 @@
   {#if allAlerts.length === 0 && filteredMessages.length === 0}
     <div class="dropdown-item empty">No hay notificaciones ni alertas</div>
   {:else}
-    <!-- Sección de Alertas Preventivas -->
-    {#if allAlerts.length > 0}
-      <div class="dropdown-section-header">🔔 ALERTAS PREVENTIVAS ({allAlerts.length})</div>
-      {#each allAlerts as alert, index (`alert_${index}`)}
+    <!-- Alertas Críticas -->
+    {#if alertsByGroup.critical.length > 0}
+      <div class="dropdown-section-header severity-critical">
+        🔴 ALERTAS CRÍTICAS ({alertsByGroup.critical.length})
+      </div>
+      {#each alertsByGroup.critical as alert (`alert_${alert.id}`)}
         <div
-          class="dropdown-item alert-item"
+          class="dropdown-item alert-item alert-critical"
           style="background: {getAlertBgColor(alert.colorEstado)} !important; border-left: 4px solid {getAlertColor(alert.colorEstado)}; opacity: {isResolving[alert.id] ? 0.5 : 1};"
         >
           <div class="alert-content">
@@ -263,12 +284,113 @@
           </div>
         </div>
       {/each}
-      {#if filteredMessages.length > 0}
+      {#if alertsByGroup.warning.length > 0 || alertsByGroup.info.length > 0}
         <div class="dropdown-divider"></div>
       {/if}
     {/if}
 
-    <!-- Sección de Notificaciones Regulares -->
+    <!-- Alertas de Advertencia -->
+    {#if alertsByGroup.warning.length > 0}
+      <div class="dropdown-section-header severity-warning">
+        🟡 ALERTAS DE ADVERTENCIA ({alertsByGroup.warning.length})
+      </div>
+      {#each alertsByGroup.warning as alert (`alert_${alert.id}`)}
+        <div
+          class="dropdown-item alert-item alert-warning"
+          style="background: {getAlertBgColor(alert.colorEstado)} !important; border-left: 4px solid {getAlertColor(alert.colorEstado)}; opacity: {isResolving[alert.id] ? 0.5 : 1};"
+        >
+          <div class="alert-content">
+            {#if alert.tipoAlerta.includes('DOCUMENTO')}
+              <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#1a1a1a'}; font-weight: bold;">
+                {alert.tipoAlerta}
+              </div>
+              <div class="alert-subtitle" style="color: {alert.colorEstado === 'ROJO' ? '#d32f2f' : '#333'};">📍 {alert.placa} ({getVehicleTypeName(alert.tipoMaquinaria, alert)})</div>
+              <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{formatDocumentDescription(alert)}</div>
+              {#if alert.fechaVencimiento}
+                <div class="alert-date" style="color: {alert.colorEstado === 'ROJO' ? '#b71c1c' : '#d84444'};">Vence: {formatDocumentDate(alert)}</div>
+              {/if}
+            {:else}
+              <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#000'}; font-weight: 900;">
+                {getAlertTitle(alert)}
+              </div>
+              <div class="alert-subtitle" style="color: {alert.colorEstado === 'ROJO' ? '#d32f2f' : '#333'};">
+                {buildAlertSubtitle(alert)}
+              </div>
+              <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{formatAlertDescription(alert)}</div>
+              {#if alert.fechaVencimiento}
+                <div class="alert-date" style="color: {alert.colorEstado === 'ROJO' ? '#b71c1c' : '#d84444'};">Vence: {formatDocumentDate(alert)}</div>
+              {/if}
+            {/if}
+          </div>
+          <div class="alert-actions">
+            <button
+              class="delete-btn"
+              on:click|stopPropagation={() => deleteAlertFromServer(alert.id)}
+              title="Eliminar alerta"
+              disabled={isResolving[alert.id]}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      {/each}
+      {#if alertsByGroup.info.length > 0}
+        <div class="dropdown-divider"></div>
+      {/if}
+    {/if}
+
+    <!-- Alertas Informativas -->
+    {#if alertsByGroup.info.length > 0}
+      <div class="dropdown-section-header severity-info">
+        🟢 ALERTAS INFORMATIVAS ({alertsByGroup.info.length})
+      </div>
+      {#each alertsByGroup.info as alert (`alert_${alert.id}`)}
+        <div
+          class="dropdown-item alert-item alert-info"
+          style="background: {getAlertBgColor(alert.colorEstado)} !important; border-left: 4px solid {getAlertColor(alert.colorEstado)}; opacity: {isResolving[alert.id] ? 0.5 : 1};"
+        >
+          <div class="alert-content">
+            {#if alert.tipoAlerta.includes('DOCUMENTO')}
+              <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#1a1a1a'}; font-weight: bold;">
+                {alert.tipoAlerta}
+              </div>
+              <div class="alert-subtitle" style="color: {alert.colorEstado === 'ROJO' ? '#d32f2f' : '#333'};">📍 {alert.placa} ({getVehicleTypeName(alert.tipoMaquinaria, alert)})</div>
+              <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{formatDocumentDescription(alert)}</div>
+              {#if alert.fechaVencimiento}
+                <div class="alert-date" style="color: {alert.colorEstado === 'ROJO' ? '#b71c1c' : '#d84444'};">Vence: {formatDocumentDate(alert)}</div>
+              {/if}
+            {:else}
+              <div class="alert-title" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#000'}; font-weight: 900;">
+                {getAlertTitle(alert)}
+              </div>
+              <div class="alert-subtitle" style="color: {alert.colorEstado === 'ROJO' ? '#d32f2f' : '#333'};">
+                {buildAlertSubtitle(alert)}
+              </div>
+              <div class="alert-text" style="color: {alert.colorEstado === 'ROJO' ? '#c62828' : '#444'};">{formatAlertDescription(alert)}</div>
+              {#if alert.fechaVencimiento}
+                <div class="alert-date" style="color: {alert.colorEstado === 'ROJO' ? '#b71c1c' : '#d84444'};">Vence: {formatDocumentDate(alert)}</div>
+              {/if}
+            {/if}
+          </div>
+          <div class="alert-actions">
+            <button
+              class="delete-btn"
+              on:click|stopPropagation={() => deleteAlertFromServer(alert.id)}
+              title="Eliminar alerta"
+              disabled={isResolving[alert.id]}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      {/each}
+    {/if}
+
+    {#if filteredMessages.length > 0}
+      <div class="dropdown-divider"></div>
+    {/if}
+
+    <!-- Notificaciones Regulares -->
     {#if filteredMessages.length > 0}
       <div class="dropdown-section-header">📧 NOTIFICACIONES</div>
       {#each filteredMessages as notification, index (`notif_${index}`)}
@@ -428,5 +550,50 @@
   .delete-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .dropdown-section-header.severity-critical {
+    background: linear-gradient(to right, #ffcccc, #ff9999);
+    border-left: 4px solid #d32f2f;
+    color: #b71c1c;
+    font-weight: bold;
+  }
+
+  .dropdown-section-header.severity-warning {
+    background: linear-gradient(to right, #fff5cc, #ffe0a1);
+    border-left: 4px solid #f57c00;
+    color: #e65100;
+    font-weight: bold;
+  }
+
+  .dropdown-section-header.severity-info {
+    background: linear-gradient(to right, #ccffcc, #99ff99);
+    border-left: 4px solid #388e3c;
+    color: #1b5e20;
+    font-weight: bold;
+  }
+
+  .alert-item.alert-critical {
+    box-shadow: inset -3px 0 0 #d32f2f;
+  }
+
+  .alert-item.alert-critical:hover {
+    background: #ffe0e0 !important;
+  }
+
+  .alert-item.alert-warning {
+    box-shadow: inset -3px 0 0 #f57c00;
+  }
+
+  .alert-item.alert-warning:hover {
+    background: #fff5e8 !important;
+  }
+
+  .alert-item.alert-info {
+    box-shadow: inset -3px 0 0 #388e3c;
+  }
+
+  .alert-item.alert-info:hover {
+    background: #e8ffe8 !important;
   }
 </style>
