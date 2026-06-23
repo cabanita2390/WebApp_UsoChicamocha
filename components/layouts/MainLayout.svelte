@@ -31,11 +31,6 @@
         const unsubscribeAlerts = preventiveAlerts.subscribe(alerts => {
             if (alerts && Array.isArray(alerts)) {
                 $visibleAlertCount = alerts.length + $notificationMessages.length;
-                console.log('✅ Contador sincronizado:', {
-                    alerts: alerts.length,
-                    notifications: $notificationMessages.length,
-                    total: $visibleAlertCount
-                });
             }
         });
 

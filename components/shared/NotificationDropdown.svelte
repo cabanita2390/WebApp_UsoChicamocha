@@ -19,8 +19,8 @@
     loadServerAlerts();
   });
 
-  // Recargar alertas cuando se abre el dropdown
-  $: if (isOpen && hasLoadedFromServer) {
+  // Recargar alertas SIEMPRE cuando se abre el dropdown (quitamos la condición hasLoadedFromServer)
+  $: if (isOpen) {
     loadServerAlerts();
   }
 
@@ -29,7 +29,6 @@
     try {
       const response = await fetchAllAlerts(0, 100);
       serverAlerts = response.content || [];
-      console.log('✅ Alertas cargadas del servidor:', serverAlerts);
     } catch (error) {
       console.error('❌ Error cargando alertas del servidor:', error);
     }
@@ -41,7 +40,7 @@
     const combined = [...alerts, ...serverAlerts];
 
     const deduped = combined.filter(alert => {
-      const key = `${alert.placa}_${alert.tipoAlerta}`;
+      const key = `${alert.placa}_${alert.tipoAlerta}_${alert.alertSubtype || ''}`;
       if (seen.has(key)) {
         return false;
       }
@@ -85,11 +84,17 @@
   $: {
     const totalCount = allAlerts.length + filteredMessages.length;
     visibleAlertCount.set(totalCount);
-    console.log('📊 Contador actualizado:', { alertas: allAlerts.length, notificaciones: filteredMessages.length, total: totalCount });
   }
 
   function deleteNotification(notificationId) {
     dispatch('deleteNotification', notificationId);
+  }
+
+  async function deleteAlertsByColor(color) {
+    const alertsToDelete = allAlerts.filter(a => a.colorEstado === color);
+    for (const alert of alertsToDelete) {
+      await deleteAlertFromServer(alert.id);
+    }
   }
 
   async function deleteAlertFromServer(alertId) {
@@ -99,7 +104,6 @@
       // Eliminar de la lista local
       serverAlerts = serverAlerts.filter(a => a.id !== alertId);
       dispatch('deleteAlert', alertId);
-      console.log('✅ Alerta eliminada:', alertId);
     } catch (error) {
       console.error('❌ Error eliminando alerta:', error);
     } finally {
@@ -246,8 +250,16 @@
   {:else}
     <!-- Alertas Críticas -->
     {#if alertsByGroup.critical.length > 0}
-      <div class="dropdown-section-header severity-critical">
-        🔴 ALERTAS CRÍTICAS ({alertsByGroup.critical.length})
+      <div class="dropdown-section-header severity-critical" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>🔴 ALERTAS CRÍTICAS ({alertsByGroup.critical.length})</span>
+        <button
+          class="delete-all-btn"
+          on:click={() => deleteAlertsByColor('ROJO')}
+          title="Eliminar todas las alertas críticas"
+          style="background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px 8px;"
+        >
+          🗑️
+        </button>
       </div>
       {#each alertsByGroup.critical as alert (`alert_${alert.id}`)}
         <div
@@ -296,8 +308,16 @@
 
     <!-- Alertas de Advertencia -->
     {#if alertsByGroup.warning.length > 0}
-      <div class="dropdown-section-header severity-warning">
-        🟡 ALERTAS DE ADVERTENCIA ({alertsByGroup.warning.length})
+      <div class="dropdown-section-header severity-warning" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>🟡 ALERTAS DE ADVERTENCIA ({alertsByGroup.warning.length})</span>
+        <button
+          class="delete-all-btn"
+          on:click={() => deleteAlertsByColor('AMARILLO')}
+          title="Eliminar todas las alertas de advertencia"
+          style="background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px 8px;"
+        >
+          🗑️
+        </button>
       </div>
       {#each alertsByGroup.warning as alert (`alert_${alert.id}`)}
         <div
@@ -346,8 +366,16 @@
 
     <!-- Alertas Informativas -->
     {#if alertsByGroup.info.length > 0}
-      <div class="dropdown-section-header severity-info">
-        🟢 ALERTAS INFORMATIVAS ({alertsByGroup.info.length})
+      <div class="dropdown-section-header severity-info" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>🟢 ALERTAS INFORMATIVAS ({alertsByGroup.info.length})</span>
+        <button
+          class="delete-all-btn"
+          on:click={() => deleteAlertsByColor('VERDE')}
+          title="Eliminar todas las alertas informativas"
+          style="background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px 8px;"
+        >
+          🗑️
+        </button>
       </div>
       {#each alertsByGroup.info as alert (`alert_${alert.id}`)}
         <div
