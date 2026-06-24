@@ -11,6 +11,19 @@ export const alertsLoading = writable(false);
 export const alertsError = writable(null);
 
 /**
+ * Dispara recálculo de alertas en el servidor (llamar al abrir la página).
+ * No bloquea: si falla, simplemente se usan las alertas actuales de BD.
+ */
+export async function refreshAlertsOnServer() {
+  try {
+    await fetchWithAuth('alerts/refresh', { method: 'POST' });
+    console.log('🔄 Alertas recalculadas en el servidor');
+  } catch (error) {
+    console.warn('⚠️ No se pudo refrescar alertas en servidor:', error.message);
+  }
+}
+
+/**
  * Obtener todas las alertas del servidor
  */
 export async function fetchAllAlerts(page = 0, size = 20, filters = {}) {

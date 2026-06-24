@@ -50,7 +50,7 @@
     isAutoRefreshEnabled,
     isAutoRefreshActive,
   } from "./composables/useAutoRefresh.js";
-  import { fetchAllAlerts } from "./composables/useAlerts.js";
+  import { fetchAllAlerts, refreshAlertsOnServer } from "./composables/useAlerts.js";
   import fetchWithAuth from "./stores/api.js";
   import { preventiveAlerts, preventiveAlertCount } from "./stores/ui.js";
   import ImageCarouselModal from "./components/shared/ImageCarouselModal.svelte";
@@ -92,10 +92,13 @@
     }
   }
 
-  // 📢 Cargar alertas preventivas automáticamente al iniciar sesión
+  // 📢 Cargar alertas preventivas automáticamente al iniciar sesión o recargar página
   async function loadInitialAlerts() {
     try {
       console.log("📢 [APP] Cargando alertas iniciales al iniciar sesión...");
+
+      // Recalcular alertas con la fecha actual antes de leer
+      await refreshAlertsOnServer();
 
       // Cargar alertas del servidor
       const response = await fetchAllAlerts(0, 200, { estado: "ACTIVA" });
