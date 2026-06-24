@@ -158,11 +158,12 @@ export const workOrderColumns = [
     },
     {
         accessorFn: (row) => {
+            if (row.order?.timeSpent) return row.order.timeSpent;
             const hours = row.order?.hoursSpent;
             const minutes = row.order?.minutesSpent;
-            if (!hours && !minutes) return "—";
-            const h = hours || 0;
-            const m = minutes || 0;
+            if (hours == null && minutes == null) return "—";
+            const h = hours ?? 0;
+            const m = minutes ?? 0;
             if (h === 0 && m === 0) return "—";
             if (h === 0) return `${m}m`;
             if (m === 0) return `${h}h`;
@@ -660,7 +661,7 @@ export const curriculumColumns = [
             {
                 accessorFn: (row) => (row.labor?.user ? row.labor.user.fullName : 'N/A'),
                 id: 'mecanico_planta',
-                header: "MECÁNICO DE PLANTA",
+                header: "OPERARIO DE PLANTA",
                 size: 150,
             },
             {
@@ -707,10 +708,26 @@ export const curriculumColumns = [
  */
 export const vehicleInspectionReportColumns = [
   {
-    header: 'Timestamp',
-    accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro),
-    id: 'vi_ts',
-    size: 132,
+    header: 'Fecha',
+    accessorFn: (row) => {
+      if (!row.fechaRegistro) return 'N/A';
+      const d = new Date(row.fechaRegistro);
+      if (Number.isNaN(d.getTime())) return 'N/A';
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    },
+    id: 'vi_fecha',
+    size: 90,
+  },
+  {
+    header: 'Hora',
+    accessorFn: (row) => {
+      if (!row.fechaRegistro) return 'N/A';
+      const d = new Date(row.fechaRegistro);
+      if (Number.isNaN(d.getTime())) return 'N/A';
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    },
+    id: 'vi_hora',
+    size: 70,
   },
   {
     header: 'Vehículo inspeccionado',
@@ -1033,7 +1050,28 @@ export const consolidadoMotoColumns = [
 ];
 
 export const reportMotoColumns = [
-    { header: 'Marca temporal', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'moto_ts', size: 140 },
+    {
+        header: 'Fecha',
+        accessorFn: (row) => {
+            if (!row.fechaRegistro) return 'N/A';
+            const d = new Date(row.fechaRegistro);
+            if (Number.isNaN(d.getTime())) return 'N/A';
+            return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+        },
+        id: 'moto_fecha',
+        size: 90,
+    },
+    {
+        header: 'Hora',
+        accessorFn: (row) => {
+            if (!row.fechaRegistro) return 'N/A';
+            const d = new Date(row.fechaRegistro);
+            if (Number.isNaN(d.getTime())) return 'N/A';
+            return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        },
+        id: 'moto_hora',
+        size: 70,
+    },
     { header: 'PLACA', accessorKey: 'placa', size: 100 },
     { header: 'Pertenece a', accessorKey: 'areaOrganizacional', id: 'moto_area', size: 140 },
     { header: 'Ubicación', accessorKey: 'ubicacion', id: 'moto_ubic', size: 150 },
@@ -1234,11 +1272,12 @@ export const vehicleWorkOrderColumns = [
     },
     {
         accessorFn: (row) => {
+            if (row.order?.timeSpent) return row.order.timeSpent;
             const hours = row.order?.hoursSpent;
             const minutes = row.order?.minutesSpent;
-            if (!hours && !minutes) return "—";
-            const h = hours || 0;
-            const m = minutes || 0;
+            if (hours == null && minutes == null) return "—";
+            const h = hours ?? 0;
+            const m = minutes ?? 0;
             if (h === 0 && m === 0) return "—";
             if (h === 0) return `${m}m`;
             if (m === 0) return `${h}h`;

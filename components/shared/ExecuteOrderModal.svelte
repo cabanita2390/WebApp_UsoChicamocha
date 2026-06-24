@@ -235,7 +235,7 @@
                 if (labor.sameMecanic) labor.contractor = "";
               }}
             />
-            El arreglo fue realizado por el mismo mecánico que reportó
+            El arreglo fue realizado por el mismo operario que reportó
           </label>
           <label>Observaciones de Mano de Obra:</label>
           <textarea bind:value={labor.observations} rows="2"></textarea>
