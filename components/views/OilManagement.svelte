@@ -1,7 +1,12 @@
 <script>
+  import { auth } from '../../stores/auth.js';
   import { data as dataStore } from '../../stores/data.js';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
+  import { formatOilBrandPayload } from '@/lib/textFormat.js';
+
+  $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
+  $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
 
   let oilHydraulic = [], oilMotor = [];
   $: {
@@ -27,7 +32,7 @@
       return;
     }
     try {
-      await dataStore.createOil({ name: newOilName, type: newOilType });
+      await dataStore.createOil(formatOilBrandPayload({ name: newOilName, type: newOilType }));
       newOilName = '';
     } catch (err) {}
   }
@@ -39,7 +44,7 @@
       return;
     }
     try {
-      await dataStore.updateOil(selectedOil.id, { ...selectedOil, name: editedName });
+      await dataStore.updateOil(selectedOil.id, formatOilBrandPayload({ ...selectedOil, name: editedName }));
       closeModals();
     } catch (err) {}
   }
@@ -144,6 +149,7 @@
   </button>
 </div>
 
+{#if isAdmin || isSupervisorOperativo}
 <!-- Formulario para Crear -->
 <div class="form-container">
   <h3>Nuevo Registro de Aceite</h3>
@@ -167,6 +173,7 @@
     <div class="error">{formError}</div>
   {/if}
 </div>
+{/if}
 
 {#if serverError && !formError && !modalError}
   <div class="error">Error del servidor: {serverError}</div>
@@ -182,16 +189,17 @@
   <div class="tables-container">
     <div class="table-section">
       <h3 class="table-title">Aceites Hidráulicos</h3>
-      <DataGrid {columns} data={oilHydraulic} on:action={handleGridAction} />
+      <DataGrid {columns} data={oilHydraulic} on:action={handleGridAction} showDeleteButton={isAdmin} />
     </div>
     <div class="table-section">
       <h3 class="table-title">Aceites de Motor</h3>
-      <DataGrid {columns} data={oilMotor} on:action={handleGridAction} />
+      <DataGrid {columns} data={oilMotor} on:action={handleGridAction} showDeleteButton={isAdmin} />
     </div>
   </div>
 {/if}
 
 
+{#if isAdmin || isSupervisorOperativo}
 <!-- Modal para Editar -->
 {#if showEditModal}
   <div class="modal-overlay">
@@ -216,7 +224,9 @@
     </div>
   </div>
 {/if}
+{/if}
 
+{#if isAdmin}
 <!-- Modal para Eliminar -->
 {#if showDeleteModal}
   <div class="modal-overlay">
@@ -229,4 +239,5 @@
       </div>
     </div>
   </div>
+{/if}
 {/if}

@@ -23,38 +23,38 @@
     fetchBlobs();
   }
 
+  function isPdfUrl(url) {
+    return typeof url === 'string' && url.trim().toLowerCase().endsWith('.pdf');
+  }
+
   async function fetchBlobs() {
-    console.log('Starting fetchBlobs');
     isLoading = true;
     try {
       blobImages = await Promise.all(imageUrls.map(async (img) => {
-        console.log('Fetching image URL:', img.url);
+        if (isPdfUrl(img.url)) {
+          return { ...img, blobUrl: null, isPdf: true };
+        }
         try {
-          const response = await fetch(img.url); // No auth needed, /uploads/ is permitAll
-          console.log('Response status for', img.url, ':', response.status);
+          const response = await fetch(img.url);
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const blob = await response.blob();
           const blobUrl = URL.createObjectURL(blob);
-          console.log('Blob created for', img.url);
-          return { ...img, blobUrl };
+          return { ...img, blobUrl, isPdf: false };
         } catch (e) {
           console.error('Error fetching image:', e);
-          return { ...img, blobUrl: null };
+          return { ...img, blobUrl: null, isPdf: false };
         }
       }));
-      console.log('All fetches completed, blobImages:', blobImages);
     } catch (e) {
       console.error('Error in fetchBlobs:', e);
       blobImages = [];
     }
-    console.log('Setting isLoading to false');
     isLoading = false;
   }
 
   function closeModal() {
-    // Revoke blob URLs to free memory
     blobImages.forEach(img => {
-      if (img.blobUrl) URL.revokeObjectURL(img.blobUrl);
+      if (img.blobUrl && !img.isPdf) URL.revokeObjectURL(img.blobUrl);
     });
     blobImages = [];
     dispatch('close');
@@ -95,9 +95,15 @@
 
           <div class="image-wrapper">
             {#key currentIndex}
-              {#if imageHasError || !blobImages[currentIndex].blobUrl}
+              {#if blobImages[currentIndex]?.isPdf}
+                <div class="pdf-preview">
+                  <span class="pdf-icon">📄</span>
+                  <span class="pdf-label">{blobImages[currentIndex].label ?? 'Documento PDF'}</span>
+                  <a class="pdf-open-btn" href={blobImages[currentIndex].url} target="_blank" rel="noopener noreferrer">Abrir PDF</a>
+                </div>
+              {:else if imageHasError || !blobImages[currentIndex].blobUrl}
                 <div class="image-error">
-                  <span>{imageHasError ? 'URL de imagen roto' : 'Error al cargar imagen'}</span>
+                  <span>{imageHasError ? 'URL de imagen rota' : 'Error al cargar imagen'}</span>
                 </div>
               {:else}
                 <img
@@ -226,5 +232,37 @@
     border: 2px dashed #999;
     color: #555;
     font-size: 1.1em;
+  }
+  .pdf-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    height: 100%;
+    background: #f5f5f5;
+    border: 2px dashed #bbb;
+  }
+  .pdf-icon {
+    font-size: 3.5em;
+    line-height: 1;
+  }
+  .pdf-label {
+    font-size: 1em;
+    color: #444;
+    font-weight: bold;
+  }
+  .pdf-open-btn {
+    padding: 8px 20px;
+    background: #c62828;
+    color: #fff;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.95em;
+    font-weight: bold;
+  }
+  .pdf-open-btn:hover {
+    background: #8e0000;
   }
 </style>
