@@ -1,20 +1,13 @@
 <script>
   import { data } from "../../stores/data.js";
-  import { auth } from "../../stores/auth.js";
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
   import {
     machineColumns,
     curriculumColumns,
-    machineInspectionColumns,
   } from "../../config/table-definitions.js";
   import { onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
-  import { formatMachinePayload } from '@/lib/textFormat.js';
-  import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
-
-  $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
-  $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
 
   let isDeleteMachineEnabled = false;
   let deleteMachineTimer;
@@ -31,8 +24,7 @@
     brand: "",
     soat: "",
     runt: "",
-    belongsTo: "Distrito",
-    fuelTankCapacityGallons: null,
+    belongsTo: "distrito",
   };
   let newMachine = { ...initialMachineState };
 
@@ -46,10 +38,6 @@
   $: machines = $data.machines;
   $: isLoading = $data.isLoading;
 
-  $: if (machines?.length > 0) {
-    checkExpiringDocuments($data.vehicles || [], $data.motos || [], machines, addNotification);
-  }
-
   $: if (machineToDelete) {
     isDeleteMachineEnabled = false;
     clearTimeout(deleteMachineTimer);
@@ -62,20 +50,12 @@
     clearTimeout(deleteMachineTimer);
   });
 
-  function normalizeBelongsTo(value) {
-    if (!value) return 'Distrito';
-    const trimmed = String(value).trim().toLowerCase();
-    if (trimmed === 'asociacion') return 'Asociación';
-    if (trimmed === 'asociación') return 'Asociación';
-    return 'Distrito';
-  }
-
   async function handleCreateMachine(event) {
     event.preventDefault();
     isSubmitting = true;
     errorMessage = "";
     try {
-      await data.createMachine(formatMachinePayload(newMachine));
+      await data.createMachine(newMachine);
       newMachine = { ...initialMachineState };
     } catch (e) {
       errorMessage = e.message || "Error al crear máquina.";
@@ -90,7 +70,7 @@
     isSubmitting = true;
     errorMessage = "";
     try {
-      await data.updateMachine({ id: machineInEditor.id, ...formatMachinePayload(machineInEditor) });
+      await data.updateMachine(machineInEditor);
       closeEditModal();
     } catch (e) {
       errorMessage = e.message || "Error al actualizar máquina.";
@@ -131,10 +111,10 @@
     errorMessage = "";
   }
 
-  async function handleAction(event) {
+  function handleAction(event) {
     const { type, data: machineData } = event.detail;
     if (type === "edit") {
-      await openEditModal(machineData);
+      openEditModal(machineData);
     } else if (type === "delete") {
       machineToDelete = machineData;
     } else if (type === "cv") {
@@ -142,23 +122,9 @@
     }
   }
 
-  async function openEditModal(machine) {
-    try {
-      const fullMachine = await data.getMachineById(machine.id);
-      console.log("🔍 fullMachine cargado:", fullMachine);
-      machineInEditor = {
-        ...fullMachine,
-        belongsTo: normalizeBelongsTo(fullMachine.belongsTo),
-        fuelTankCapacityGallons: fullMachine.fuelTankCapacityGallons ?? null,
-        factoryEfficiencyGalPerHour: fullMachine.factoryEfficiencyGalPerHour ?? null,
-        factoryEfficiencyUnit: fullMachine.factoryEfficiencyUnit ?? 'GAL_PER_HOUR',
-      };
-      console.log("✏️ machineInEditor.belongsTo asignado a:", machineInEditor.belongsTo);
-      showEditModal = true;
-    } catch (e) {
-      errorMessage = 'No se pudo cargar la máquina para editar.';
-      addNotification({ id: Date.now(), text: e.message || 'Error al cargar máquina.' });
-    }
+  function openEditModal(machine) {
+    machineInEditor = { ...machine };
+    showEditModal = true;
   }
 
   function closeEditModal() {
@@ -206,108 +172,91 @@
 
 </script>
 
-<div class="vehicle-module">
-  <div class="vehicle-module-inner">
-    {#if isLoading}
-      <div class="vehicle-loader">
-        <Loader />
-        <p>Cargando máquinas...</p>
-      </div>
-    {:else}
-      <div class="vehicle-toolbar">
-        <button type="button" class="vehicle-btn" on:click={() => data.fetchMachines()}>
-          Refrescar
-        </button>
-        <button type="button" class="vehicle-btn vehicle-btn--export" on:click={handleExportCurriculum} disabled={isExporting}>
-          {#if isExporting}<span class="spin">⟳</span>{/if}
-          {isExporting ? 'Descargando...' : 'Exportar Excel'}
-        </button>
-      </div>
-      {#if isAdmin || isSupervisorOperativo}
-      <div class="vehicle-form-section">
-        <div class="vehicle-subpanel-head">Registrar nueva máquina</div>
-      <form class="create-form create-form--compact" on:submit={handleCreateMachine}>
-        <div class="create-grid">
-          <label class="field">
-            <span class="field-lab">Nombre *</span>
-            <input type="text" bind:value={newMachine.name} required disabled={isSubmitting} placeholder="Ej: Excavadora CAT" />
-          </label>
-          <label class="field">
-            <span class="field-lab">Marca</span>
-            <input type="text" bind:value={newMachine.brand} disabled={isSubmitting} placeholder="Ej: Caterpillar" />
-          </label>
-          <label class="field">
-            <span class="field-lab">Modelo *</span>
-            <input type="text" bind:value={newMachine.model} required disabled={isSubmitting} placeholder="Ej: 320D" />
-          </label>
-          <label class="field">
-            <span class="field-lab">Núm. Motor</span>
-            <input type="text" bind:value={newMachine.numEngine} disabled={isSubmitting} placeholder="Ej: MOT-00123" />
-          </label>
-          <label class="field">
-            <span class="field-lab">Núm. Identificación</span>
-            <input type="text" bind:value={newMachine.numInterIdentification} disabled={isSubmitting} placeholder="Ej: ID-00456" />
-          </label>
-          <label class="field">
-            <span class="field-lab">Pertenece a</span>
-            <select bind:value={newMachine.belongsTo} disabled={isSubmitting}>
-              <option value="Distrito">Distrito</option>
-              <option value="Asociación">Asociación</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-lab">SOAT — vence</span>
-            <input type="date"
-              value={newMachine.soat || ''}
-              on:change={(e) => newMachine.soat = e.target.value}
-              disabled={isSubmitting}
-            />
-          </label>
-          <label class="field">
-            <span class="field-lab">Seguro todo riesgo — vence</span>
-            <input type="date"
-              value={newMachine.runt || ''}
-              on:change={(e) => newMachine.runt = e.target.value}
-              disabled={isSubmitting}
-            />
-          </label>
-          {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input type="number" step="0.001" min="0.1" bind:value={newMachine.fuelTankCapacityGallons} placeholder="Ej: 10.5" disabled={isSubmitting} />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input type="number" step="0.01" min="0" bind:value={newMachine.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" disabled={isSubmitting} style="padding:3px 4px;font-size:11px;min-height:26px" />
-              <select bind:value={newMachine.factoryEfficiencyUnit} disabled={isSubmitting} style="padding:3px 4px;font-size:11px;min-height:22px">
-                <option value="GAL_PER_HOUR">Gal/h</option>
-                <option value="M3_PER_HOUR">m³/h (gas)</option>
-              </select>
-            </div>
-          </label>
-          {/if}
+{#if isLoading}
+  <div class="loader-container">
+    <Loader />
+    <p>Cargando máquinas...</p>
+  </div>
+{:else}
+  <div class="management-container">
+    <div class="refresh-container">
+      <button class="btn-refresh" on:click={() => data.fetchMachines()}>
+        Refrescar información
+      </button>
+      <button class="btn-export" on:click={handleExportCurriculum} disabled={isExporting}>
+        {#if isExporting}
+          <span class="loading-icon">⟳</span>
+        {/if}
+        {isExporting ? 'Descargando...' : 'Exportar Excel'}
+      </button>
+    </div>
+    <div class="form-container">
+      <h3>Crear Nueva Máquina</h3>
+      <form class="create-form" on:submit={handleCreateMachine}>
+        <input
+          type="text"
+          placeholder="Nombre"
+          bind:value={newMachine.name}
+          required
+          disabled={isSubmitting}
+        />
+        <input
+          type="text"
+          placeholder="Marca"
+          bind:value={newMachine.brand}
+          disabled={isSubmitting}
+        />
+        <input
+          type="text"
+          placeholder="Modelo"
+          bind:value={newMachine.model}
+          required
+          disabled={isSubmitting}
+        />
+        <input
+          type="text"
+          placeholder="Núm. Motor"
+          bind:value={newMachine.numEngine}
+          disabled={isSubmitting}
+        />
+        <input
+          type="text"
+          placeholder="Núm. Identificación"
+          bind:value={newMachine.numInterIdentification}
+          disabled={isSubmitting}
+        />
+
+        <div class="form-group">
+          <label for="belongsTo">Pertenece a:</label>
+          <select id="belongsTo" bind:value={newMachine.belongsTo} disabled={isSubmitting}>
+            <option value="distrito">Distrito</option>
+            <option value="asociacion">Asociación</option>
+          </select>
         </div>
-        <div class="create-actions">
-          <button type="submit" class="btn-create" disabled={isSubmitting}>
-            {isSubmitting ? "Registrando..." : "Registrar máquina"}
-          </button>
+
+        <div class="form-group">
+          <label for="newSoat">SOAT:</label>
+          <input type="date" id="newSoat" bind:value={newMachine.soat} disabled={isSubmitting} />
         </div>
+        <div class="form-group">
+          <label for="newRunt">RUNT:</label>
+          <input type="date" id="newRunt" bind:value={newMachine.runt} disabled={isSubmitting} />
+        </div>
+        <button type="submit" class="btn-create" disabled={isSubmitting}>
+          {isSubmitting ? "Creando..." : "Crear"}
+        </button>
       </form>
       {#if errorMessage}
         <p class="error-message">{errorMessage}</p>
       {/if}
-      </div>
-      {/if}
+    </div>
 
-      <div class="vehicle-table-wrap vehicle-table-wrap--inset">
-        <DataGrid columns={machineColumns} data={machines} on:action={handleAction} showDeleteButton={isAdmin} />
-      </div>
-    {/if}
+    <div class="table-wrapper">
+      <DataGrid columns={machineColumns} data={machines} on:action={handleAction} />
+    </div>
   </div>
-</div>
+{/if}
 
-{#if isAdmin || isSupervisorOperativo}
 {#if showEditModal}
   <div class="modal-overlay">
     <div class="modal-content" on:click|stopPropagation>
@@ -315,66 +264,21 @@
         <h3>Editar Máquina</h3>
         <button class="close-btn" on:click={closeEditModal}>×</button>
       </div>
-      <form on:submit={handleUpdateMachine}>
-        <div class="modal-form-grid">
-          <label class="field">
-            <span class="field-lab">Nombre *</span>
-            <input type="text" bind:value={machineInEditor.name} required />
-          </label>
-          <label class="field">
-            <span class="field-lab">Marca</span>
-            <input type="text" bind:value={machineInEditor.brand} />
-          </label>
-          <label class="field">
-            <span class="field-lab">Modelo *</span>
-            <input type="text" bind:value={machineInEditor.model} required />
-          </label>
-          <label class="field">
-            <span class="field-lab">Pertenece a</span>
-            <select bind:value={machineInEditor.belongsTo}>
-              <option value="Distrito">Distrito</option>
-              <option value="Asociación">Asociación</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-lab">Núm. Motor</span>
-            <input type="text" bind:value={machineInEditor.numEngine} />
-          </label>
-          <label class="field">
-            <span class="field-lab">Núm. Identificación</span>
-            <input type="text" bind:value={machineInEditor.numInterIdentification} />
-          </label>
-          <label class="field">
-            <span class="field-lab">SOAT — vence</span>
-            <input type="date"
-              value={machineInEditor.soat || ''}
-              on:change={(e) => machineInEditor.soat = e.target.value}
-            />
-          </label>
-          <label class="field">
-            <span class="field-lab">Seguro todo riesgo — vence</span>
-            <input type="date"
-              value={machineInEditor.runt || ''}
-              on:change={(e) => machineInEditor.runt = e.target.value}
-            />
-          </label>
-          {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input type="number" step="0.001" min="0.1" bind:value={machineInEditor.fuelTankCapacityGallons} placeholder="Ej: 10.5" />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input type="number" step="0.01" min="0" bind:value={machineInEditor.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" style="padding:3px 4px;font-size:11px;min-height:26px" />
-              <select bind:value={machineInEditor.factoryEfficiencyUnit} style="padding:3px 4px;font-size:11px;min-height:22px">
-                <option value="GAL_PER_HOUR">Gal/h</option>
-                <option value="M3_PER_HOUR">m³/h (gas)</option>
-              </select>
-            </div>
-          </label>
-          {/if}
-        </div>
+      <form class="modal-form" on:submit={handleUpdateMachine}>
+        <label>Nombre: <input type="text" bind:value={machineInEditor.name} required /></label>
+        <label>Marca: <input type="text" bind:value={machineInEditor.brand} /></label>
+        <label>Modelo: <input type="text" bind:value={machineInEditor.model} required /></label>
+        <label>
+          Pertenece a:
+          <select bind:value={machineInEditor.belongsTo}>
+            <option value="distrito">Distrito</option>
+            <option value="asociacion">Asociación</option>
+          </select>
+        </label>
+        <label>Núm. Motor: <input type="text" bind:value={machineInEditor.numEngine} /></label>
+        <label>Núm. Identificación: <input type="text" bind:value={machineInEditor.numInterIdentification} /></label>
+        <label>SOAT: <input type="date" bind:value={machineInEditor.soat} /></label>
+        <label>RUNT: <input type="date" bind:value={machineInEditor.runt} /></label>
         <div class="modal-actions">
           <button type="button" class="btn-cancel" on:click={closeEditModal}>Cancelar</button>
           <button type="submit" class="btn-save" disabled={isSubmitting}>
@@ -388,9 +292,7 @@
     </div>
   </div>
 {/if}
-{/if}
 
-{#if isAdmin}
 {#if machineToDelete}
   <div class="modal-overlay" on:click={closeDeleteMachineModal}>
     <div class="modal-content confirmation" on:click|stopPropagation>
@@ -416,7 +318,6 @@
     </div>
   </div>
 {/if}
-{/if}
 
 {#if showCvModal}
   <div class="modal-overlay">
@@ -430,13 +331,13 @@
         <div class="loader-container">
           <Loader />
         </div>
-      {:else if curriculumData && curriculumData.inspections}
-        {#if curriculumData.inspections.length > 0}
+      {:else if curriculumData && curriculumData.results}
+        {#if curriculumData.results.length > 0}
           <div class="table-wrapper modal-table">
-            <DataGrid columns={curriculumColumns} data={curriculumData.inspections.flatMap(insp => insp.results)} />
+            <DataGrid columns={curriculumColumns} data={curriculumData.results} />
           </div>
         {:else}
-          <p>No hay inspecciones preoperacionales para esta máquina.</p>
+          <p>No hay registros en la hoja de vida para esta máquina.</p>
         {/if}
       {/if}
 
@@ -447,152 +348,56 @@
   </div>
 {/if}
 <style>
-  /* ── Grid layout compartido (igual que Vehicle/Moto) ─────────────────── */
-  .create-form--compact {
-    padding: 6px 8px 8px;
-  }
-  .create-form--compact .create-grid {
-    gap: 4px 8px;
-  }
-  .create-form--compact .field {
-    font-size: 10px;
-    gap: 1px;
-  }
-  .create-form--compact .field-lab {
-    font-size: 9px;
-  }
-  .create-form--compact .field-add-btn {
-    padding: 0 4px;
-    font-size: 9px;
-  }
-  .create-form--compact .field input,
-  .create-form--compact .field select {
-    padding: 2px 4px;
-    font-size: 10px;
-    min-height: 22px;
-    line-height: 1.2;
-  }
-  .create-docs-head {
-    margin: 6px 0 2px;
-    padding: 2px 0;
-    font-size: 10px;
-    font-weight: bold;
-    color: #202020;
-    border-bottom: 1px solid #b0b0b0;
-  }
-  .create-docs-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.25rem), 1fr));
-    gap: 6px 8px;
-    align-items: end;
-  }
-  .create-docs-grid .field-doc {
-    min-width: 0;
-  }
-  .create-form--compact .create-docs-grid {
-    gap: 3px 6px;
-    margin-top: 3px;
-  }
-  .create-form--compact .create-docs-head {
-    font-size: 9px;
-    margin: 4px 0 1px;
-    padding: 1px 0;
-  }
-  .create-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.25rem), 1fr));
-    gap: 6px 10px;
-    align-items: end;
-  }
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    font-size: 11px;
-  }
-  .field-lab {
-    font-weight: bold;
-    font-size: 10px;
-    color: #303030;
-    white-space: nowrap;
-  }
-  .field-lab-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    white-space: normal;
-  }
-  .field-add-btn {
-    flex-shrink: 0;
-    padding: 1px 6px;
-    font-size: 10px;
-    font-family: inherit;
-    cursor: pointer;
-    background: linear-gradient(to bottom, #f4f4f4 0%, #d8d8d8 100%);
-    border: 1px outset #c0c0c0;
-    color: #000;
-    transition: background 0.15s;
-  }
-  .field-add-btn:hover {
-    background: linear-gradient(to bottom, #f9f9f9 0%, #e0e0e0 100%);
-  }
-  .field input,
-  .field select {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 3px 4px;
-    border: 1px inset #c0c0c0;
-    font-family: inherit;
-    font-size: 11px;
-    background: #fff;
-    min-height: 24px;
-  }
-  .field select {
-    cursor: pointer;
-  }
-  .modal-form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr));
-    gap: 8px 10px;
-    align-items: end;
-    margin-bottom: 12px;
-  }
-  .modal-form-grid .field { min-width: 0; }
-  .modal-form-grid .field input,
-  .modal-form-grid .field select {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 3px 4px;
-    border: 1px inset #c0c0c0;
-    font-family: inherit;
-    font-size: 11px;
-    background: #fff;
-    min-height: 24px;
-  }
-  /* ───────────────────────────────────────────────────────────────────── */
-  .modal-content.large {
+ 
+.modal-content.large {
     min-width: 80%;
     max-width: 1200px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-  }
-  .modal-table {
+}
+
+.modal-table {
     flex: 1;
     min-height: 0;
     margin-top: 16px;
-  }
+}
   .loader-container {
     display: flex;
     justify-content: center;
     align-items: center;
     flex: 1;
   }
+  .management-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    font-family: "MS Sans Serif", "Tahoma", sans-serif;
+    font-size: 11px;
+    height: 100%;
+  }
+  .form-container {
+    padding: 16px;
+    background: #e0e0e0;
+    border: 2px outset #c0c0c0;
+  }
+  h3 {
+    margin: 0 0 12px 0;
+  }
   .create-form {
-    display: block;
-    padding: 10px 16px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .create-form input,
+  .create-form select {
+    padding: 4px 6px;
+    border: 1px inset #c0c0c0;
+    font-size: 11px;
+    font-family: inherit;
+    flex: 1;
+    min-width: 150px;
   }
   .btn-create {
     padding: 4px 12px;
@@ -600,18 +405,58 @@
     border: 1px outset #c0c0c0;
     cursor: pointer;
     font-size: 11px;
-    font-family: inherit;
   }
-  .create-actions {
+  .refresh-container {
     display: flex;
     justify-content: flex-end;
-    margin-top: 8px;
-    padding-top: 6px;
-    border-top: 1px solid #a0a0a0;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .btn-refresh {
+    padding: 2px 8px;
+    background: linear-gradient(to bottom, #e0e0e0 0%, #c0c0c0 100%);
+    border: 1px outset #c0c0c0;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: inherit;
+  }
+  .btn-refresh:hover {
+    background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%);
+  }
+  .btn-export {
+    padding: 2px 8px;
+    background: linear-gradient(to bottom, #90ee90 0%, #7bc97b 100%);
+    border: 1px outset #7bc97b;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-export:hover:not(:disabled) {
+    background: linear-gradient(to bottom, #a0ffa0 0%, #8bd98b 100%);
+  }
+  .btn-export:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .loading-icon {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    background-color: #ffffff;
+    border: 2px inset #c0c0c0;
+    min-height: 0;
   }
   .error-message {
     color: red;
-    padding: 0 16px 8px;
   }
   .modal-overlay {
     position: fixed;
@@ -628,9 +473,8 @@
   .modal-content {
     background: #e0e0e0;
     padding: 20px;
-    border: 2px outset #ffffff;
+    border: 2px outset #c0c0c0;
     min-width: 400px;
-    box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.3);
   }
   .modal-content.confirmation {
     text-align: center;
@@ -668,25 +512,13 @@
     gap: 8px;
     margin-top: 20px;
   }
-  .btn-cancel {
+  .btn-cancel,
+  .btn-save {
     padding: 4px 12px;
-    background: #d0d0d0;
-    border: 1px outset #fff;
+    border: 1px outset #c0c0c0;
     cursor: pointer;
   }
   .btn-save {
-    padding: 4px 12px;
-    background: #90ee90;
-    border: 1px outset #fff;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  .btn-delete {
-    padding: 4px 12px;
-    background: #ff6b6b;
-    color: white;
-    border: 1px outset #fff;
-    cursor: pointer;
     font-weight: bold;
   }
 </style>

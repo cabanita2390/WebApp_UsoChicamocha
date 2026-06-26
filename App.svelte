@@ -1,11 +1,9 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { get } from "svelte/store";
-  import Router, { location } from "svelte-spa-router";
-  import { getPageTitle } from "./config/page-titles.js";
+  import Router from "svelte-spa-router";
   import MainLayout from "./components/layouts/MainLayout.svelte";
   import WorkOrderModal from "./components/shared/WorkOrderModal.svelte";
-  import VehicleWorkOrderModal from "./components/shared/VehicleWorkOrderModal.svelte";
   import Login from "./components/views/Login.svelte";
   import UserManagement from "./components/views/UserManagement.svelte";
   import MachineManagement from "./components/views/MachineManagement.svelte";
@@ -13,18 +11,7 @@
   import Consolidado from "./components/views/Consolidado.svelte";
   import Loader from "./components/shared/Loader.svelte";
   import Dashboard from "./components/views/Dashboard.svelte";
-  import DashboardTabbed from "./components/views/DashboardTabbed.svelte";
-  import WorkOrdersTabbed from "./components/views/WorkOrdersTabbed.svelte";
-  import ConsolidadoTabbed from "./components/views/ConsolidadoTabbed.svelte";
   import OilManagement from "./components/views/OilManagement.svelte";
-  import VehicleManagement from "./components/views/VehicleManagement.svelte";
-  import MotoManagement from "./components/views/MotoManagement.svelte";
-  import VehicleOilHistory from "./components/views/VehicleOilHistory.svelte";
-  import MotoCambioAceiteHistorial from "./components/views/MotoCambioAceiteHistorial.svelte";
-  import MotoCambioAceiteForm from "./components/views/MotoCambioAceiteForm.svelte";
-  import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
-  import MaintenanceTabbed from "./components/views/MaintenanceTabbed.svelte";
-  import FuelManagement from "./components/views/FuelManagement.svelte";
   import { auth } from "./stores/auth.js";
   import {
     ui,
@@ -32,7 +19,6 @@
     addNotification,
     notificationMessages,
     removeNotification,
-    visibleAlertCount,
   } from "./stores/ui.js";
   import { data } from "./stores/data.js";
   import {
@@ -50,27 +36,16 @@
     isAutoRefreshEnabled,
     isAutoRefreshActive,
   } from "./composables/useAutoRefresh.js";
-  import { fetchAllAlerts, refreshAlertsOnServer } from "./composables/useAlerts.js";
-  import fetchWithAuth from "./stores/api.js";
-  import { preventiveAlerts, preventiveAlertCount } from "./stores/ui.js";
   import ImageCarouselModal from "./components/shared/ImageCarouselModal.svelte";
 
   // --- ROUTES DEFINITION ---
   const routes = {
-    "/": DashboardTabbed,
+    "/": Dashboard,
     "/users": UserManagement,
-    "/inventory": InventoryTabbed,
     "/machines": MachineManagement,
-    "/work-orders": WorkOrdersTabbed,
-    "/consolidado": ConsolidadoTabbed,
+    "/work-orders": WorkOrderManagement,
+    "/consolidado": Consolidado,
     "/oil-management": OilManagement,
-    "/vehicles": VehicleManagement,
-    "/moto-inventory": MotoManagement,
-    "/vehicle-oil-history/:placa": VehicleOilHistory,
-    "/moto-oil-history/:placa": MotoCambioAceiteHistorial,
-    "/moto-oil-change": MotoCambioAceiteForm,
-    "/maintenance": MaintenanceTabbed,
-    "/fuel": FuelManagement,
   };
 
   function handleActivateSound() {
@@ -92,43 +67,11 @@
     }
   }
 
-  // 📢 Cargar alertas preventivas automáticamente al iniciar sesión o recargar página
-  async function loadInitialAlerts() {
-    try {
-      console.log("📢 [APP] Cargando alertas iniciales al iniciar sesión...");
-
-      // Recalcular alertas con la fecha actual antes de leer
-      await refreshAlertsOnServer();
-
-      // Cargar alertas del servidor
-      const response = await fetchAllAlerts(0, 200, { estado: "ACTIVA" });
-      console.log("📢 [APP] Respuesta del API:", response);
-
-      let alertas = [];
-      if (response && response.content && Array.isArray(response.content)) {
-        alertas = response.content;
-      } else if (Array.isArray(response)) {
-        alertas = response;
-      }
-
-      if (alertas.length > 0) {
-        preventiveAlerts.set(alertas);
-        preventiveAlertCount.set(alertas.length);
-        console.log(`✅ [APP] ${alertas.length} alertas cargadas automáticamente`);
-      } else {
-        console.log("ℹ️ [APP] No hay alertas activas en el servidor");
-        preventiveAlerts.set([]);
-        preventiveAlertCount.set(0);
-      }
-    } catch (error) {
-      console.error("❌ [APP] Error cargando alertas iniciales:", error);
-      preventiveAlerts.set([]);
-      preventiveAlertCount.set(0);
-    }
+  // WebSocket connection status monitoring is now handled via wsNotificationService store
+  $: {
+    const wsStatus = $wsNotificationService;
+    console.log("🔌 [APP] Estado WebSocket actualizado:", wsStatus);
   }
-
-  let unsubscribeAuth;
-  let wsInitialized = false;
 
   // --- LIFECYCLE HOOKS ---
   onMount(async () => {
@@ -146,50 +89,38 @@
     } else {
       console.log("🚀 [APP] Usuario no autenticado - mostrando login");
     }
+  });
 
-    unsubscribeAuth = auth.subscribe((value) => {
-      console.log(
-        "🚀 [APP] Cambio en estado de auth:",
-        value.isAuthenticated ? "AUTENTICADO" : "NO AUTENTICADO",
-      );
+  auth.subscribe((value) => {
+    console.log(
+      "🚀 [APP] Cambio en estado de auth:",
+      value.isAuthenticated ? "AUTENTICADO" : "NO AUTENTICADO",
+    );
 
-      if (value.isAuthenticated) {
-        console.log("🚀 [APP] Usuario autenticado - Verificando servicios...");
+    if (value.isAuthenticated) {
+      console.log("🚀 [APP] Usuario autenticado - Verificando servicios...");
 
-        // ✅ ALERTAS HABILITADAS
-        loadInitialAlerts().catch(err => console.error("Error en loadInitialAlerts:", err));
-
-        // ✅ WebSocket HABILITADO
-        if (!wsInitialized) {
-          wsInitialized = true;
-          console.log("🚀 [APP] Inicializando WebSocket notifications...");
-          initializeWebSocketNotifications();
-
-          // ✅ WebSocket conectado - alertas vienen por useWebSocketNotifications
-        }
-
-        // ✅ AUTO-REFRESH HABILITADO
-        if (!get(isAutoRefreshActive)) {
-          startAutoRefresh();
-        }
+      // Verificar si ya hay conexión para evitar duplicados
+      const wsStatus = get(wsNotificationService);
+      if (!wsStatus.isConnected && !wsStatus.isReconnecting) {
+        console.log("🚀 [APP] Inicializando WebSocket notifications...");
+        initializeWebSocketNotifications();
       } else {
-        console.log("🚀 [APP] Usuario desconectado - cerrando streams WebSocket");
-        wsInitialized = false;
-        disconnectFromWebSocket();
-        stopAutoRefresh();
-
-        // Resetear alertas y notificaciones
-        preventiveAlerts.set([]);
-        preventiveAlertCount.set(0);
-        visibleAlertCount.set(0);
-        notificationMessages.set([]);
-        console.log("🧹 [APP] Alertas y notificaciones limpiadas al cerrar sesión");
+        console.log("🚀 [APP] WebSocket ya conectado o conectando.");
       }
-    });
+
+      // Verificar auto-refresh
+      if (!get(isAutoRefreshActive)) {
+        startAutoRefresh();
+      }
+    } else {
+      console.log("🚀 [APP] Usuario desconectado - cerrando streams WebSocket");
+      disconnectFromWebSocket();
+      stopAutoRefresh();
+    }
   });
 
   onDestroy(() => {
-    if (unsubscribeAuth) unsubscribeAuth();
     disconnectFromWebSocket();
     stopAutoRefresh();
   });
@@ -216,30 +147,7 @@
     ui.closeWorkOrderModal();
   }
 
-  async function handleCreateVehicleWorkOrder(event) {
-    ui.setSaving(true);
-    try {
-      await data.createVehicleWorkOrder(event.detail);
-      ui.closeVehicleWorkOrderModal();
-      addNotification({ id: Date.now(), text: 'Orden de trabajo de vehículo creada.' });
-    } catch (err) {
-      console.error("Error creating vehicle work order:", err);
-      addNotification({
-        id: Date.now(),
-        text: `Error al crear orden de vehículo: ${err.message}`,
-      });
-    } finally {
-      ui.setSaving(false);
-    }
-  }
-
-  function handleCancelVehicleWorkOrder() {
-    ui.closeVehicleWorkOrderModal();
-  }
-
   // Handle route loaded event to fetch data
-  $: browserTabTitle = getPageTitle($location);
-
   function routeLoaded(event) {
     console.log("Route loaded:", event.detail.location);
     const location = event.detail.location;
@@ -251,47 +159,25 @@
     } else if (location.includes("/users")) {
       ui.setCurrentView("users");
       data.fetchUsers();
-    } else if (location.includes("/inventory")) {
-      ui.setCurrentView("inventory");
-      data.fetchMachines();
     } else if (location.includes("/machines")) {
       ui.setCurrentView("machines");
       data.fetchMachines();
     } else if (location.includes("/work-orders")) {
       ui.setCurrentView("work-orders");
       data.fetchWorkOrders();
-      data.fetchVehicleWorkOrders();
     } else if (location.includes("/consolidado")) {
       ui.setCurrentView("consolidado");
       data.fetchConsolidadoData();
     } else if (location.includes("/oil-management")) {
       ui.setCurrentView("oil-management");
       data.fetchOils();
-    } else if (location.includes("/moto-inventory")) {
-      ui.setCurrentView("moto-inventory");
-      data.fetchMotos();
-    } else if (location.includes("/vehicles")) {
-      ui.setCurrentView("vehicles");
-      data.fetchVehicles();
-    } else if (location.includes("/vehicle-oil-history")) {
-      ui.setCurrentView("vehicle-oil-history");
-    } else if (location.includes("/moto-oil-history")) {
-      ui.setCurrentView("moto-oil-history");
-    } else if (location.includes("/moto-oil-change")) {
-      ui.setCurrentView("moto-oil-change");
-      data.fetchMotos();
-      data.fetchOils();
-    } else if (location.includes("/fuel")) {
-      ui.setCurrentView("fuel");
-      data.fetchFuelLogs();
-      data.fetchFuelDashboard();
     }
   }
 </script>
 
 <svelte:head>
   <title
-    >{$visibleAlertCount > 0 ? `(${$visibleAlertCount}) ` : ""}{browserTabTitle}</title
+    >{$notificationCount > 0 ? `(${$notificationCount})` : ""} Dashboard Maquinaria</title
   >
 </svelte:head>
 
@@ -346,16 +232,6 @@
       currentUser={$auth.currentUser?.name}
       on:createWorkOrder={handleCreateWorkOrder}
       on:cancel={handleCancelWorkOrder}
-    />
-  {/if}
-
-  {#if $ui.showVehicleWorkOrderModal}
-    <VehicleWorkOrderModal
-      rowData={$ui.selectedVehicleRowData}
-      columnDef={$ui.selectedVehicleColumnDef}
-      currentUser={$auth.currentUser?.name}
-      on:createVehicleOrder={handleCreateVehicleWorkOrder}
-      on:cancel={handleCancelVehicleWorkOrder}
     />
   {/if}
 

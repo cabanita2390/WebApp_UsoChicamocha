@@ -1,32 +1,37 @@
-import { writable, get, derived } from 'svelte/store';
-import { sortAlertsBySeverity } from '../utils/alertSeverity.js';
+import { writable, get } from 'svelte/store';
 
-// --- Stores de Notificaciones (en memoria, no persistir) ---
-export const notificationCount = writable(0);
-export const notificationMessages = writable([]);
+// Helper para crear un store que persiste en sessionStorage
+function createPersistedStore(key, startValue) {
+  const isBrowser = typeof window !== 'undefined';
+  if (!isBrowser) {
+    return writable(startValue);
+  }
+  const storedValue = sessionStorage.getItem(key);
+  const initialValue = storedValue ? JSON.parse(storedValue) : startValue;
+  const store = writable(initialValue);
+  store.subscribe(value => {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  });
+  return store;
+}
 
-// --- Stores de Alertas Preventivas (en memoria, no persistir) ---
-export const preventiveAlertCount = writable(0);
-export const preventiveAlerts = writable([]);
-
-// --- Store derivado: Alertas ordenadas por severidad ---
-export const sortedPreventiveAlerts = derived(preventiveAlerts, ($alerts) => {
-  return sortAlertsBySeverity($alerts);
-});
-
-// --- Contador visible en el dropdown (después de deduplicación) ---
-export const visibleAlertCount = writable(0);
+// --- Stores de Notificaciones ---
+export const notificationCount = createPersistedStore('notificationCount', 0);
+export const notificationMessages = createPersistedStore('notificationMessages', []);
 
 // --- Acciones de Notificaciones ---
+// CORRECCIÓN: Se usa `get` para una comprobación de duplicados más robusta y sincrónica.
+
 export function addNotification(notification) {
+  // Se obtiene el valor actual de la lista de mensajes de forma sincrónica.
   const currentMessages = get(notificationMessages);
   const exists = currentMessages.some(msg => msg.id === notification.id);
-
+  // Si la notificación ya existe en la lista, no se hace nada.
   if (exists) {
     console.log(`Notificación duplicada ignorada: ${notification.id}`);
     return;
   }
-
+  // Si no es un duplicado, se actualizan los stores.
   notificationMessages.update(messages => [notification, ...messages]);
   notificationCount.update(n => n + 1);
 }
@@ -41,40 +46,6 @@ export function clearNotifications() {
   notificationCount.set(0);
 }
 
-// --- Acciones de Alertas Preventivas ---
-export function addPreventiveAlert(alert) {
-  console.log('📌 [STORE] Intentando agregar alerta al store:', alert);
-  const currentAlerts = get(preventiveAlerts);
-  console.log('📌 [STORE] Alertas actuales:', currentAlerts);
-
-  // Evitar duplicados basados en placa + tipo de alerta
-  const exists = currentAlerts.some(
-    a => a.placa === alert.placa && a.tipoAlerta === alert.tipoAlerta && a.estado === 'ACTIVA'
-  );
-
-  if (exists) {
-    console.log(`⚠️ [STORE] Alerta preventiva duplicada ignorada: ${alert.placa} - ${alert.tipoAlerta}`);
-    return;
-  }
-
-  preventiveAlerts.update(alerts => {
-    const newAlerts = [alert, ...alerts];
-    console.log('✅ [STORE] Alerta agregada. Total:', newAlerts.length);
-    return newAlerts;
-  });
-  preventiveAlertCount.update(n => n + 1);
-}
-
-export function removePreventiveAlert(alertId) {
-  preventiveAlerts.update(alerts => alerts.filter(a => a.id !== alertId));
-  preventiveAlertCount.update(n => (n > 0 ? n - 1 : 0));
-}
-
-export function clearPreventiveAlerts() {
-  preventiveAlerts.set([]);
-  preventiveAlertCount.set(0);
-}
-
 // --- Store Principal de UI ---
 function createUIStore() {
   const { subscribe, update } = writable({
@@ -83,9 +54,6 @@ function createUIStore() {
     showWorkOrderModal: false,
     selectedRowData: null,
     selectedColumnDef: null,
-    showVehicleWorkOrderModal: false,
-    selectedVehicleRowData: null,
-    selectedVehicleColumnDef: null,
     isSaving: false,
     // Image Modal State
     showImageModal: false,
@@ -116,20 +84,6 @@ function createUIStore() {
       showWorkOrderModal: false,
       selectedRowData: null,
       selectedColumnDef: null
-    })),
-
-    openVehicleWorkOrderModal: (data, columnDef) => update(store => ({
-      ...store,
-      showVehicleWorkOrderModal: true,
-      selectedVehicleRowData: data,
-      selectedVehicleColumnDef: columnDef,
-    })),
-
-    closeVehicleWorkOrderModal: () => update(store => ({
-      ...store,
-      showVehicleWorkOrderModal: false,
-      selectedVehicleRowData: null,
-      selectedVehicleColumnDef: null,
     })),
 
     setSaving: (isSaving) => update(store => ({ ...store, isSaving })),

@@ -32,45 +32,6 @@ function createAuthStore() {
     isRefreshing: false,
   });
 
-  let tokenRefreshInterval = null;
-  const TOKEN_REFRESH_CHECK_INTERVAL = 60000; // Chequear cada 1 minuto
-  const TOKEN_REFRESH_THRESHOLD = 5 * 60 * 1000; // Refrescar si faltan 5 minutos para expirar
-
-  function startTokenRefreshMonitor() {
-    // Limpia cualquier intervalo anterior
-    if (tokenRefreshInterval) {
-      clearInterval(tokenRefreshInterval);
-    }
-
-    tokenRefreshInterval = setInterval(() => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-
-      try {
-        const decodedPayload = jwtDecode(token);
-        const expiryTime = decodedPayload.exp * 1000; // Convertir a milisegundos
-        const now = Date.now();
-        const timeUntilExpiry = expiryTime - now;
-
-        // Si el token vence en menos de 5 minutos, refrescarlo ahora
-        if (timeUntilExpiry < TOKEN_REFRESH_THRESHOLD && timeUntilExpiry > 0) {
-          console.log(`⏰ Token vence en ${Math.floor(timeUntilExpiry / 1000)}s, refrescando proactivamente...`);
-          refreshToken();
-        }
-      } catch (error) {
-        console.error('Error al chequear expiración del token:', error);
-      }
-    }, TOKEN_REFRESH_CHECK_INTERVAL);
-  }
-
-  function stopTokenRefreshMonitor() {
-    if (tokenRefreshInterval) {
-      clearInterval(tokenRefreshInterval);
-      tokenRefreshInterval = null;
-      console.log('Monitor de refresh de token detenido');
-    }
-  }
-
   async function refreshToken() {
     console.log("Intentando renovar el token de acceso...");
     const storedRefreshToken = localStorage.getItem('refreshToken');
@@ -98,11 +59,10 @@ function createAuthStore() {
 
       const newAccessToken = data.accessToken;
       const newDecodedPayload = jwtDecode(newAccessToken);
-
+      
       const currentUser = setSession(newAccessToken, storedRefreshToken, newDecodedPayload);
       set({ isAuthenticated: true, currentUser, isRefreshing: false });
-
-      console.log(`✅ Token refrescado proactivamente. Próxima renovación en ~5min`);
+      
       return true;
 
     } catch (error) {
@@ -139,17 +99,14 @@ function createAuthStore() {
 
         const userRole = (decodedPayload.role || '').replace(/[\[\]']+/g, '').replace('ROLE_', '');
 
-        // Web: ADMIN, SUPERVISOR_OPERATIVO. OPERARIO solo usa app móvil.
-        const allowedRoles = ['ADMIN', 'SUPERVISOR_OPERATIVO'];
+        // Only allow ADMIN and MECANIC roles to log in
+        const allowedRoles = ['ADMIN', 'MECANIC'];
         if (!allowedRoles.includes(userRole)) {
-          return { success: false, error: 'Acceso denegado. Usa la app móvil 📱' };
+          return { success: false, error: 'Acceso denegado' };
         }
 
         const currentUser = setSession(accessToken, newRefreshToken, decodedPayload);
         set({ isAuthenticated: true, currentUser, isRefreshing: false });
-
-        // 🔄 NUEVO: Inicia monitor de refresh automático
-        startTokenRefreshMonitor();
 
         return { success: true, error: null };
 
@@ -159,7 +116,6 @@ function createAuthStore() {
     },
     logout: () => {
       clearSession();
-      stopTokenRefreshMonitor();
       set({ isAuthenticated: false, currentUser: null, isRefreshing: false });
     },
     checkAuth: async () => {
@@ -190,13 +146,6 @@ function createAuthStore() {
 
             const userRole = localStorage.getItem('userRole');
             set({ isAuthenticated: true, currentUser: { name: decodedPayload.sub, role: userRole }, isRefreshing: false });
-
-            // 🔄 NUEVO: Inicia monitor si no está activo
-            if (!tokenRefreshInterval) {
-                console.log('Iniciando monitor de refresh de token');
-                startTokenRefreshMonitor();
-            }
-
             return true;
 
         } catch (error) {
@@ -207,9 +156,9 @@ function createAuthStore() {
             return false;
         }
     },
+    // Expose the refreshToken function in case it needs to be called manually
+    // or from an API interceptor in the future.
     refreshToken,
-    startTokenRefreshMonitor,
-    stopTokenRefreshMonitor,
   };
 }
 

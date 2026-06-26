@@ -1,57 +1,28 @@
 <script>
   import { createEventDispatcher } from "svelte";
-  import { parseWorkOrderDescription } from "../../config/table-definitions.js";
 
   export let workOrder = null;
   export const isSubmitting = false;
 
   const dispatch = createEventDispatcher();
 
-  let hoursSpent = 0;
-  let minutesSpent = 0;
+  let timeSpent = "";
   let description = "";
 
   let labor = {
-    price: "0",
-    sameMecanic: true,
-    contractor: "",
-    observations: "",
+    price: workOrder.labor?.price?.toString() || "0",
+    sameMecanic: workOrder.labor?.sameMecanic || true,
+    contractor: workOrder.labor?.contractor || "",
+    observations: workOrder.labor?.observations || "",
   };
 
-  /** Solo al abrir otra orden: si se sincroniza desde `workOrder` en cada re-render, se borra lo que escribe el usuario. */
-  let previousWorkOrderId = undefined;
-
-  $: {
-    const oid = workOrder?.order?.id;
-    if (oid != null && oid !== previousWorkOrderId) {
-      previousWorkOrderId = oid;
-      labor = {
-        price: workOrder.labor?.price?.toString() || "0",
-        sameMecanic: workOrder.labor?.sameMecanic ?? true,
-        contractor: workOrder.labor?.contractor || "",
-        observations: workOrder.labor?.observations || "",
-      };
-      hoursSpent = 0;
-      minutesSpent = 0;
-      description = "";
-      spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "", supplier: "" }];
-      nextSparePartId = 2;
-      isProcessing = false;
-    }
-    if (workOrder == null) {
-      previousWorkOrderId = undefined;
-    }
-  }
-
-  let spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "", supplier: "" }];
+  let spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "" }];
   let nextSparePartId = 2;
 
   let isProcessing = false;
 
   $: isFormValid =
-    hoursSpent >= 0 &&
-    minutesSpent >= 0 && minutesSpent < 60 &&
-    (hoursSpent > 0 || minutesSpent > 0) &&
+    timeSpent.trim() !== "" &&
     description.trim() !== "" &&
     (labor.sameMecanic || labor.contractor.trim() !== "") &&
     (labor.price === "" || labor.price === null || Number(labor.price) >= 0) &&
@@ -59,7 +30,6 @@
       (p) =>
         p.ref.trim() !== "" &&
         p.name.trim() !== "" &&
-        p.supplier.trim() !== "" &&
         p.quantity !== "" &&
         Number(p.quantity) > 0 &&
         p.price !== "" &&
@@ -69,7 +39,7 @@
   function addSparePart() {
     spareParts = [
       ...spareParts,
-      { id: nextSparePartId++, ref: "", name: "", quantity: 1, price: "", supplier: "" },
+      { id: nextSparePartId++, ref: "", name: "", quantity: 1, price: "" },
     ];
   }
 
@@ -91,7 +61,6 @@
       name: spareParts.map((p) => p.name).join(" - "),
       quantity: spareParts.map((p) => p.quantity).join(" - "),
       price: spareParts.reduce((sum, p) => sum + (Number(p.price) || 0), 0),
-      supplier: spareParts.map((p) => p.supplier).join(" - "),
     };
 
     const laborPayload = {
@@ -102,8 +71,7 @@
 
     const finalPayload = {
       orderId: workOrder.order.id,
-      hoursSpent: hoursSpent,
-      minutesSpent: minutesSpent,
+      timeSpent,
       description,
       labor: laborPayload,
       sparePart: sparePartPayload,
@@ -115,22 +83,12 @@
   function onCancel() {
     dispatch("cancel");
   }
-
-  $: orderParsed = workOrder
-    ? parseWorkOrderDescription(workOrder.order?.description)
-    : {
-        origen: "",
-        sector: "",
-        condicion: "",
-        detalle: "",
-        tareaAsignada: "",
-        structured: false,
-      };
-  $: tipo = orderParsed.origen;
-  $: sector = orderParsed.sector;
-  $: estado = orderParsed.condicion;
-  $: descripcionOrden = orderParsed.detalle;
-  $: asignadoA = orderParsed.tareaAsignada;
+  const orderFields = workOrder.order.description.split("|");
+  const tipo = orderFields[0]?.trim() || "";
+  const sector = orderFields[1]?.trim() || "";
+  const estado = orderFields[2]?.trim() || "";
+  const descripcionOrden = orderFields[3]?.trim() || "";
+  const asignadoA = orderFields[4]?.trim() || "";
 </script>
 
 <div class="modal-overlay">
@@ -145,65 +103,25 @@
       <div class="info-panel">
         <div class="info-panel-header">Detalles de la Orden Original</div>
         <div class="info-panel-body">
-          {#if workOrder.machine}
-            <p><strong>Máquina:</strong> {workOrder.machine.name} - {workOrder.machine.model}</p>
-          {:else if workOrder.vehicle}
-            <p><strong>Vehículo:</strong> {workOrder.vehicle.placa} — {workOrder.vehicle.marca ?? ''}</p>
-          {/if}
-          {#if orderParsed.structured}
-            <p><strong>Tipo:</strong> {tipo}</p>
-            <p><strong>Sector:</strong> {sector}</p>
-            <p>
-              <strong>Estado:</strong>
-              <span style="font-weight:bold">{estado}</span>
-            </p>
-            <p><strong>Descripción orden:</strong> {descripcionOrden}</p>
-            <p><strong>Asignado a:</strong> {asignadoA}</p>
-          {:else}
-            {#if sector && sector !== "N/A"}
-              <p><strong>Asunto:</strong> {tipo}</p>
-              <p><strong>Contexto:</strong> {sector}</p>
-              {#if estado && estado !== "N/A"}
-                <p>
-                  <strong>Estado / condición:</strong>
-                  <span style="font-weight:bold">{estado}</span>
-                </p>
-              {/if}
-              {#if asignadoA && asignadoA !== "N/A"}
-                <p><strong>Notas:</strong> {asignadoA}</p>
-              {/if}
-            {:else if tipo && tipo !== "N/A"}
-              <p><strong>Resumen:</strong> {tipo}</p>
-            {/if}
-            <p><strong>Descripción completa:</strong> {descripcionOrden || "—"}</p>
-          {/if}
+          <p>
+            <strong>Máquina:</strong>
+            {workOrder.machine?.name} - {workOrder.machine?.model}
+          </p>
+          <p><strong>Tipo:</strong> {tipo}</p>
+          <p><strong>Sector:</strong> {sector}</p>
+          <p>
+            <strong>Estado:</strong>
+            <span style="font-weight:bold">{estado}</span>
+          </p>
+          <p><strong>Descripción orden:</strong> {descripcionOrden}</p>
+          <p><strong>Asignado a:</strong> {asignadoA}</p>
         </div>
       </div>
 
       <form on:submit|preventDefault={handleSubmit}>
         <div class="form-section">
-          <div class="form-grid">
-            <label>Horas empleadas:
-              <input
-                type="number"
-                min="0"
-                step="1"
-                bind:value={hoursSpent}
-                required
-              />
-            </label>
-            <label>Minutos empleados:
-              <input
-                type="number"
-                min="0"
-                max="59"
-                step="1"
-                bind:value={minutesSpent}
-                required
-              />
-            </label>
-          </div>
-          <p style="font-size: 0.9em; color: #666;">Ingresa las horas y minutos que tardó la ejecución (ej: 2 horas, 30 minutos)</p>
+          <label>Tiempo Empleado (ej. 2 horas, 30 mins):</label>
+          <input type="text" bind:value={timeSpent} required />
 
           <label>Descripción / Detalles del Trabajo Realizado:</label>
           <textarea bind:value={description} rows="4" required></textarea>
@@ -235,7 +153,7 @@
                 if (labor.sameMecanic) labor.contractor = "";
               }}
             />
-            El arreglo fue realizado por el mismo operario que reportó
+            El arreglo fue realizado por el mismo mecánico que reportó
           </label>
           <label>Observaciones de Mano de Obra:</label>
           <textarea bind:value={labor.observations} rows="2"></textarea>
@@ -267,14 +185,6 @@
                   >Nombre: <input
                     type="text"
                     bind:value={part.name}
-                    required
-                  /></label
-                >
-                <label
-                  >Proveedor: <input
-                    type="text"
-                    bind:value={part.supplier}
-                    placeholder="Ej: Distribuidora XYZ"
                     required
                   /></label
                 >
@@ -333,8 +243,7 @@
   }
   .modal-content {
     background: #e0e0e0;
-    border: 2px outset #ffffff;
-    box-shadow: 4px 4px 10px rgba(0,0,0,0.3);
+    border: 2px outset #c0c0c0;
     width: 90%;
     max-width: 800px;
     max-height: 90vh;
@@ -374,9 +283,7 @@
   .info-panel-header {
     padding: 6px 10px;
     font-weight: bold;
-    font-size: 11px;
-    background: #d4d0c8;
-    border-bottom: 1px solid #808080;
+    background: #d0d0d0;
   }
   .info-panel-body {
     padding: 10px;
@@ -451,27 +358,14 @@
     gap: 8px;
     padding: 12px;
     border-top: 1px solid #808080;
-    background: #e0e0e0;
-  }
-  .btn-cancel {
-    padding: 4px 12px;
     background: #d0d0d0;
-    border: 1px outset #fff;
-    cursor: pointer;
-    font-size: 11px;
-    font-family: inherit;
   }
+  .btn-cancel,
   .btn-create {
-    padding: 4px 12px;
-    background: #90ee90;
-    border: 1px outset #fff;
+    padding: 6px 12px;
+    border: 1px outset #c0c0c0;
     cursor: pointer;
     font-size: 11px;
     font-weight: bold;
-    font-family: inherit;
-  }
-  .btn-create:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
   }
 </style>

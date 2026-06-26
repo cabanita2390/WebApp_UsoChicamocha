@@ -57,53 +57,17 @@
   let workOrderForm = {
     asignadoA: '',
     detalles: '',
-    orderType: '',
-    maintenanceType: '',
-    maintenanceCategory: '',
   };
   let showConfirmation = false;
   
   // --- FUNCTIONS ---
   function getStatusClass(status) {
-    const raw = String(status ?? '').trim();
-    if (!raw) return 'status-unknown';
-    const s = raw
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '');
-
-    if (s.includes(',') && /\bsi\b/.test(s) && /\bno\b/.test(s)) {
-      return 'status-regular';
+    switch(status) {
+      case 'Óptimo': return 'status-optimo';
+      case 'Regular': return 'status-regular';
+      case 'Malo': return 'status-malo';
+      default: return 'status-unknown';
     }
-    if (s === 'si' || s === 'sí') return 'status-optimo';
-    if (s === 'no') return 'status-malo';
-    if (s === 'n/a' || s === 'na') return 'status-unknown';
-
-    if (
-      s.includes('optimo') ||
-      s.includes('optima') ||
-      s.includes('vigente') ||
-      s === 'ok' ||
-      s.includes('bueno') ||
-      s.includes('excelente')
-    ) {
-      return 'status-optimo';
-    }
-    if (
-      s.includes('regular') ||
-      s.includes('proximo') ||
-      s.includes('medio')
-    ) {
-      return 'status-regular';
-    }
-    if (
-      s.includes('malo') ||
-      s.includes('vencido') ||
-      (s.includes('cambio') && !s.includes('sin cambio'))
-    ) {
-      return 'status-malo';
-    }
-    return 'status-unknown';
   }
   
   function handleSubmit(event) {
@@ -124,9 +88,6 @@
     dispatch('createWorkOrder', {
       inspectionId: rowData.id,
       description: description,
-      orderType: workOrderForm.orderType || null,
-      maintenanceType: workOrderForm.maintenanceType || null,
-      maintenanceCategory: workOrderForm.maintenanceCategory || null,
     });
 
     showConfirmation = false;
@@ -160,26 +121,6 @@
       </div>
       
       <form class="work-order-form" on:submit={handleSubmit}>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="maintenanceType">Especialidad Técnica (opcional):</label>
-            <select bind:value={workOrderForm.maintenanceType} id="maintenanceType">
-              <option value="">— Sin especificar —</option>
-              <option value="MECANICO">Mecánico</option>
-              <option value="ELECTRICO">Eléctrico</option>
-              <option value="ESTRUCTURAL">Estructural</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="maintenanceCategory">Tipo de Mantenimiento (opcional):</label>
-            <select bind:value={workOrderForm.maintenanceCategory} id="maintenanceCategory">
-              <option value="">— Sin especificar —</option>
-              <option value="PREVENTIVO">Preventivo</option>
-              <option value="CORRECTIVO">Correctivo</option>
-            </select>
-          </div>
-        </div>
-
         <div class="form-group full-width">
           <label for="detalles">Detalles de la Orden de Trabajo:</label>
           <textarea bind:value={workOrderForm.detalles} id="detalles" rows="6" 

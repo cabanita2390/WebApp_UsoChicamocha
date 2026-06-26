@@ -36,7 +36,7 @@
     <form class="login-form" on:submit={handleLogin}>
       <div class="logo-header">
         <img
-          src="/assets/images/usochicamocha-logo.webp"
+          src="https://usochicamocha.com.co/wp-content/uploads/2024/02/Usochicamocha-v2.png"
           alt="Logo de Usochicamocha"
           class="logo-image"
         />

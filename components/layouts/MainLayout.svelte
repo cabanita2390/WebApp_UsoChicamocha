@@ -1,5 +1,4 @@
 <script>
-    import { onMount } from "svelte";
     import { createEventDispatcher } from "svelte";
     import Sidebar from "../shared/Sidebar.svelte";
     import NotificationDropdown from "../shared/NotificationDropdown.svelte";
@@ -9,43 +8,15 @@
         notificationCount,
         notificationMessages,
         removeNotification,
-        preventiveAlertCount,
-        preventiveAlerts,
-        removePreventiveAlert,
-        visibleAlertCount,
     } from "../../stores/ui.js";
     import { wsNotificationService } from "../../composables/useWebSocketNotifications.js";
-    import { fetchAllAlerts } from "../../composables/useAlerts.js";
     import { location } from "svelte-spa-router";
-    import { getPageTitle } from "../../config/page-titles.js";
 
     export let isAutoRefreshEnabled = true;
     export let isAutoRefreshActive = false;
 
     const dispatch = createEventDispatcher();
     let showNotifications = false;
-
-    // Sincronizar contador con preventiveAlerts del store (cargado por App.svelte)
-    onMount(() => {
-        // Suscribirse a cambios en preventiveAlerts para actualizar el contador
-        const unsubscribeAlerts = preventiveAlerts.subscribe(alerts => {
-            if (alerts && Array.isArray(alerts)) {
-                $visibleAlertCount = alerts.length + $notificationMessages.length;
-            }
-        });
-
-        // Suscribirse a cambios en notificationMessages también
-        const unsubscribeMessages = notificationMessages.subscribe(messages => {
-            if ($preventiveAlerts) {
-                $visibleAlertCount = $preventiveAlerts.length + (messages?.length || 0);
-            }
-        });
-
-        return () => {
-            unsubscribeAlerts();
-            unsubscribeMessages();
-        };
-    });
 
     function toggleNotifications() {
         showNotifications = !showNotifications;
@@ -56,26 +27,37 @@
         removeNotification(notificationId);
     }
 
-    function handleDeleteAlert(event) {
-        const alertId = event.detail;
-        removePreventiveAlert(alertId);
-    }
-
     function toggleAutoRefresh() {
         dispatch("toggleAutoRefresh");
     }
 
-    function handleContainerClick(e) {
-        const notifWrapper = e.target.closest('.notification-wrapper');
-        if (!notifWrapper) {
-            showNotifications = false;
+    // Map routes to titles
+    $: currentPath = $location;
+    $: pageTitle = getPageTitle(currentPath);
+
+    function getPageTitle(path) {
+        switch (path) {
+            case "/":
+                return "Panel de Control - Estado de Equipos";
+            case "/users":
+                return "Gestión de Usuarios";
+            case "/machines":
+                return "Gestión de Máquinas";
+            case "/work-orders":
+                return "Gestión de Órdenes de Trabajo";
+            case "/consolidado":
+                return "Consolidado de Maquinaria";
+            case "/oil-management":
+                return "Gestión de Aceites";
+            default:
+                return "Dashboard Maquinaria";
         }
     }
-
-    $: pageTitle = getPageTitle($location);
 </script>
 
-<div class="app-container" on:click={handleContainerClick}>
+<svelte:window on:click={() => (showNotifications = false)} />
+
+<div class="app-container">
     <Sidebar />
 
     <main class="main-content">
@@ -83,7 +65,7 @@
             <div class="header-left">
                 <div class="logo">
                     <img
-                        src="/assets/images/usochicamocha-logo.webp"
+                        src="https://usochicamocha.com.co/wp-content/uploads/2024/02/Usochicamocha-v2.png"
                         alt="Logo de Usochicamocha"
                         class="logo-image"
                     />
@@ -118,11 +100,11 @@
                         <span class="auto-refresh-text">Refrescando...</span>
                     {/if}
                 </div>
-                <div class="notification-wrapper">
+                <div class="notification-wrapper" on:click|stopPropagation>
                     <button
                         class="notification-bell"
-                        on:click|stopPropagation={toggleNotifications}
-                        title="Notificaciones y Alertas"
+                        on:click={toggleNotifications}
+                        title="Notificaciones"
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -131,19 +113,16 @@
                                 d="M12,22A2,2 0 0,0 14,20H10A2,2 0 0,0 12,22M18,16V11C18,7.93 16.36,5.36 13.5,4.68V4A1.5,1.5 0 0,0 12,2.5A1.5,1.5 0 0,0 10.5,4V4.68C7.63,5.36 6,7.93 6,11V16L4,18V19H20V18L18,16Z"
                             ></path></svg
                         >
-                        {#if $visibleAlertCount > 0}
+                        {#if $notificationCount > 0}
                             <span class="notification-badge"
-                                >{$visibleAlertCount}</span
+                                >{$notificationCount}</span
                             >
                         {/if}
                     </button>
                     {#if showNotifications}
                         <NotificationDropdown
                             messages={$notificationMessages}
-                            alerts={$preventiveAlerts}
-                            isOpen={showNotifications}
-                            on:deleteNotification={handleDeleteNotification}
-                            on:deleteAlert={handleDeleteAlert}
+                            on:delete={handleDeleteNotification}
                         />
                     {/if}
                 </div>
@@ -400,15 +379,5 @@
             opacity: 0.5;
             transform: scale(0.9);
         }
-    }
-
-    /* Oil Change Alerts Container */
-    .oil-alerts-container {
-        margin-bottom: 20px;
-        padding: 15px;
-        background-color: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 </style>

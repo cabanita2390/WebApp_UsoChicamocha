@@ -26,30 +26,21 @@ export function startAutoRefresh() {
         // 3. Not currently loading data
         // 4. ONLY on Dashboard/Inspections view ('/' or empty)
         const isDashboard = $location === '/' || $location === '' || $location === '#/';
-        const isVehicles = $location === '/vehicles';
-        const isMotos = $location === '/moto-inventory';
-
-        if ($isEnabled && $auth.isAuthenticated && !$data.isLoading && (isDashboard || isVehicles || isMotos)) {
+        
+        if ($isEnabled && $auth.isAuthenticated && !$data.isLoading && isDashboard) {
              isAutoRefreshActive.set(true);
              try {
-                 if (isDashboard) {
-                     console.log('🔄 [AUTO-REFRESH] Actualizando Inspecciones...');
-                     await data.fetchDashboardData($data.dashboard.currentPage, $data.dashboard.pageSize);
-                     await data.fetchVehicleInspections($data.vehicleInspections.currentPage, $data.vehicleInspections.pageSize, { reload: true });
-                     await data.fetchMotoInspections();
-                 } else if (isVehicles) {
-                     console.log('🔄 [AUTO-REFRESH] Actualizando Vehículos...');
-                     await data.fetchVehicles();
-                 } else if (isMotos) {
-                     console.log('🔄 [AUTO-REFRESH] Actualizando Motocicletas...');
-                     await data.fetchMotos();
-                 }
+                 console.log('🔄 [AUTO-REFRESH] Actualizando Inspecciones...');
+                 await data.fetchDashboardData($data.dashboard.currentPage, $data.dashboard.pageSize);
                  console.log(`✅ [AUTO-REFRESH] Completado a las ${new Date().toLocaleTimeString()}`);
              } catch (e) {
                  console.error('❌ [AUTO-REFRESH] Error:', e);
              } finally {
                  isAutoRefreshActive.set(false);
              }
+        } else if (!isDashboard && $isEnabled) {
+            // Debug log to confirm it's skipped on other views
+            // console.log('💤 [AUTO-REFRESH] Skipped - Not on Dashboard');
         }
     }, REFRESH_INTERVAL);
 }
