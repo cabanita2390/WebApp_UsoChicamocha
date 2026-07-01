@@ -9,6 +9,7 @@
   import { addNotification } from "../../stores/ui.js";
   import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
+  import { validateDocumentFileSize } from '@/lib/fileValidation.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -282,15 +283,29 @@
     if (unsubscribeDataCheck) unsubscribeDataCheck();
   });
 
+  function firstOversizedDocError() {
+    for (const fileList of [docSoatFile, docTecnoFile, docTarjetaPropiedadFile]) {
+      const f = fileList && fileList.length ? fileList[0] : null;
+      const err = validateDocumentFileSize(f);
+      if (err) return err;
+    }
+    return null;
+  }
+
   async function handleCreateMoto(event) {
     event.preventDefault();
+    errorMessage = "";
     if (motoTipoId == null) {
       errorMessage =
         "No se encontró el tipo MOTOCICLETA en el catálogo. Verifique la base de datos (cat_tipos_vehiculo).";
       return;
     }
+    const docSizeError = firstOversizedDocError();
+    if (docSizeError) {
+      errorMessage = docSizeError;
+      return;
+    }
     isSubmitting = true;
-    errorMessage = "";
     try {
       const created = await data.createMoto(formatMotoVehiclePayload(newMoto, motoTipoId));
       const vid = created?.id;

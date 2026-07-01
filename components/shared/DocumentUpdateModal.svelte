@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte';
+  import { validateDocumentFileSize } from '@/lib/fileValidation.js';
 
   export let placa = '';
   export let soatVencimiento = null;
@@ -100,6 +101,12 @@
       error = 'Seleccione el archivo de la tarjeta de propiedad.';
       return;
     }
+    const file = archivo && archivo.length ? archivo[0] : null;
+    const sizeError = validateDocumentFileSize(file);
+    if (sizeError) {
+      error = sizeError;
+      return;
+    }
     error = '';
     let fechaApi = fechaVencimiento || null;
 
@@ -113,7 +120,6 @@
       }
     }
 
-    const file = archivo && archivo.length ? archivo[0] : null;
     dispatch('submit', { tipoDocumento, fechaVencimiento: fechaApi, file });
   }
 

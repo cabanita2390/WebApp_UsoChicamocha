@@ -9,6 +9,7 @@
   import { addNotification } from '../../stores/ui.js';
   import { formatVehiclePayload } from '@/lib/textFormat.js';
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
+  import { validateDocumentFileSize } from '@/lib/fileValidation.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -311,10 +312,24 @@
     if (unsubscribeDataCheck) unsubscribeDataCheck();
   });
 
+  function firstOversizedDocError() {
+    for (const fileList of [docSoatFile, docTecnoFile, docTarjetaPropiedadFile, docExtintorFile]) {
+      const f = fileList && fileList.length ? fileList[0] : null;
+      const err = validateDocumentFileSize(f);
+      if (err) return err;
+    }
+    return null;
+  }
+
   async function handleCreateVehicle(event) {
     event.preventDefault();
-    isSubmitting = true;
     errorMessage = "";
+    const docSizeError = firstOversizedDocError();
+    if (docSizeError) {
+      errorMessage = docSizeError;
+      return;
+    }
+    isSubmitting = true;
     try {
       const created = await data.createVehicle(formatVehiclePayload(newVehicle));
       const vid = created?.id;

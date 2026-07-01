@@ -1,6 +1,7 @@
 import { writable, get } from 'svelte/store';
 import fetchWithAuth from './api';
 import { normalizePlaca, normalizeTitleWords, normalizeUpperToken, normalizeFreeTextPreserveCase } from '../src/lib/textFormat.js';
+import { validateDocumentFileSize } from '../src/lib/fileValidation.js';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 function createDataStore() {
     const { subscribe, update } = writable({
@@ -460,6 +461,8 @@ function createDataStore() {
          */
         uploadVehicleDocumentFile: async (payload) => {
             const { idVehiculo, tipoDocumento, fechaVencimiento, file } = payload;
+            const sizeError = validateDocumentFileSize(file);
+            if (sizeError) throw new Error(sizeError);
             const form = new FormData();
             form.append('file', file);
             form.append('idVehiculo', String(idVehiculo));
@@ -470,6 +473,8 @@ function createDataStore() {
             await fetchWithAuth('admin/documents/upload', { method: 'POST', body: form });
         },
         uploadUserLicenseDocument: async (userId, file) => {
+            const sizeError = validateDocumentFileSize(file);
+            if (sizeError) throw new Error(sizeError);
             const form = new FormData();
             form.append('file', file);
             const updated = await fetchWithAuth(`user/${userId}/license-document`, { method: 'POST', body: form });

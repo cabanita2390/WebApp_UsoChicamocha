@@ -27,6 +27,15 @@ vi.mock('../../stores/ui.js', () => ({
   addNotification: vi.fn(),
 }));
 
+vi.mock('../../stores/auth.js', () => ({
+  auth: {
+    subscribe: vi.fn((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Test Admin', role: 'ADMIN' }, isRefreshing: false });
+      return () => {};
+    }),
+  },
+}));
+
 vi.mock('../../config/table-definitions.js', () => ({
   motoInventoryColumns: [
     { accessorKey: 'placa', header: 'Placa' },
