@@ -55,6 +55,16 @@ jobs:
       - name: Construir build de TEST
         run: npm run build:test
 
+      - name: Diagnóstico — confirmar que los secretos no están vacíos (sin exponer valores)
+        env:
+          H: ${{ secrets.SSH_HOST }}
+          U: ${{ secrets.SSH_USER }}
+          K: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          [ -z "$H" ] && echo "SSH_HOST: VACÍO" || echo "SSH_HOST: OK (longitud ${#H})"
+          [ -z "$U" ] && echo "SSH_USER: VACÍO" || echo "SSH_USER: OK (longitud ${#U})"
+          [ -z "$K" ] && echo "SSH_PRIVATE_KEY: VACÍO" || echo "SSH_PRIVATE_KEY: OK (longitud ${#K})"
+
       - name: Limpiar carpeta destino en el VPS
         uses: appleboy/ssh-action@v1
         with:
