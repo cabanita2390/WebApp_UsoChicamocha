@@ -14,6 +14,15 @@ vi.mock('../../stores/data.js', () => ({
   },
 }));
 
+vi.mock('../../stores/auth.js', () => ({
+  auth: {
+    subscribe: vi.fn((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Test Admin', role: 'ADMIN' }, isRefreshing: false });
+      return () => {};
+    }),
+  },
+}));
+
 // Simular componentes compartidos
 vi.mock('../shared/DataGrid.svelte', () => ({
   default: vi.fn().mockImplementation(() => ({
@@ -136,7 +145,7 @@ describe('OilManagement', () => {
     await waitFor(() => {
       expect(dataStore.createOil).toHaveBeenCalledWith({
         name: 'New Oil Brand',
-        type: 'motor',
+        type: 'MOTOR',
       });
     });
   });

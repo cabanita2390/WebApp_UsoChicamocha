@@ -15,6 +15,15 @@ vi.mock('../../stores/data.js', () => ({
   },
 }));
 
+vi.mock('../../stores/auth.js', () => ({
+  auth: {
+    subscribe: vi.fn((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Test Admin', role: 'ADMIN' }, isRefreshing: false });
+      return () => {};
+    }),
+  },
+}));
+
 // Simular definiciones de tabla
 vi.mock('../../config/table-definitions.js', () => ({
   machineColumns: [
@@ -41,6 +50,10 @@ vi.mock('../shared/Loader.svelte', () => ({
     $set: vi.fn(),
     $destroy: vi.fn(),
   })),
+}));
+
+vi.mock('@/lib/textFormat.js', () => ({
+  formatMachinePayload: vi.fn((m) => m),
 }));
 
 import { data } from '../../stores/data.js';
@@ -91,7 +104,7 @@ describe('MachineManagement', () => {
     await tick();
 
     // Debería mostrar el loader
-    expect(screen.queryByText('Refrescar información')).toBeNull();
+    expect(screen.queryByText('Refrescar')).toBeNull();
   });
 
   it('renders machine management interface when not loading', async () => {
@@ -102,8 +115,8 @@ describe('MachineManagement', () => {
 
     await tick();
 
-    expect(screen.getByText('Crear Nueva Máquina')).toBeTruthy();
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Registrar nueva máquina')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   it('calls fetchMachines when refresh button is clicked', async () => {
@@ -114,7 +127,7 @@ describe('MachineManagement', () => {
 
     await tick();
 
-    const refreshButton = screen.getByText('Refrescar información');
+    const refreshButton = screen.getByText('Refrescar');
     await fireEvent.click(refreshButton);
 
     expect(data.fetchMachines).toHaveBeenCalled();
@@ -129,9 +142,9 @@ describe('MachineManagement', () => {
 
     await tick();
 
-    const nameInput = screen.getByPlaceholderText('Nombre');
-    const modelInput = screen.getByPlaceholderText('Modelo');
-    const createButton = screen.getByText('Crear');
+    const nameInput = screen.getByPlaceholderText('Ej: Excavadora CAT');
+    const modelInput = screen.getByPlaceholderText('Ej: 320D');
+    const createButton = screen.getByText('Registrar máquina');
 
     await fireEvent.input(nameInput, { target: { value: 'New Machine' } });
     await fireEvent.input(modelInput, { target: { value: 'Model X' } });
@@ -146,7 +159,9 @@ describe('MachineManagement', () => {
         numInterIdentification: '',
         soat: '',
         runt: '',
-        belongsTo: 'distrito',
+        belongsTo: 'Distrito',
+        fuelTankCapacityGallons: null,
+        factoryEfficiencyUnit: 'GAL_PER_HOUR',
       });
     });
   });
@@ -160,9 +175,9 @@ describe('MachineManagement', () => {
 
     await tick();
 
-    const nameInput = screen.getByPlaceholderText('Nombre');
-    const modelInput = screen.getByPlaceholderText('Modelo');
-    const createButton = screen.getByText('Crear');
+    const nameInput = screen.getByPlaceholderText('Ej: Excavadora CAT');
+    const modelInput = screen.getByPlaceholderText('Ej: 320D');
+    const createButton = screen.getByText('Registrar máquina');
 
     await fireEvent.input(nameInput, { target: { value: 'New Machine' } });
     await fireEvent.input(modelInput, { target: { value: 'Model X' } });
@@ -185,7 +200,7 @@ describe('MachineManagement', () => {
     // Dado que no podemos activar fácilmente eventos de acción de DataGrid,
     // probaremos la lógica del modal configurando el estado directamente
     // En un escenario real, necesitarías simular el dispatch de acción de DataGrid
-    expect(screen.getByText('Crear Nueva Máquina')).toBeTruthy();
+    expect(screen.getByText('Registrar nueva máquina')).toBeTruthy();
   });
 
   it('handles belongsTo selection', async () => {
@@ -197,9 +212,9 @@ describe('MachineManagement', () => {
     await tick();
 
     const belongsToSelect = screen.getByDisplayValue('Distrito');
-    await fireEvent.change(belongsToSelect, { target: { value: 'asociacion' } });
+    await fireEvent.change(belongsToSelect, { target: { value: 'Asociación' } });
 
-    expect(belongsToSelect.value).toBe('asociacion');
+    expect(belongsToSelect.value).toBe('Asociación');
   });
 
   it('validates required fields', async () => {
@@ -210,8 +225,8 @@ describe('MachineManagement', () => {
 
     await tick();
 
-    const nameInput = screen.getByPlaceholderText('Nombre');
-    const modelInput = screen.getByPlaceholderText('Modelo');
+    const nameInput = screen.getByPlaceholderText('Ej: Excavadora CAT');
+    const modelInput = screen.getByPlaceholderText('Ej: 320D');
 
     expect(nameInput.hasAttribute('required')).toBe(true);
     expect(modelInput.hasAttribute('required')).toBe(true);
@@ -226,9 +241,9 @@ describe('MachineManagement', () => {
 
     await tick();
 
-    const nameInput = screen.getByPlaceholderText('Nombre');
-    const modelInput = screen.getByPlaceholderText('Modelo');
-    const createButton = screen.getByText('Crear');
+    const nameInput = screen.getByPlaceholderText('Ej: Excavadora CAT');
+    const modelInput = screen.getByPlaceholderText('Ej: 320D');
+    const createButton = screen.getByText('Registrar máquina');
 
     await fireEvent.input(nameInput, { target: { value: 'New Machine' } });
     await fireEvent.input(modelInput, { target: { value: 'Model X' } });

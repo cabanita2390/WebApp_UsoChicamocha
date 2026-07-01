@@ -86,7 +86,7 @@ describe('WorkOrderManagement', () => {
     await tick();
 
     // Should show loader
-    expect(screen.queryByText('Refrescar información')).toBeNull();
+    expect(screen.queryByText('Refrescar')).toBeNull();
   });
 
   it('renders work order management interface when not loading', async () => {
@@ -99,7 +99,7 @@ describe('WorkOrderManagement', () => {
 
     await tick();
 
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   it('calls fetchWorkOrders when refresh button is clicked', async () => {
@@ -110,7 +110,7 @@ describe('WorkOrderManagement', () => {
 
     await tick();
 
-    const refreshButton = screen.getByText('Refrescar información');
+    const refreshButton = screen.getByText('Refrescar');
     await fireEvent.click(refreshButton);
 
     expect(data.fetchWorkOrders).toHaveBeenCalledWith();
@@ -131,7 +131,7 @@ describe('WorkOrderManagement', () => {
     await tick();
 
     // The DataGrid should be rendered with the correct data
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   it('opens execute modal when execute action is triggered', async () => {
@@ -146,7 +146,7 @@ describe('WorkOrderManagement', () => {
 
     // Since we can't easily trigger DataGrid action events,
     // we'll verify the component renders correctly
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   it('executes work order successfully', async () => {
@@ -214,7 +214,7 @@ describe('WorkOrderManagement', () => {
 
     // Since we can't easily trigger DataGrid events,
     // we'll verify the component renders correctly
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   it('handles size change events', async () => {
@@ -231,7 +231,7 @@ describe('WorkOrderManagement', () => {
 
     await tick();
 
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   it('closes execute modal after execution', async () => {
@@ -245,6 +245,6 @@ describe('WorkOrderManagement', () => {
     await tick();
 
     // Test that the component has modal state management
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 });

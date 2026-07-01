@@ -19,7 +19,7 @@ describe('NotificationDropdown', () => {
       props: { messages: [] }
     });
 
-    expect(screen.getByText('No hay notificaciones')).toBeTruthy();
+    expect(screen.getByText('No hay notificaciones ni alertas')).toBeTruthy();
   });
 
   it('renders messages when provided', () => {

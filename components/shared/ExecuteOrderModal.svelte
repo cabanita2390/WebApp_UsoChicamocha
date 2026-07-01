@@ -205,8 +205,8 @@
           </div>
           <p style="font-size: 0.9em; color: #666;">Ingresa las horas y minutos que tardó la ejecución (ej: 2 horas, 30 minutos)</p>
 
-          <label>Descripción / Detalles del Trabajo Realizado:</label>
-          <textarea bind:value={description} rows="4" required></textarea>
+          <label for="wo-description">Descripción / Detalles del Trabajo Realizado:</label>
+          <textarea id="wo-description" bind:value={description} rows="4" required></textarea>
         </div>
 
         <fieldset class="form-section">
@@ -237,8 +237,8 @@
             />
             El arreglo fue realizado por el mismo operario que reportó
           </label>
-          <label>Observaciones de Mano de Obra:</label>
-          <textarea bind:value={labor.observations} rows="2"></textarea>
+          <label for="wo-labor-observations">Observaciones de Mano de Obra:</label>
+          <textarea id="wo-labor-observations" bind:value={labor.observations} rows="2"></textarea>
         </fieldset>
 
         <fieldset class="form-section">

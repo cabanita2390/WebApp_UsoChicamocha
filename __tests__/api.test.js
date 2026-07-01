@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fetchWithAuth from '../stores/api.js';
 
 /**
@@ -7,12 +7,6 @@ import fetchWithAuth from '../stores/api.js';
  * la autenticación, los headers, las versiones de la API y los diferentes
  * tipos de respuesta (éxito, errores, sin contenido, etc.).
  */
-
-// Mock de las variables de entorno para evitar dependencias del sistema.
-// Aquí se define una URL base para todas las llamadas a la API durante los tests.
-vi.mock('import.meta.env', () => ({
-  VITE_API_BASE_URL: 'http://localhost:8080',
-}), { virtual: true });
 
 // Mock del módulo de autenticación.
 // Se simula la función `checkAuth` para no ejecutar la lógica real de autenticación.
@@ -51,6 +45,11 @@ describe('fetchWithAuth', () => {
     auth.checkAuth.mockResolvedValue(true); // Simula que la autenticación es exitosa.
     localStorageMock.getItem.mockReturnValue('mockToken'); // Simula que hay un token guardado.
     global.fetch.mockClear(); // Limpia solo el mock de fetch.
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080'); // URL base determinística para los tests.
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   // --- Casos de Prueba ---
@@ -72,14 +71,14 @@ describe('fetchWithAuth', () => {
     const result = await fetchWithAuth('test/endpoint');
 
     // Se realizan las aserciones (expect) para verificar que todo ocurrió como se esperaba:
-    expect(auth.checkAuth).toHaveBeenCalled(); // Se llamó a la verificación de autenticación.
+    // Nota: checkAuth ya no se invoca por request; el refresh de token es proactivo (monitor en segundo plano).
     expect(localStorageMock.getItem).toHaveBeenCalledWith('accessToken'); // Se obtuvo el token.
     expect(global.fetch).toHaveBeenCalledWith( // Se llamó a fetch con la URL y headers correctos.
       'http://localhost:8080/api/v1/test/endpoint',
       {
         headers: {
           'Authorization': 'Bearer mockToken',
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8',
         },
       }
     );
@@ -220,7 +219,7 @@ describe('fetchWithAuth', () => {
     expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/v1/test/endpoint', {
       headers: {
         'Authorization': 'Bearer mockToken',
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=UTF-8',
         'Custom-Header': 'value', // El header personalizado está presente
       },
     });

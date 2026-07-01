@@ -1,175 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import { get } from 'svelte/store';
-import Consolidado from '../../components/views/Consolidado.svelte';
-
-// Mock the data store
-vi.mock('../../stores/data.js', () => ({
-  data: {
-    subscribe: vi.fn(),
-    fetchConsolidadoData: vi.fn(),
-  },
-}));
-
-// Mock table definitions
-vi.mock('../../config/table-definitions.js', () => ({
-  createConsolidadoColumns: vi.fn(),
-}));
-
-// Mock shared components
-vi.mock('../shared/DataGrid.svelte', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    $$: { on_mount: [], on_destroy: [] },
-    $set: vi.fn(),
-    $destroy: vi.fn(),
-  })),
-}));
-
-vi.mock('../shared/Loader.svelte', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    $$: { on_mount: [], on_destroy: [] },
-    $set: vi.fn(),
-    $destroy: vi.fn(),
-  })),
-}));
-
-import { data } from '../../stores/data.js';
-import { createConsolidadoColumns } from '../../config/table-definitions.js';
-
-describe('Consolidado', () => {
-  let mockDataStore;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    // Setup mock data store
-    mockDataStore = {
-      consolidated: { distrito: [], asociacion: [] },
-      isLoading: false,
-      error: null,
-    };
-
-    data.subscribe.mockImplementation((callback) => {
-      callback(mockDataStore);
-      return () => {};
-    });
-
-    // Setup mock columns
-    createConsolidadoColumns.mockImplementation((type) => [
-      { accessorKey: 'name', header: 'Name' },
-      { accessorKey: 'value', header: 'Value' },
-    ]);
-  });
-
-  it('renders loading state when loading and no data', async () => {
-    mockDataStore.isLoading = true;
-    mockDataStore.consolidated = { distrito: [], asociacion: [] };
-
-    render(Consolidado);
-
-    await tick();
-
-    expect(screen.getByText('Cargando datos del consolidado...')).toBeTruthy();
-  });
-
-  it('renders error message when there is an error', async () => {
-    mockDataStore.isLoading = false;
-    mockDataStore.error = 'Test error message';
-
-    render(Consolidado);
-
-    await tick();
-
-    expect(screen.getByText('Se encontraron problemas al cargar los datos:')).toBeTruthy();
-    expect(screen.getByText('Test error message')).toBeTruthy();
-  });
-
-  it('renders distrito data grid when distrito machines exist', async () => {
-    mockDataStore.isLoading = false;
-    mockDataStore.consolidated = {
-      distrito: [{ id: 1, name: 'Machine 1' }],
-      asociacion: []
-    };
-
-    render(Consolidado);
-
-    await tick();
-
-    expect(createConsolidadoColumns).toHaveBeenCalledWith('Distrito');
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
-  });
-
-  it('renders asociacion data grid when asociacion machines exist', async () => {
-    mockDataStore.isLoading = false;
-    mockDataStore.consolidated = {
-      distrito: [],
-      asociacion: [{ id: 2, name: 'Machine 2' }]
-    };
-
-    render(Consolidado);
-
-    await tick();
-
-    expect(createConsolidadoColumns).toHaveBeenCalledWith('Asociación');
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
-  });
-
-  it('renders both data grids when both types of machines exist', async () => {
-    mockDataStore.isLoading = false;
-    mockDataStore.consolidated = {
-      distrito: [{ id: 1, name: 'Machine 1' }],
-      asociacion: [{ id: 2, name: 'Machine 2' }]
-    };
-
-    render(Consolidado);
-
-    await tick();
-
-    expect(createConsolidadoColumns).toHaveBeenCalledWith('Distrito');
-    expect(createConsolidadoColumns).toHaveBeenCalledWith('Asociación');
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
-  });
-
-  it('calls fetchConsolidadoData when refresh button is clicked', async () => {
-    mockDataStore.isLoading = false;
-    mockDataStore.consolidated = { distrito: [], asociacion: [] };
-
-    render(Consolidado);
-
-    await tick();
-
-    const refreshButton = screen.getByText('Refrescar información');
-    await fireEvent.click(refreshButton);
-
-    expect(data.fetchConsolidadoData).toHaveBeenCalled();
-  });
-
-  it('does not show loader when not loading', async () => {
-    mockDataStore.isLoading = false;
-    mockDataStore.consolidated = { distrito: [], asociacion: [] };
-
-    render(Consolidado);
-
-    await tick();
-
-    expect(screen.queryByText('Cargando datos del consolidado...')).toBeNull();
-  });
-
-  it('does not show error when there is no error', async () => {
-    mockDataStore.isLoading = false;
-    mockDataStore.error = null;
-    mockDataStore.consolidated = { distrito: [], asociacion: [] };
-
-    render(Consolidado);
-
-    await tick();
-
-    expect(screen.queryByText('Se encontraron problemas al cargar los datos:')).toBeNull();
-  });
-});import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { tick } from 'svelte';
 import Consolidado from '../../components/views/Consolidado.svelte';
 
 /**
@@ -186,6 +17,15 @@ vi.mock('../../stores/data.js', () => ({
   data: {
     subscribe: vi.fn(), // Permite controlar el estado del store (loading, error, data).
     fetchConsolidadoData: vi.fn(), // Se espía para verificar si se llama al refrescar.
+  },
+}));
+
+vi.mock('../../stores/auth.js', () => ({
+  auth: {
+    subscribe: vi.fn((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Test Admin', role: 'ADMIN' }, isRefreshing: false });
+      return () => {};
+    }),
   },
 }));
 
@@ -291,7 +131,7 @@ describe('Consolidado', () => {
     await tick();
 
     expect(createConsolidadoColumns).toHaveBeenCalledWith('Distrito');
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   /**
@@ -306,7 +146,7 @@ describe('Consolidado', () => {
     await tick();
 
     expect(createConsolidadoColumns).toHaveBeenCalledWith('Asociación');
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   /**
@@ -329,14 +169,14 @@ describe('Consolidado', () => {
 
   /**
    * @test Llama a la función de refresco al hacer clic en el botón.
-   * @description Simula un clic en el botón "Refrescar información" y verifica
+   * @description Simula un clic en el botón "Refrescar" y verifica
    * que se llama a la función `fetchConsolidadoData` del store.
    */
   it('calls fetchConsolidadoData when refresh button is clicked', async () => {
     render(Consolidado);
     await tick();
 
-    const refreshButton = screen.getByText('Refrescar información');
+    const refreshButton = screen.getByText('Refrescar');
     await fireEvent.click(refreshButton);
 
     expect(data.fetchConsolidadoData).toHaveBeenCalled();

@@ -7,11 +7,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import { auth } from '../stores/auth.js';
 
-// Mock import.meta.env
-vi.mock('import.meta.env', () => ({
-  VITE_API_BASE_URL: 'http://localhost:8080',
-}), { virtual: true });
-
 // Mock jwt-decode
 vi.mock('jwt-decode', () => ({
   jwtDecode: vi.fn(),
@@ -81,7 +76,7 @@ describe('auth store', () => {
 
       expect(result.success).toBe(true);
       expect(result.error).toBe(null);
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/v1/auth/login', {
+      expect(global.fetch).toHaveBeenCalledWith('https://back-test.usochicamocha.co/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: 'testuser', password: 'password' }),
@@ -138,7 +133,7 @@ describe('auth store', () => {
       const result = await auth.login('testuser', 'password');
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Acceso denegado');
+      expect(result.error).toBe('Acceso denegado. Usa la app móvil 📱');
       const storeState = get(auth);
       expect(storeState.isAuthenticated).toBe(false);
     });
@@ -238,7 +233,7 @@ describe('auth store', () => {
       const result = await auth.checkAuth();
 
       expect(result).toBe(true);
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/v1/auth/token/refresh', {
+      expect(global.fetch).toHaveBeenCalledWith('https://back-test.usochicamocha.co/api/v1/auth/token/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: 'refreshToken' }),
@@ -298,7 +293,7 @@ describe('auth store', () => {
       const result = await auth.refreshToken();
 
       expect(result).toBe(true);
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/v1/auth/token/refresh', {
+      expect(global.fetch).toHaveBeenCalledWith('https://back-test.usochicamocha.co/api/v1/auth/token/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: 'refreshToken' }),

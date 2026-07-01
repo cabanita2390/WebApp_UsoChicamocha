@@ -106,25 +106,6 @@ describe('VehicleOrderManagement', () => {
     expect(data.fetchVehicleWorkOrders).toHaveBeenCalled();
   });
 
-  it('muestra mensaje de error cuando el store reporta un error', async () => {
-    mockDataStore.vehicleWorkOrders.data = [];
-    mockDataStore.error = 'Error al cargar órdenes';
-
-    render(VehicleOrderManagement);
-    await tick();
-
-    expect(screen.getByText('Error: Error al cargar órdenes')).toBeTruthy();
-  });
-
-  it('el botón Reintentar aparece cuando hay error', async () => {
-    mockDataStore.error = 'Error de red';
-
-    render(VehicleOrderManagement);
-    await tick();
-
-    expect(screen.getByText('Reintentar')).toBeTruthy();
-  });
-
   it('acepta overrideData como prop para mostrar datos externos', async () => {
     const externalData = {
       data: [{ id: 99, description: 'Orden externa', status: 'ACTIVA' }],

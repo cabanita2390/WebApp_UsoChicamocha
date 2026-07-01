@@ -104,7 +104,7 @@ describe('Dashboard', () => {
     render(Dashboard);
     await tick();
 
-    expect(screen.queryByText('Refrescar información')).toBeNull();
+    expect(screen.queryByText('Refrescar')).toBeNull();
   });
 
   /**
@@ -118,12 +118,12 @@ describe('Dashboard', () => {
     render(Dashboard);
     await tick();
 
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   /**
    * @test Llama a la función de refresco al hacer clic en el botón.
-   * @description Simula un clic en el botón "Refrescar información" y verifica que
+   * @description Simula un clic en el botón "Refrescar" y verifica que
    * se invoca la función `fetchDashboardData` del store.
    */
   it('calls fetchDashboardData when refresh button is clicked', async () => {
@@ -132,7 +132,7 @@ describe('Dashboard', () => {
     render(Dashboard);
     await tick();
 
-    const refreshButton = screen.getByText('Refrescar información');
+    const refreshButton = screen.getByText('Refrescar');
     await fireEvent.click(refreshButton);
 
     expect(data.fetchDashboardData).toHaveBeenCalledWith();
@@ -153,7 +153,7 @@ describe('Dashboard', () => {
     render(Dashboard);
     await tick();
 
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   /**
@@ -171,7 +171,7 @@ describe('Dashboard', () => {
     render(Dashboard);
     await tick();
 
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   /**
@@ -189,7 +189,7 @@ describe('Dashboard', () => {
     render(Dashboard);
     await tick();
 
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 
   /**
@@ -206,6 +206,6 @@ describe('Dashboard', () => {
     render(Dashboard);
     await tick();
 
-    expect(screen.getByText('Refrescar información')).toBeTruthy();
+    expect(screen.getByText('Refrescar')).toBeTruthy();
   });
 });

@@ -145,7 +145,10 @@ describe('WorkOrderModal', () => {
 
     expect(mockDispatch).toHaveBeenCalledWith({
       inspectionId: 1,
-      description: 'Inspección|Sistema de Fugas|Óptimo|Test work details|Test Technician'
+      description: 'Inspección|Sistema de Fugas|Óptimo|Test work details|Test Technician',
+      orderType: null,
+      maintenanceCategory: null,
+      maintenanceType: null,
     });
   });
 

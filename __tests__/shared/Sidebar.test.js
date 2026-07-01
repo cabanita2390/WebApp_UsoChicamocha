@@ -1,110 +1,89 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/svelte';
 import Sidebar from '../../components/shared/Sidebar.svelte';
 
 /**
  * @description Suite de pruebas para el componente Sidebar.
- * Verifica el renderizado de elementos de navegación, clases activas y eventos.
- * Tests incluidos:
- * - renders all navigation items: Verifica que se rendericen todos los elementos de navegación (Dashboard, Usuarios, etc.).
- * - renders navigation text elements: Verifica que se rendericen los textos de navegación.
- * - applies active class to current view: Verifica que se aplique la clase activa a la vista actual.
- * - dispatches navigate event when button is clicked: Verifica que se despache el evento de navegación al hacer clic en un botón.
- * - renders SVG icons for each navigation item: Verifica que se rendericen íconos SVG para cada elemento.
- * - has correct sidebar structure: Verifica que tenga la estructura correcta de sidebar.
- * - changes active view when different view is passed: Verifica que cambie la vista activa cuando se pasa una diferente.
- * - renders with default activeView: Verifica que se renderice con la vista activa por defecto.
+ * El componente no recibe props: la navegación y el estado activo dependen de
+ * svelte-spa-router (link/active), y el ítem "Usuarios" solo aparece para rol ADMIN.
  */
+
+const ADMIN_ITEM_TITLES = [
+  'Panel principal — inspecciones pre-operativas',
+  'Usuarios del sistema',
+  'Inventario: Maquinaria · Vehículos · Motos',
+  'Órdenes de trabajo: Maquinaria · Vehículos · Motos',
+  'Consolidado de aceites y estado: Maquinaria · Vehículos · Motos',
+  'Marcas de aceite del catálogo compartido',
+  'Registro de cargas de combustible — Maquinaria · Vehículos · Motos',
+];
+
+function mockAuth(role) {
+  vi.doMock('../../stores/auth.js', () => ({
+    auth: {
+      subscribe: vi.fn((callback) => {
+        callback({ isAuthenticated: true, currentUser: { name: 'Test User', role }, isRefreshing: false });
+        return () => {};
+      }),
+    },
+  }));
+}
+
 describe('Sidebar', () => {
-  it('renders all navigation items', () => {
-    render(Sidebar, {
-      props: { activeView: 'dashboard' }
+  describe('con rol ADMIN', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      mockAuth('ADMIN');
     });
 
-    expect(screen.getByTitle('Dashboard')).toBeTruthy();
-    expect(screen.getByTitle('Gestionar Usuarios')).toBeTruthy();
-    expect(screen.getByTitle('Gestionar Máquinas')).toBeTruthy();
-    expect(screen.getByTitle('Órdenes de Trabajo')).toBeTruthy();
-    expect(screen.getByTitle('Consolidado')).toBeTruthy();
-    expect(screen.getByTitle('Gestión de Aceites')).toBeTruthy();
-  });
+    it('renderiza los 7 ítems de navegación, incluyendo Usuarios', async () => {
+      const { default: SidebarAdmin } = await import('../../components/shared/Sidebar.svelte');
+      const { container } = render(SidebarAdmin);
 
-  it('renders navigation text elements', () => {
-    render(Sidebar, {
-      props: { activeView: 'dashboard' }
+      for (const title of ADMIN_ITEM_TITLES) {
+        expect(screen.getByTitle(title)).toBeTruthy();
+      }
+      expect(container.querySelectorAll('.nav-item').length).toBe(7);
     });
 
-    expect(screen.getByText('Dashboard')).toBeTruthy();
-    expect(screen.getByText('Usuarios')).toBeTruthy();
-    expect(screen.getByText('Máquinas')).toBeTruthy();
-    expect(screen.getByText('Órdenes')).toBeTruthy();
-    expect(screen.getByText('Consolidado')).toBeTruthy();
-    expect(screen.getByText('Aceites')).toBeTruthy();
+    it('renderiza un ícono SVG por cada ítem', async () => {
+      const { default: SidebarAdmin } = await import('../../components/shared/Sidebar.svelte');
+      const { container } = render(SidebarAdmin);
+
+      expect(container.querySelectorAll('nav svg').length).toBe(7);
+    });
   });
 
-  it('applies active class to current view', () => {
-    render(Sidebar, {
-      props: { activeView: 'dashboard' }
+  describe('con rol SUPERVISOR_OPERATIVO (no admin)', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      mockAuth('SUPERVISOR_OPERATIVO');
     });
 
-    const dashboardButton = screen.getByTitle('Dashboard');
-    expect(dashboardButton.classList.contains('active')).toBe(true);
+    it('oculta el ítem de Usuarios pero muestra el resto', async () => {
+      const { default: SidebarNonAdmin } = await import('../../components/shared/Sidebar.svelte');
+      const { container } = render(SidebarNonAdmin);
+
+      expect(screen.queryByTitle('Usuarios del sistema')).toBeNull();
+      for (const title of ADMIN_ITEM_TITLES.filter((t) => t !== 'Usuarios del sistema')) {
+        expect(screen.getByTitle(title)).toBeTruthy();
+      }
+      expect(container.querySelectorAll('.nav-item').length).toBe(6);
+    });
   });
 
-  it('dispatches navigate event when button is clicked', async () => {
-    const mockDispatch = vi.fn();
-    const component = render(Sidebar, {
-      props: { activeView: 'dashboard' }
+  describe('estructura', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      mockAuth('ADMIN');
     });
 
-    // Simular la función de dispatch (esto es un poco hacky pero necesario para las pruebas)
-    component.component.$$.ctx[0] = mockDispatch;
+    it('tiene la clase .sidebar en el nav raíz', async () => {
+      const { default: SidebarAdmin } = await import('../../components/shared/Sidebar.svelte');
+      const { container } = render(SidebarAdmin);
 
-    const usersButton = screen.getByTitle('Gestionar Usuarios');
-    await fireEvent.click(usersButton);
-
-    // Dado que no podemos simular fácilmente dispatch en componentes Svelte,
-    // solo verificamos que el botón existe y es clickeable
-    expect(usersButton).toBeTruthy();
-  });
-
-  it('renders SVG icons for each navigation item', () => {
-    render(Sidebar, {
-      props: { activeView: 'dashboard' }
+      const sidebar = container.querySelector('.sidebar');
+      expect(sidebar.classList.contains('sidebar')).toBe(true);
     });
-
-    const svgs = document.querySelectorAll('nav svg');
-    expect(svgs.length).toBe(6); // Should have 6 navigation items with icons
-  });
-
-  it('has correct sidebar structure', () => {
-    const { container } = render(Sidebar, {
-      props: { activeView: 'dashboard' }
-    });
-
-    const sidebar = container.querySelector('.sidebar');
-    expect(sidebar.classList.contains('sidebar')).toBe(true);
-
-    const navItems = container.querySelectorAll('.nav-item');
-    expect(navItems.length).toBe(6);
-  });
-
-  it('changes active view when different view is passed', async () => {
-    // Test with users view
-    const { unmount } = render(Sidebar, {
-      props: { activeView: 'users' }
-    });
-
-    const usersButton = screen.getByTitle('Gestionar Usuarios');
-    expect(usersButton.classList.contains('active')).toBe(true);
-
-    unmount();
-  });
-
-  it('renders with default activeView', () => {
-    render(Sidebar);
-
-    const dashboardButton = screen.getByTitle('Dashboard');
-    expect(dashboardButton.classList.contains('active')).toBe(true);
   });
 });

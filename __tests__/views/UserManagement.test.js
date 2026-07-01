@@ -15,6 +15,15 @@ vi.mock('../../stores/data.js', () => ({
   },
 }));
 
+vi.mock('../../stores/auth.js', () => ({
+  auth: {
+    subscribe: vi.fn((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Test Admin', role: 'ADMIN' }, isRefreshing: false });
+      return () => {};
+    }),
+  },
+}));
+
 // Simular definiciones de tabla
 vi.mock('../../config/table-definitions.js', () => ({
   userColumns: [
@@ -139,12 +148,12 @@ describe('UserManagement', () => {
 
     await tick();
 
-    const usernameInput = screen.getByPlaceholderText('Nombre de usuario');
-    const emailInput = screen.getByPlaceholderText('Gmail');
-    const fullNameInput = screen.getByPlaceholderText('Nombre completo');
+    const usernameInput = screen.getByPlaceholderText('jdoe');
+    const emailInput = screen.getByPlaceholderText('correo@gmail.com');
+    const fullNameInput = screen.getByPlaceholderText('Juan Doe');
     const passwordInput = screen.getByPlaceholderText('Contraseña');
-    const roleSelect = screen.getByDisplayValue('MECANIC');
-    const createButton = screen.getByText('Crear');
+    const roleSelect = screen.getByDisplayValue('OPERARIO');
+    const createButton = screen.getByText('Crear usuario');
 
     await fireEvent.input(usernameInput, { target: { value: 'newuser' } });
     await fireEvent.input(emailInput, { target: { value: 'newuser@example.com' } });
@@ -160,6 +169,8 @@ describe('UserManagement', () => {
         fullName: 'New User',
         password: 'password123',
         role: 'ADMIN',
+        licenseCategory: '',
+        licenseExpiry: '',
       });
     });
   });
@@ -172,12 +183,14 @@ describe('UserManagement', () => {
 
     await tick();
 
-    const usernameInput = screen.getByPlaceholderText('Nombre de usuario');
-    const fullNameInput = screen.getByPlaceholderText('Nombre completo');
+    const usernameInput = screen.getByPlaceholderText('jdoe');
+    const emailInput = screen.getByPlaceholderText('correo@gmail.com');
+    const fullNameInput = screen.getByPlaceholderText('Juan Doe');
     const passwordInput = screen.getByPlaceholderText('Contraseña');
-    const createButton = screen.getByText('Crear');
+    const createButton = screen.getByText('Crear usuario');
 
     await fireEvent.input(usernameInput, { target: { value: 'newuser' } });
+    await fireEvent.input(emailInput, { target: { value: 'newuser@example.com' } });
     await fireEvent.input(fullNameInput, { target: { value: 'New User' } });
     await fireEvent.input(passwordInput, { target: { value: 'password123' } });
     await fireEvent.click(createButton);
@@ -208,8 +221,8 @@ describe('UserManagement', () => {
 
     await tick();
 
-    const usernameInput = screen.getByPlaceholderText('Nombre de usuario');
-    const fullNameInput = screen.getByPlaceholderText('Nombre completo');
+    const usernameInput = screen.getByPlaceholderText('jdoe');
+    const fullNameInput = screen.getByPlaceholderText('Juan Doe');
     const passwordInput = screen.getByPlaceholderText('Contraseña');
 
     expect(usernameInput.hasAttribute('required')).toBe(true);
@@ -225,12 +238,14 @@ describe('UserManagement', () => {
 
     await tick();
 
-    const usernameInput = screen.getByPlaceholderText('Nombre de usuario');
-    const fullNameInput = screen.getByPlaceholderText('Nombre completo');
+    const usernameInput = screen.getByPlaceholderText('jdoe');
+    const emailInput = screen.getByPlaceholderText('correo@gmail.com');
+    const fullNameInput = screen.getByPlaceholderText('Juan Doe');
     const passwordInput = screen.getByPlaceholderText('Contraseña');
-    const createButton = screen.getByText('Crear');
+    const createButton = screen.getByText('Crear usuario');
 
     await fireEvent.input(usernameInput, { target: { value: 'newuser' } });
+    await fireEvent.input(emailInput, { target: { value: 'newuser@example.com' } });
     await fireEvent.input(fullNameInput, { target: { value: 'New User' } });
     await fireEvent.input(passwordInput, { target: { value: 'password123' } });
     await fireEvent.click(createButton);
@@ -252,7 +267,7 @@ describe('UserManagement', () => {
 
     await tick();
 
-    const roleSelect = screen.getByDisplayValue('MECANIC');
+    const roleSelect = screen.getByDisplayValue('OPERARIO');
     await fireEvent.change(roleSelect, { target: { value: 'ADMIN' } });
 
     expect(roleSelect.value).toBe('ADMIN');
@@ -266,18 +281,20 @@ describe('UserManagement', () => {
 
     await tick();
 
-    const usernameInput = screen.getByPlaceholderText('Nombre de usuario');
-    const fullNameInput = screen.getByPlaceholderText('Nombre completo');
+    const usernameInput = screen.getByPlaceholderText('jdoe');
+    const emailInput = screen.getByPlaceholderText('correo@gmail.com');
+    const fullNameInput = screen.getByPlaceholderText('Juan Doe');
     const passwordInput = screen.getByPlaceholderText('Contraseña');
-    const createButton = screen.getByText('Crear');
+    const createButton = screen.getByText('Crear usuario');
 
     await fireEvent.input(usernameInput, { target: { value: 'newuser' } });
+    await fireEvent.input(emailInput, { target: { value: 'newuser@example.com' } });
     await fireEvent.input(fullNameInput, { target: { value: 'New User' } });
     await fireEvent.input(passwordInput, { target: { value: 'password123' } });
     fireEvent.click(createButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Creando...')).toBeTruthy();
+      expect(screen.getByText('Creando…')).toBeTruthy();
     });
   });
 });

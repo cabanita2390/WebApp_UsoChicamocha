@@ -126,8 +126,8 @@ describe('data store', () => {
 
       expect(fetchWithAuth).toHaveBeenCalledWith('inspection/1/images');
       expect(result).toEqual([
-        { id: 1, url: 'http://localhost:8080/images/1.jpg' },
-        { id: 2, url: 'http://localhost:8080/images/2.jpg' },
+        { id: 1, url: 'https://back-test.usochicamocha.co/images/1.jpg' },
+        { id: 2, url: 'https://back-test.usochicamocha.co/images/2.jpg' },
       ]);
     });
 

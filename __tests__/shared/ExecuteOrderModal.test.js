@@ -90,7 +90,8 @@ describe('ExecuteOrderModal', () => {
     await tick();
 
     // Verificar que todas las secciones requeridas del formulario estén presentes
-    expect(screen.getByText('Tiempo Empleado (ej. 2 horas, 30 mins):')).toBeTruthy();
+    expect(screen.getByText('Horas empleadas:')).toBeTruthy();
+    expect(screen.getByText('Minutos empleados:')).toBeTruthy();
     expect(screen.getByText('Descripción / Detalles del Trabajo Realizado:')).toBeTruthy();
     expect(screen.getByText('Contratista:')).toBeTruthy();
     expect(screen.getAllByText('Precio:').length).toBeGreaterThan(0);
@@ -167,7 +168,7 @@ describe('ExecuteOrderModal', () => {
 
     await tick();
 
-    const checkbox = screen.getByLabelText('El arreglo fue realizado por el mismo mecánico que reportó');
+    const checkbox = screen.getByLabelText('El arreglo fue realizado por el mismo operario que reportó');
 
     // Inicialmente debería estar marcado (sameMecanic: true por defecto)
     expect(checkbox.checked).toBe(true);
@@ -211,19 +212,21 @@ describe('ExecuteOrderModal', () => {
     await tick();
 
     // Llenar el formulario con datos válidos
-    const timeInput = screen.getByLabelText('Tiempo Empleado (ej. 2 horas, 30 mins):');
+    const hoursInput = screen.getByLabelText('Horas empleadas:');
     const descriptionInput = screen.getByLabelText('Descripción / Detalles del Trabajo Realizado:');
     const priceInput = screen.getByLabelText('Precio:');
     const refInput = screen.getByLabelText('Referencia:');
     const nameInput = screen.getByLabelText('Nombre:');
+    const supplierInput = screen.getByLabelText('Proveedor:');
     const quantityInput = screen.getByLabelText('Cantidad:');
     const sparePartPriceInput = screen.getByLabelText('Precio total:');
 
-    await fireEvent.input(timeInput, { target: { value: '2 horas' } });
+    await fireEvent.input(hoursInput, { target: { value: '2' } });
     await fireEvent.input(descriptionInput, { target: { value: 'Trabajo realizado' } });
     await fireEvent.input(priceInput, { target: { value: '100' } });
     await fireEvent.input(refInput, { target: { value: 'REF001' } });
     await fireEvent.input(nameInput, { target: { value: 'Repuesto 1' } });
+    await fireEvent.input(supplierInput, { target: { value: 'Distribuidora XYZ' } });
     await fireEvent.input(quantityInput, { target: { value: '1' } });
     await fireEvent.input(sparePartPriceInput, { target: { value: '50' } });
 
@@ -257,17 +260,19 @@ describe('ExecuteOrderModal', () => {
     await tick();
 
     // Llenar el formulario sin precio de mano de obra
-    const timeInput = screen.getByLabelText('Tiempo Empleado (ej. 2 horas, 30 mins):');
+    const hoursInput = screen.getByLabelText('Horas empleadas:');
     const descriptionInput = screen.getByLabelText('Descripción / Detalles del Trabajo Realizado:');
     const refInput = screen.getByLabelText('Referencia:');
     const nameInput = screen.getByLabelText('Nombre:');
+    const supplierInput = screen.getByLabelText('Proveedor:');
     const quantityInput = screen.getByLabelText('Cantidad:');
     const sparePartPriceInput = screen.getByLabelText('Precio total:');
 
-    await fireEvent.input(timeInput, { target: { value: '2 horas' } });
+    await fireEvent.input(hoursInput, { target: { value: '2' } });
     await fireEvent.input(descriptionInput, { target: { value: 'Trabajo realizado' } });
     await fireEvent.input(refInput, { target: { value: 'REF001' } });
     await fireEvent.input(nameInput, { target: { value: 'Repuesto 1' } });
+    await fireEvent.input(supplierInput, { target: { value: 'Distribuidora XYZ' } });
     await fireEvent.input(quantityInput, { target: { value: '1' } });
     await fireEvent.input(sparePartPriceInput, { target: { value: '50' } });
 

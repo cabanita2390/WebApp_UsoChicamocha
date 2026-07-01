@@ -1,10 +1,22 @@
 // Test for simplified notification system
-import { 
-  initializeNotifications, 
-  disconnectFromAllStreams, 
-  getSoundNeedsActivation 
-} from '../composables/useNotifications.js';
-import { NOTIFICATION_TYPES } from '../composables/useNotifications.js';
+import {
+  initializeNotifications,
+  disconnectFromAllStreams,
+  getSoundNeedsActivation
+} from '../../composables/useNotifications.js';
+import { NOTIFICATION_TYPES } from '../../composables/useNotifications.js';
+
+// jsdom no expone localStorage por defecto en este entorno de test.
+const localStorageMock = (() => {
+  let store = {};
+  return {
+    getItem: (key) => store[key] ?? null,
+    setItem: (key, value) => { store[key] = String(value); },
+    removeItem: (key) => { delete store[key]; },
+    clear: () => { store = {}; },
+  };
+})();
+Object.defineProperty(window, 'localStorage', { value: localStorageMock, writable: true });
 
 describe('Notification System Refactoring', () => {
   beforeEach(() => {
