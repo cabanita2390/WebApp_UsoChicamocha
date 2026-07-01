@@ -72,3 +72,46 @@ jobs:
           source: "dist/*"
           target: "/var/www/test-admin-uso"
           strip_components: 1
+
+  # ──────────────────────────────────────────────────────────────
+  # CD: solo cuando se hace merge/push a main → despliega a PRODUCCIÓN
+  # ──────────────────────────────────────────────────────────────
+  deploy-prod:
+    name: Build & Deploy (PROD)
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Construir build de PROD
+        run: npm run build:prod
+
+      - name: Limpiar carpeta destino en el VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: rm -rf /var/www/admin-uso/*
+
+      - name: Copiar build al VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "dist/*"
+          target: "/var/www/admin-uso"
+          strip_components: 1
