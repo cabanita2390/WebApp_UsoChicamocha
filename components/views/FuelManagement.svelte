@@ -6,9 +6,11 @@
   import FuelRegistrationModal from '../shared/FuelRegistrationModal.svelte';
   import FuelAssetHistorialModal from '../shared/FuelAssetHistorialModal.svelte';
   import FuelStationsPanel from './fuel/FuelStationsPanel.svelte';
+  import FuelRankingPanel from './fuel/FuelRankingPanel.svelte';
   import { auth } from '../../stores/auth.js';
   import { addNotification } from '../../stores/ui.js';
   import { download } from '../../stores/api.js';
+  import { fmtCurrency, fmtNum, fmtDate, fmtEfficiency } from '@/lib/fuelFormat.js';
 
   // ── store state ──────────────────────────────────────────────────────────────
   let fuelLogs = [];
@@ -235,42 +237,6 @@
       : []),
   ];
 
-  // ── datos enriquecidos para el ranking (DataGrid) ─────────────────────────────
-  $: rankMaxGallons = Math.max(...rankingData.map(r => Number(r.quantityGallons ?? 0)), 1);
-
-  $: rankingEnriched = rankingData.map(r => {
-    const factoryUnit = r.factoryEfficiencyUnit === 'KM_PER_GALLON' ? 'km/Gal'
-      : r.factoryEfficiencyUnit === 'KM_PER_CUBIC_METER' ? 'km/m³'
-      : r.factoryEfficiencyUnit === 'GAL_PER_HOUR' ? 'Gal/h'
-      : r.factoryEfficiencyUnit === 'M3_PER_HOUR' ? 'm³/h' : '';
-    return {
-      ...r,
-      _barPct:       Number(r.quantityGallons ?? 0) / rankMaxGallons * 100,
-      _effLabel:     fmtEfficiency(r),
-      _factoryLabel: r.factoryEfficiency != null ? `${fmtNum(r.factoryEfficiency, 2)} ${factoryUnit}` : '—',
-      _gallonsLabel: fmtNum(r.quantityGallons, 3) + ' Gal',
-      _costLabel:    fmtCurrency(r.totalCostCalculated),
-      _dateLabel:    fmtDate(r.fuelDateTime),
-    };
-  });
-
-  const rankingColumns = [
-    { id: 'pos',     header: '#',                accessorFn: () => 0,                      size: 45,  enableSorting: false, meta: { isRankPosition: true } },
-    { accessorKey: 'assetType',  header: 'Tipo',          size: 80 },
-    { id: 'plate', header: 'Placa / Nombre', accessorFn: getAssetLabel, size: 200 },
-    { id: 'gallons', header: 'Galones totales',  accessorFn: r => Number(r.quantityGallons ?? 0), size: 120,
-      cell: info => info.row.original._gallonsLabel },
-    { id: 'bar',     header: 'Consumo relativo', accessorFn: r => r._barPct,               size: 160, enableSorting: false, meta: { isRankBar: true } },
-    { id: 'cost',    header: 'Costo total',      accessorFn: r => Number(r.totalCostCalculated ?? 0), size: 110,
-      cell: info => info.row.original._costLabel },
-    { id: 'factEff', header: 'Efic. Fábrica',    accessorFn: r => r.factoryEfficiency != null ? Number(r.factoryEfficiency) : null, size: 100,
-      cell: info => info.row.original._factoryLabel },
-    { id: 'estEff',  header: 'Efic. Estimada',   accessorFn: r => r.efficiencyValue != null ? Number(r.efficiencyValue) : null,  size: 130,
-      meta: { isEfficiencyRank: true },
-      cell: info => info.row.original._effLabel },
-    { id: 'date',    header: 'Últ. carga',       accessorFn: r => r.fuelDateTime ? new Date(r.fuelDateTime).getTime() : 0, size: 130,
-      cell: info => info.row.original._dateLabel },
-  ];
 
   // ── helpers de sorting compartidos (anomalías / facturas) ────────────────────
   function sortIcon(activeCol, activeDir, col) {
@@ -498,33 +464,6 @@
     if (type === 'fuel_invoice_upload' && eventData) {
       handleInvoiceUpload(row.id, eventData);
     }
-  }
-
-  // ── helpers de formato ────────────────────────────────────────────────────────
-  function fmtCurrency(v) {
-    if (v == null) return '—';
-    return `$${Number(v).toLocaleString('es-CO')}`;
-  }
-  function fmtNum(v, d = 2) {
-    if (v == null) return '—';
-    return Number(v).toLocaleString('es-CO', { minimumFractionDigits: d, maximumFractionDigits: d });
-  }
-  function fmtDate(v) {
-    if (!v) return '—';
-    const d = new Date(v);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  }
-  function fmtEfficiency(r) {
-    if (!r.efficiencyValue) return '—';
-    const unit = r.efficiencyUnit === 'KM_PER_GALLON' ? 'km/Gal'
-               : r.efficiencyUnit === 'GALLON_PER_HOUR' ? 'Gal/h'
-               : r.efficiencyUnit === 'KM_PER_LITER' ? 'km/L' : 'L/h';
-    return `${fmtNum(r.efficiencyValue, 2)} ${unit}`;
   }
 
   function getAssetLabel(r) {
@@ -990,21 +929,7 @@
 
   <!-- ── TAB: RANKING ───────────────────────────────────────────────────────── -->
   {:else if activeTab === 'ranking'}
-    {#if rankingLoading}
-      <div class="loader-container"><Loader /><p>Cargando ranking...</p></div>
-    {:else if rankingData.length === 0}
-      <div class="empty-msg">Sin datos de ranking para el período seleccionado.</div>
-    {:else}
-      <DataGrid
-        columns={rankingColumns}
-        data={rankingEnriched}
-        totalElements={rankingEnriched.length}
-        totalPages={Math.max(1, Math.ceil(rankingEnriched.length / 20))}
-        currentPage={0}
-        pageSize={20}
-        showPagination={true}
-      />
-    {/if}
+    <FuelRankingPanel loading={rankingLoading} data={rankingData} />
 
   <!-- ── TAB: ANOMALÍAS ─────────────────────────────────────────────────────── -->
   {:else if activeTab === 'anomalias'}
