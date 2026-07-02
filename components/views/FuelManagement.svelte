@@ -4,14 +4,13 @@
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
   import FuelRegistrationModal from '../shared/FuelRegistrationModal.svelte';
-  import FuelAssetHistorialModal from '../shared/FuelAssetHistorialModal.svelte';
   import FuelStationsPanel from './fuel/FuelStationsPanel.svelte';
   import FuelRankingPanel from './fuel/FuelRankingPanel.svelte';
   import FuelAnomaliesPanel from './fuel/FuelAnomaliesPanel.svelte';
+  import FuelRegistrosPanel from './fuel/FuelRegistrosPanel.svelte';
   import { auth } from '../../stores/auth.js';
-  import { addNotification } from '../../stores/ui.js';
   import { download } from '../../stores/api.js';
-  import { fmtCurrency, fmtNum, fmtDate, fmtEfficiency } from '@/lib/fuelFormat.js';
+  import { fmtCurrency, fmtNum, fmtDate } from '@/lib/fuelFormat.js';
 
   // ── store state ──────────────────────────────────────────────────────────────
   let fuelLogs = [];
@@ -198,7 +197,6 @@
   $: LINE_W      = Math.max(500, statsData.length * 90);
 
   // ── paginación cliente por tab ────────────────────────────────────────────────
-  let regPage = 0;    let regPageSize = 20;
   let invPage = 0;    let invPageSize = 20;
 
   // ── helpers de sorting compartidos (facturas) ─────────────────────────────────
@@ -242,20 +240,8 @@
     invPage = 0;
   }
 
-  // ── paginación ────────────────────────────────────────────────────────────────
-  $: regTotalPages = Math.max(1, Math.ceil(latestFuelLogs.length / regPageSize));
-  $: regPagedData  = latestFuelLogs.slice(regPage * regPageSize, (regPage + 1) * regPageSize);
-
-  // Resetear página al cambiar datos
-  $: latestFuelLogs, regPage = 0;
-
-
-
   // ── modals ───────────────────────────────────────────────────────────────────
   let showCreateModal = false;
-  let historialRow = null;
-  let historialLogs = [];
-  let historialLoading = false;
 
 
   // ── export excel ─────────────────────────────────────────────────────────────
@@ -346,106 +332,12 @@
     if (activeTab === 'estadisticas') { statsLoaded     = false; await loadStats(); }
   }
 
-  async function openHistorial(row) {
-    historialRow = row;
-    historialLogs = [];
-    historialLoading = true;
-    try {
-      historialLogs = await dataStore.fetchFuelHistoryByAsset(row.assetType, row.assetId);
-    } catch (e) {
-      error = e.message;
-    } finally {
-      historialLoading = false;
-    }
-  }
-
-
-  async function handleInvoiceUpload(id, event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      await dataStore.uploadFuelInvoice(id, file);
-      addNotification({
-        id: Date.now(),
-        text: `Factura "${file.name}" subida exitosamente.`
-      });
-    } catch (e) {
-      error = e.message;
-      addNotification({
-        id: Date.now(),
-        text: `Error al subir factura: ${e.message}`
-      });
-    }
-    finally { event.target.value = ''; }
-  }
-
   function invoiceUrl(path) {
     if (!path) return null;
     if (path.startsWith('http')) return path;
     const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
     return `${apiBase}/${path}`;
   }
-
-  function handleGridAction(event) {
-    const { type, data: row, extraData: eventData } = event.detail;
-    if (type === 'fuel_historial') openHistorial(row);
-    if (type === 'fuel_invoice_upload' && eventData) {
-      handleInvoiceUpload(row.id, eventData);
-    }
-  }
-
-  function getAssetLabel(r) {
-    if (r.assetType === 'MACHINE') {
-      const machine = $dataStore.machines?.find(m => m.id === r.assetId);
-      if (machine) {
-        const parts = [machine.name, machine.model, r.assetPlate].filter(p => p && p.trim());
-        return parts.join(' · ');
-      }
-    } else if (r.assetType === 'VEHICLE') {
-      const vehicle = $dataStore.vehicles?.find(v => v.id === r.assetId);
-      if (vehicle) {
-        const parts = [r.assetPlate, vehicle.marca].filter(p => p && p.trim());
-        return parts.join(' — ');
-      }
-    } else if (r.assetType === 'MOTO') {
-      const moto = $dataStore.motos?.find(m => m.id === r.assetId);
-      if (moto) {
-        const parts = [r.assetPlate, moto.marca].filter(p => p && p.trim());
-        return parts.join(' — ');
-      }
-    }
-    return r.assetPlate || `ID ${r.assetId}`;
-  }
-
-  // ── columnas tabla registros ──────────────────────────────────────────────────
-  const columns = [
-    { header: 'Fecha', accessorFn: r => {
-      if (!r.fuelDateTime) return '—';
-      const d = new Date(r.fuelDateTime);
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      return `${day}/${month}/${year}`;
-    }},
-    { header: 'Tipo Activo', accessorKey: 'assetType' },
-    { header: 'Placa / Nombre', accessorFn: getAssetLabel, size: 200 },
-    { header: 'Tipo Combustible', accessorKey: 'fuelType' },
-    { header: 'Cantidad', accessorFn: r => r.quantity != null ? `${r.quantity} ${r.quantityUnit ?? ''}` : '—' },
-    { header: 'Galones', accessorFn: r => r.quantityGallons != null ? Number(r.quantityGallons).toFixed(3) : '—' },
-    { header: 'Precio/Unidad', accessorFn: r => r.pricePerUnit != null ? `$${Number(r.pricePerUnit).toLocaleString('es-CO')}` : '—' },
-    { header: 'Total', accessorFn: r => {
-        const val = r.totalCostCalculated != null ? `$${Number(r.totalCostCalculated).toLocaleString('es-CO')}` : '—';
-        return r.totalCostMismatch ? `⚠ ${val}` : val;
-      }
-    },
-    { header: 'Odómetro Km', accessorKey: 'odometerKm' },
-    { header: 'Horómetro h', accessorKey: 'hourMeter' },
-    { header: 'Eficiencia', accessorFn: fmtEfficiency },
-    { header: 'Anomalía', accessorFn: r => r.isAnomaly ? '⚠ Sí' : 'No' },
-    { header: 'Estación', accessorKey: 'serviceStation' },
-    { header: 'Registrado por', accessorKey: 'registeredBy' },
-    { header: 'Historial', id: 'fuel_historial', accessorFn: () => '', meta: { isFuelHistorial: true } },
-  ];
 </script>
 
 <style>
@@ -812,25 +704,7 @@
 
   <!-- ── TAB: REGISTROS ─────────────────────────────────────────────────────── -->
   {#if activeTab === 'registros'}
-    {#if isLoading}
-      <div class="loader-container">
-        <Loader />
-        <p>Cargando registros...</p>
-      </div>
-    {:else}
-      <DataGrid
-        {columns}
-        data={regPagedData}
-        totalPages={regTotalPages}
-        currentPage={regPage}
-        pageSize={regPageSize}
-        totalElements={latestFuelLogs.length}
-        on:action={handleGridAction}
-        on:pageChange={e => { regPage = e.detail; }}
-        on:sizeChange={e => { regPageSize = e.detail; regPage = 0; }}
-        showDeleteButton={isAdmin}
-      />
-    {/if}
+    <FuelRegistrosPanel {isLoading} logs={latestFuelLogs} {isAdmin} on:error={(e) => error = e.detail} />
 
   <!-- ── TAB: RANKING ───────────────────────────────────────────────────────── -->
   {:else if activeTab === 'ranking'}
@@ -1086,14 +960,3 @@
   />
 {/if}
 
-<!-- Asset Historial Modal -->
-{#if historialRow}
-  <FuelAssetHistorialModal
-    assetType={historialRow.assetType}
-    assetPlate={historialRow.assetPlate}
-    logs={historialLogs}
-    loading={historialLoading}
-    onInvoiceUpload={handleInvoiceUpload}
-    on:close={() => { historialRow = null; historialLogs = []; }}
-  />
-{/if}
