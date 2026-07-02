@@ -30,6 +30,9 @@ jobs:
       - name: Ejecutar tests unitarios
         run: npm test -- --run
 
+      - name: Build de producción
+        run: npm run build
+
   # ──────────────────────────────────────────────────────────────
   # CD: solo cuando se hace push a test → despliega a TEST/QA
   # ──────────────────────────────────────────────────────────────
