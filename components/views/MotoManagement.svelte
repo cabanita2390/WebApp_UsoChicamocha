@@ -10,7 +10,7 @@
   import { download } from "../../stores/api.js";
   import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
-  import { validateDocumentFileSize } from '@/lib/fileValidation.js';
+  import { normLower, normalizeBelongsTo, formatSubidoPor, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -48,14 +48,6 @@
     curriculumData = null;
   }
 
-  function normalizeBelongsTo(value) {
-    if (!value) return 'Distrito';
-    const trimmed = String(value).trim().toLowerCase();
-    if (trimmed === 'asociacion') return 'Asociación';
-    if (trimmed === 'asociación') return 'Asociación';
-    return 'Distrito';
-  }
-
   let quickModal = null;
   let quickName = "";
   let quickError = "";
@@ -72,10 +64,6 @@
     location: "Ej: Unidad Pantano, Represa LA COPA…",
   };
 
-  function normLower(s) {
-    return String(s ?? "").trim().toLowerCase();
-  }
-
   function resolveBrandIdFromMoto(v) {
     if (v?.idMarca != null && v.idMarca !== "") return Number(v.idMarca);
     const name = v?.marca;
@@ -83,15 +71,6 @@
     const nl = normLower(name);
     const hit = brands.find((b) => normLower(b.descripcion) === nl);
     return hit?.idMarca != null ? Number(hit.idMarca) : null;
-  }
-
-  function filePickLabel(fileList) {
-    if (!fileList || fileList.length === 0) return "Ningún archivo";
-    return fileList[0].name;
-  }
-
-  function locationLabel(loc) {
-    return loc?.name ?? loc?.nombre ?? "";
   }
 
   function openQuickCatalog(kind) {
@@ -240,16 +219,6 @@
     }
   }
 
-  function formatSubidoPor(val) {
-    if (val == null || String(val).trim() === '') return '—';
-    const s = String(val).trim();
-    if (s.startsWith('UserPrincipal[')) {
-      const m = s.match(/username=([^,\]]+)/);
-      if (m) return m[1];
-    }
-    return s;
-  }
-
   $: motos = Array.isArray($data.motos) ? $data.motos : [];
   $: brands = Array.isArray($data.vehicleBrands) ? $data.vehicleBrands : [];
   $: types = Array.isArray($data.vehicleTypes) ? $data.vehicleTypes : [];
@@ -285,12 +254,7 @@
   });
 
   function firstOversizedDocError() {
-    for (const fileList of [docSoatFile, docTecnoFile, docTarjetaPropiedadFile]) {
-      const f = fileList && fileList.length ? fileList[0] : null;
-      const err = validateDocumentFileSize(f);
-      if (err) return err;
-    }
-    return null;
+    return firstOversizedDocErrorOf([docSoatFile, docTecnoFile, docTarjetaPropiedadFile]);
   }
 
   async function handleCreateMoto(event) {

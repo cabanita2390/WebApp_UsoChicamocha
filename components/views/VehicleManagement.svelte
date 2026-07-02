@@ -10,7 +10,7 @@
   import { download } from '../../stores/api.js';
   import { formatVehiclePayload } from '@/lib/textFormat.js';
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
-  import { validateDocumentFileSize } from '@/lib/fileValidation.js';
+  import { normLower, normalizeBelongsTo, formatSubidoPor, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -60,18 +60,6 @@
     location: 'Nueva ubicación',
   };
 
-  function normLower(s) {
-    return String(s ?? '').trim().toLowerCase();
-  }
-
-  function normalizeBelongsTo(value) {
-    if (!value) return 'Distrito';
-    const trimmed = String(value).trim().toLowerCase();
-    if (trimmed === 'asociacion') return 'Asociación';
-    if (trimmed === 'asociación') return 'Asociación';
-    return 'Distrito';
-  }
-
   /** Usa id del API si existe; si no, busca por nombre de marca (sin distinguir mayúsculas). */
   function resolveBrandIdFromVehicle(v) {
     if (v?.idMarca != null && v.idMarca !== '') return Number(v.idMarca);
@@ -90,23 +78,6 @@
     const nl = normLower(name);
     const hit = types.find((t) => normLower(tipoCatalogName(t)) === nl);
     return hit?.id != null ? Number(hit.id) : null;
-  }
-
-  /** Texto mostrado en el control estilo “Examinar…” de documentos. */
-  function filePickLabel(fileList) {
-    if (!fileList || fileList.length === 0) return 'Ningún archivo';
-    return fileList[0].name;
-  }
-
-  /** Filas antiguas: a veces se persistió el toString() del principal (UserPrincipal[id=…, username=…]). */
-  function formatSubidoPor(val) {
-    if (val == null || String(val).trim() === '') return '—';
-    const s = String(val).trim();
-    if (s.startsWith('UserPrincipal[')) {
-      const m = s.match(/username=([^,\]]+)/);
-      if (m) return m[1];
-    }
-    return s;
   }
 
   function openQuickCatalog(kind) {
@@ -285,10 +256,6 @@
   $: locations = Array.isArray($data.locations) ? $data.locations : [];
   $: isLoading = $data.isLoading;
 
-  function locationLabel(loc) {
-    return loc?.name ?? loc?.nombre ?? '';
-  }
-
   onMount(async () => {
     try {
       await Promise.all([
@@ -314,12 +281,7 @@
   });
 
   function firstOversizedDocError() {
-    for (const fileList of [docSoatFile, docTecnoFile, docTarjetaPropiedadFile, docExtintorFile]) {
-      const f = fileList && fileList.length ? fileList[0] : null;
-      const err = validateDocumentFileSize(f);
-      if (err) return err;
-    }
-    return null;
+    return firstOversizedDocErrorOf([docSoatFile, docTecnoFile, docTarjetaPropiedadFile, docExtintorFile]);
   }
 
   async function handleCreateVehicle(event) {
