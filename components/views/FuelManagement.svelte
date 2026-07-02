@@ -7,6 +7,7 @@
   import FuelAssetHistorialModal from '../shared/FuelAssetHistorialModal.svelte';
   import FuelStationsPanel from './fuel/FuelStationsPanel.svelte';
   import FuelRankingPanel from './fuel/FuelRankingPanel.svelte';
+  import FuelAnomaliesPanel from './fuel/FuelAnomaliesPanel.svelte';
   import { auth } from '../../stores/auth.js';
   import { addNotification } from '../../stores/ui.js';
   import { download } from '../../stores/api.js';
@@ -52,10 +53,7 @@
   let rankingLoading = false;
   let rankingLoaded = false; // loaded for current filter
 
-  // ── anomalías ────────────────────────────────────────────────────────────────
-  let anomaliesData = [];
-  let anomaliesLoading = false;
-  let anomaliesLoaded = false;
+  let anomaliesPanelRef;
 
   let statsPageSize = 12;
   let statsCurrentPage = 0;
@@ -203,42 +201,7 @@
   let regPage = 0;    let regPageSize = 20;
   let invPage = 0;    let invPageSize = 20;
 
-  // ── datos enriquecidos para anomalías (DataGrid) ─────────────────────────────
-  $: anomaliesEnriched = anomaliesData.map(r => ({
-    ...r,
-    _effLabel:          fmtEfficiency(r),
-    _costLabel:         fmtCurrency(r.totalCostCalculated),
-    _costMismatchLabel: fmtCurrency(r.totalCostActual),
-    _gallonsLabel:      `${fmtNum(r.quantityGallons, 3)} Gal`,
-    _dateLabel:         fmtDate(r.fuelDateTime),
-  }));
-
-  $: anomalyColumns = [
-    { id: 'date',     header: 'Fecha',           accessorFn: r => r.fuelDateTime ? new Date(r.fuelDateTime).getTime() : 0,
-                                                  cell: info => info.row.original._dateLabel,   size: 120 },
-    { accessorKey: 'assetType',  header: 'Tipo',             size: 80  },
-    { id: 'plate', header: 'Placa / Nombre', accessorFn: getAssetLabel, size: 200 },
-    { accessorKey: 'fuelType',   header: 'Combustible',      size: 130 },
-    { id: 'gallons',  header: 'Galones',          accessorFn: r => Number(r.quantityGallons ?? 0),
-                                                  cell: info => info.row.original._gallonsLabel, size: 90 },
-    { id: 'cost',     header: 'Total',            accessorFn: r => Number(r.totalCostCalculated ?? 0),
-                                                  size: 120, meta: { isAnomalyCost: true } },
-    { id: 'eff',      header: 'Eficiencia',       accessorFn: r => Number(r.efficiencyValue ?? -Infinity),
-                                                  size: 110, meta: { isAnomalyEfficiency: true } },
-    { accessorKey: 'odometerKm',  header: 'Odómetro km',   size: 100 },
-    { accessorKey: 'hourMeter',   header: 'Horómetro h',    size: 100 },
-    { accessorKey: 'serviceStation', header: 'Estación',    size: 90  },
-    { accessorKey: 'registeredBy',   header: 'Registrado por', size: 100 },
-    { id: 'receipt',  header: 'Recibo',           enableSorting: false, size: 80,
-                                                  meta: { isInvoicePhotoLink: true } },
-    ...($auth?.currentUser?.role === 'ADMIN'
-      ? [{ id: 'dismiss', header: 'Acciones', enableSorting: false, size: 130,
-           meta: { isAnomDismissAction: true } }]
-      : []),
-  ];
-
-
-  // ── helpers de sorting compartidos (anomalías / facturas) ────────────────────
+  // ── helpers de sorting compartidos (facturas) ─────────────────────────────────
   function sortIcon(activeCol, activeDir, col) {
     if (activeCol !== col) return '';
     return activeDir === 'asc' ? ' ▲' : ' ▼';
@@ -294,27 +257,6 @@
   let historialLogs = [];
   let historialLoading = false;
 
-
-  // ── anomaly dismiss ──────────────────────────────────────────────────────────
-  let dismissRow = null;
-  let dismissReason = '';
-  let dismissCost = '';
-  let dismissLoading = false;
-
-  async function handleDismissAnomaly() {
-    dismissLoading = true;
-    try {
-      await dataStore.dismissFuelAnomaly(
-        dismissRow.id,
-        dismissReason || null,
-        dismissCost ? Number(dismissCost) : null
-      );
-      anomaliesLoaded = false;
-      await loadAnomalies();
-      dismissRow = null; dismissReason = ''; dismissCost = '';
-    } catch (e) { error = e.message; }
-    finally { dismissLoading = false; }
-  }
 
   // ── export excel ─────────────────────────────────────────────────────────────
   async function handleExportExcel() {
@@ -390,23 +332,9 @@
     }
   }
 
-  async function loadAnomalies() {
-    if (anomaliesLoading) return;
-    anomaliesLoading = true;
-    try {
-      anomaliesData = await dataStore.fetchFuelAnomalies();
-      anomaliesLoaded = true;
-    } catch (e) {
-      error = e.message;
-    } finally {
-      anomaliesLoading = false;
-    }
-  }
-
   function switchTab(tab) {
     activeTab = tab;
     if (tab === 'ranking'      && !rankingLoaded)   loadRanking();
-    if (tab === 'anomalias'    && !anomaliesLoaded)  loadAnomalies();
     if (tab === 'estadisticas' && !statsLoaded)     loadStats();
   }
 
@@ -414,7 +342,7 @@
     showCreateModal = false;
     await applyFilter();
     if (activeTab === 'ranking')      { rankingLoaded  = false; await loadRanking(); }
-    if (activeTab === 'anomalias')    { anomaliesLoaded = false; await loadAnomalies(); }
+    if (activeTab === 'anomalias')    { await anomaliesPanelRef?.reload(); }
     if (activeTab === 'estadisticas') { statsLoaded     = false; await loadStats(); }
   }
 
@@ -574,21 +502,6 @@
   .error { color: red; font-weight: bold; margin-bottom: 8px; font-size: 11px; flex-shrink: 0; }
   .loader-container { display: flex; flex-direction: column; align-items: center; height: 160px; justify-content: center; gap: 12px; font-size: 11px; }
 
-  /* ── toolbar + contenedor (replica exacta del DataGrid) ── */
-  .fuel-toolbar {
-    padding: 12px;
-    background: #e0e0e0;
-    border: 1px solid #808080;
-    border-bottom: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
-    font-size: 11px;
-  }
-  .fuel-toolbar-label { font-weight: bold; color: #333; }
-
   .fuel-table-wrap {
     overflow: auto;
     border: 2px inset #c0c0c0;
@@ -625,14 +538,6 @@
   .badge-warn { display: inline-block; padding: 1px 6px; background: #ffcc00; border: 1px solid #cc9900; font-weight: bold; font-size: 10px; color: #5c3d00; }
   .dismiss-btn { padding: 2px 8px; font-size: 10px; font-family: inherit; border: 1px outset #c0c0c0; cursor: pointer; background: linear-gradient(to bottom, #f0f0f0,#d0d0d0); }
   .dismiss-btn:hover { background: linear-gradient(to bottom, #fff,#e0e0e0); }
-
-  /* dismiss dialog */
-  .dismiss-panel { background: #fff8e0; border: 1px solid #c8a800; padding: 10px; margin-bottom: 8px; font-size: 11px; }
-  .dismiss-panel h4 { margin: 0 0 8px 0; font-size: 12px; }
-  .dismiss-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
-  .dismiss-field { display: flex; flex-direction: column; gap: 3px; }
-  .dismiss-field label { font-weight: bold; font-size: 10px; }
-  .dismiss-field input { padding: 3px 5px; border: 1px inset #808080; font-size: 11px; font-family: inherit; }
 
   .btn-export { color: #1a5c1a; font-weight: bold; }
   .empty-msg { text-align: center; padding: 32px; color: #666; font-size: 12px; }
@@ -933,54 +838,7 @@
 
   <!-- ── TAB: ANOMALÍAS ─────────────────────────────────────────────────────── -->
   {:else if activeTab === 'anomalias'}
-    {#if anomaliesLoading}
-      <div class="loader-container"><Loader /><p>Cargando anomalías...</p></div>
-    {:else if anomaliesData.length === 0}
-      <div class="empty-msg">✓ No hay registros marcados como anómalos.</div>
-    {:else}
-      <div class="fuel-toolbar">
-        <span class="fuel-toolbar-label">
-          {anomaliesData.length} registro{anomaliesData.length !== 1 ? 's' : ''} con consumo anómalo detectados
-        </span>
-      </div>
-      <!-- Panel de dismiss activo -->
-      {#if dismissRow}
-        <div class="dismiss-panel">
-          <h4>Descartar anomalía — {dismissRow.assetPlate ?? `ID ${dismissRow.assetId}`} · {fmtDate(dismissRow.fuelDateTime)}</h4>
-          <div class="dismiss-row">
-            <div class="dismiss-field" style="flex:2">
-              <label>Razón (opcional):</label>
-              <input type="text" bind:value={dismissReason} placeholder="Ej: Error de digitación corregido" />
-            </div>
-            <div class="dismiss-field" style="flex:1">
-              <label>Costo real corregido ($):</label>
-              <input type="number" step="0.01" bind:value={dismissCost} placeholder="Dejar vacío si no cambia" />
-            </div>
-            <button class="btn btn-primary" disabled={dismissLoading} on:click={handleDismissAnomaly}>
-              {dismissLoading ? '...' : '✓ Confirmar'}
-            </button>
-            <button class="btn" on:click={() => { dismissRow = null; dismissReason = ''; dismissCost = ''; }}>
-              Cancelar
-            </button>
-          </div>
-        </div>
-      {/if}
-
-      <DataGrid
-        columns={anomalyColumns}
-        data={anomaliesEnriched}
-        totalElements={anomaliesEnriched.length}
-        totalPages={Math.max(1, Math.ceil(anomaliesEnriched.length / 20))}
-        currentPage={0}
-        pageSize={20}
-        showPagination={true}
-        on:action={e => {
-          if (e.detail.type === 'dismiss_anomaly') {
-            dismissRow = e.detail.data; dismissReason = ''; dismissCost = '';
-          }
-        }}
-      />
-    {/if}
+    <FuelAnomaliesPanel bind:this={anomaliesPanelRef} on:error={(e) => error = e.detail} />
 
   <!-- ── TAB: ESTADÍSTICAS ─────────────────────────────────────────────────── -->
   {:else if activeTab === 'estadisticas'}
