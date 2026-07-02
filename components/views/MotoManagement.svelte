@@ -6,13 +6,14 @@
   import DocumentUpdateModal from "../shared/DocumentUpdateModal.svelte";
   import QuickCatalogModal from "../shared/QuickCatalogModal.svelte";
   import CurriculumModal from "../shared/CurriculumModal.svelte";
+  import DocHistoryModal from "../shared/DocHistoryModal.svelte";
   import { motoInventoryColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
   import { download } from "../../stores/api.js";
   import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
-  import { normLower, normalizeBelongsTo, formatSubidoPor, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
+  import { normLower, normalizeBelongsTo, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -766,70 +767,14 @@
 {/if}
 {/if}
 
-{#if showDocHistoryModal}
-  <div class="modal-overlay" on:click={closeDocHistoryModal}>
-    <div class="modal-content modal-doc-history" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3>Historial de documentación — {docHistoryMoto?.placa ?? ''}</h3>
-        <button class="close-btn" on:click={closeDocHistoryModal}>×</button>
-      </div>
-      {#if docHistoryLoading}
-        <div class="doc-history-loader"><Loader /></div>
-      {:else if docHistory && docHistory.length > 0}
-        <div class="doc-history-table-wrap">
-          <table class="doc-history-table">
-            <thead>
-              <tr>
-                <th>Tipo</th>
-                <th>Vence</th>
-                <th>Estado doc</th>
-                <th>Versión</th>
-                <th>Registrado</th>
-                <th>Por</th>
-                <th>Archivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each docHistory as row}
-                <tr class:doc-row-activa={row.vigente} class:doc-row-reemplazada={!row.vigente}>
-                  <td>{row.tipoDocumento}</td>
-                  <td>{row.fechaVigencia ?? '—'}</td>
-                  <td class="doc-estado-cell"
-                      class:doc-estado-vigente={row.estadoCalculado === 'Vigente'}
-                      class:doc-estado-vencido={row.estadoCalculado === 'Vencido'}
-                      class:doc-estado-proximo={row.estadoCalculado === 'Próximo a Vencer'}>
-                    {row.estadoCalculado ?? '—'}
-                  </td>
-                  <td class="doc-version-cell">
-                    {#if row.vigente}
-                      <span class="badge-activa">Activa</span>
-                    {:else}
-                      <span class="badge-reemplazada">Reemplazada</span>
-                    {/if}
-                  </td>
-                  <td class="doc-fecha-registro">{row.subidoEn ? (() => { const d = new Date(row.subidoEn); const day = String(d.getDate()).padStart(2, '0'); const month = String(d.getMonth() + 1).padStart(2, '0'); const year = d.getFullYear(); const hours = String(d.getHours()).padStart(2, '0'); const minutes = String(d.getMinutes()).padStart(2, '0'); return `${day}/${month}/${year} ${hours}:${minutes}`; })() : '—'}</td>
-                  <td>{formatSubidoPor(row.subidoPor)}</td>
-                  <td>
-                    {#if row.urlArchivo}
-                      <a href={row.urlArchivo} target="_blank" rel="noopener noreferrer">Ver</a>
-                    {:else}
-                      —
-                    {/if}
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {:else if docHistory}
-        <p class="doc-history-empty">Sin registros de documentos para esta motocicleta.</p>
-      {/if}
-      <div class="modal-actions">
-        <button type="button" class="btn-cancel" on:click={closeDocHistoryModal}>Cerrar</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<DocHistoryModal
+  open={showDocHistoryModal}
+  plate={docHistoryMoto?.placa}
+  loading={docHistoryLoading}
+  history={docHistory}
+  emptyMessage="Sin registros de documentos para esta motocicleta."
+  on:close={closeDocHistoryModal}
+/>
 
 <QuickCatalogModal
   open={!!quickModal}
@@ -1140,75 +1085,6 @@
     border: 1px outset #fff;
     padding: 4px 10px;
     cursor: pointer;
-  }
-  .modal-content.modal-doc-history {
-    width: min(96vw, 620px);
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
-  }
-  .doc-history-loader {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 32px 0;
-  }
-  .doc-history-table-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    border: 1px solid #a0a0a0;
-    background: #fff;
-    margin-bottom: 4px;
-  }
-  .doc-history-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-  }
-  .doc-history-table th,
-  .doc-history-table td {
-    border: 1px solid #c0c0c0;
-    padding: 6px 8px;
-    text-align: left;
-    white-space: nowrap;
-  }
-  .doc-history-table th {
-    background: #d8d8d8;
-    font-weight: bold;
-    position: sticky;
-    top: 0;
-  }
-  .doc-row-activa td { background: #f5fff5; }
-  .doc-row-reemplazada td { background: #fafafa; color: #707070; }
-  .doc-version-cell { white-space: nowrap; }
-  .badge-activa {
-    display: inline-block;
-    padding: 1px 6px;
-    background: #1a7a1a;
-    color: #fff;
-    font-size: 9px;
-    font-weight: bold;
-    border-radius: 2px;
-  }
-  .badge-reemplazada {
-    display: inline-block;
-    padding: 1px 6px;
-    background: #909090;
-    color: #fff;
-    font-size: 9px;
-    border-radius: 2px;
-  }
-  .doc-estado-cell { font-weight: bold; }
-  .doc-estado-vigente { color: #1a7a1a; }
-  .doc-estado-vencido { color: #b00000; }
-  .doc-estado-proximo { color: #b06000; }
-  .doc-fecha-registro { white-space: nowrap; font-size: 10px; }
-  .doc-history-empty {
-    padding: 16px;
-    font-size: 11px;
-    color: #606060;
-    text-align: center;
   }
   .soft-delete-info {
     background: #f5f5f5;
