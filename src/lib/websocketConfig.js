@@ -2,6 +2,7 @@
  * Configuración centralizada para WebSocket
  * Funciona en desarrollo (localhost:8080) y producción (https://server.usochicamocha.co)
  */
+import { log } from './logger.js';
 
 /**
  * Obtiene la URL correcta del WebSocket basada en el ambiente
@@ -22,10 +23,10 @@ export function getWebSocketUrl() {
     wsUrl = `${protocol}//${window.location.host}/ws`;
   }
 
-  console.log('📡 WebSocket URL:', wsUrl);
-  console.log('📡 VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
-  console.log('📡 window.location.origin:', window.location.origin);
-  console.log('📡 Environment:', import.meta.env.MODE);
+  log('📡 WebSocket URL:', wsUrl);
+  log('📡 VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
+  log('📡 window.location.origin:', window.location.origin);
+  log('📡 Environment:', import.meta.env.MODE);
 
   return wsUrl;
 }
@@ -51,6 +52,6 @@ export function getStompConfig(wsUrl, token) {
     reconnectDelay: 5000,
     heartbeatIncoming: 30000,
     heartbeatOutgoing: 30000,
-    debug: (msg) => console.log('🔍 STOMP:', msg)
+    debug: (msg) => log('🔍 STOMP:', msg)
   };
 }

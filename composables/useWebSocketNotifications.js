@@ -2,6 +2,7 @@ import { writable, get } from 'svelte/store';
 import { auth } from '../stores/auth.js';
 import { data } from '../stores/data.js';
 import { ui, addNotification, addPreventiveAlert } from '../stores/ui.js';
+import { log, warn } from '@/lib/logger.js';
 
 // Import SockJS and STOMP for browser environment
 import SockJS from 'sockjs-client';
@@ -58,7 +59,7 @@ export const soundNeedsActivation = writable(true);
 // Set sound activation status (WebSocket)
 export function setWebSocketSoundNeedsActivation(needsActivation) {
   soundNeedsActivation.set(needsActivation);
-  console.log(`🔊 [WEBSOCKET] Estado de activación de sonido actualizado: ${!needsActivation ? 'ACTIVADO' : 'REQUIERE ACTIVACIÓN'}`);
+  log(`🔊 [WEBSOCKET] Estado de activación de sonido actualizado: ${!needsActivation ? 'ACTIVADO' : 'REQUIERE ACTIVACIÓN'}`);
 }
 
 // WebSocket connections - PERSISTENT
@@ -88,21 +89,21 @@ export function initializeWebSocketNotifications() {
   const token = localStorage.getItem('accessToken');
   const timestamp = new Date().toLocaleTimeString();
   
-  console.log(`🚀 [WEBSOCKET] === INICIO DE INICIALIZACIÓN SOCKJS + STOMP === ${timestamp}`);
-  console.log(`🚀 [WEBSOCKET] Token disponible: ${token ? 'SÍ' : 'NO'}`);
-  console.log(`🚀 [WEBSOCKET] WebSocket URL: ${buildWebSocketUrl()}`);
-  console.log(`🚀 [WEBSOCKET] 🔍 URL ACTUAL: ${buildWebSocketUrl()} (usando backend URL desde environment)`);
-  console.log(`🚀 [WEBSOCKET] Auth state: ${get(auth).isAuthenticated ? 'AUTENTICADO' : 'NO AUTENTICADO'}`);
-  console.log(`🚀 [WEBSOCKET] 🧪 MODO DEBUG HABILITADO`);
+  log(`🚀 [WEBSOCKET] === INICIO DE INICIALIZACIÓN SOCKJS + STOMP === ${timestamp}`);
+  log(`🚀 [WEBSOCKET] Token disponible: ${token ? 'SÍ' : 'NO'}`);
+  log(`🚀 [WEBSOCKET] WebSocket URL: ${buildWebSocketUrl()}`);
+  log(`🚀 [WEBSOCKET] 🔍 URL ACTUAL: ${buildWebSocketUrl()} (usando backend URL desde environment)`);
+  log(`🚀 [WEBSOCKET] Auth state: ${get(auth).isAuthenticated ? 'AUTENTICADO' : 'NO AUTENTICADO'}`);
+  log(`🚀 [WEBSOCKET] 🧪 MODO DEBUG HABILITADO`);
   
   if (!token) {
-    console.warn("❌ [WEBSOCKET] No se puede inicializar: falta el token.");
+    warn("❌ [WEBSOCKET] No se puede inicializar: falta el token.");
     return;
   }
 
   connectSockJS(token);
   activateSound();
-  console.log(`🚀 [WEBSOCKET] === INICIALIZACIÓN COMPLETA === ${timestamp}`);
+  log(`🚀 [WEBSOCKET] === INICIALIZACIÓN COMPLETA === ${timestamp}`);
 }
 
 // Debug connection status - solo errores y eventos críticos
@@ -111,7 +112,7 @@ function logConnectionStatus(event, data) {
   const criticalEvents = ['STOMP_CONNECT', 'STOMP_DISCONNECT', 'STOMP_ERROR', 'STOMP_PROTOCOL_ERROR', 'SOCKJS_ERROR', 'SOCKJS_CLOSE'];
   if (criticalEvents.includes(event)) {
     const timestamp = new Date().toLocaleTimeString();
-    console.log(`🔍 [WEBSOCKET] [${timestamp}] ${event}:`, data);
+    log(`🔍 [WEBSOCKET] [${timestamp}] ${event}:`, data);
   }
 }
 
@@ -119,17 +120,17 @@ function logConnectionStatus(event, data) {
 function cleanupSubscriptions() {
   wsNotificationService.update(state => {
     if (state.subscriptions && state.subscriptions.size > 0) {
-      console.log(`🧹 [WEBSOCKET] Limpiando ${state.subscriptions.size} subscriptions activas...`);
+      log(`🧹 [WEBSOCKET] Limpiando ${state.subscriptions.size} subscriptions activas...`);
 
       // Unsubscribe de cada topic
       state.subscriptions.forEach((subscription, topic) => {
         try {
           if (subscription && subscription.unsubscribe) {
             subscription.unsubscribe();
-            console.log(`✅ [WEBSOCKET] Unsubscribed de: ${topic}`);
+            log(`✅ [WEBSOCKET] Unsubscribed de: ${topic}`);
           }
         } catch (error) {
-          console.warn(`⚠️ [WEBSOCKET] Error al unsubscribir de ${topic}:`, error);
+          warn(`⚠️ [WEBSOCKET] Error al unsubscribir de ${topic}:`, error);
         }
       });
 
@@ -142,17 +143,17 @@ function cleanupSubscriptions() {
 
 // WebSocket connection with SockJS + STOMP - DEBUG VERSION
 function connectSockJS(token) {
-  console.log("🚀 [WEBSOCKET] Iniciando conexión SockJS + STOMP con DEBUG...");
+  log("🚀 [WEBSOCKET] Iniciando conexión SockJS + STOMP con DEBUG...");
 
   // 🔴 NUEVO: Si ya está conectado, NO reconectar
   if (stompClient && stompClient.connected && sockJSConnection && sockJSConnection.readyState === 1) {
-    console.log("✅ [WEBSOCKET] Ya está conectado, ignorando nueva conexión");
+    log("✅ [WEBSOCKET] Ya está conectado, ignorando nueva conexión");
     return;
   }
 
   // 🔴 NUEVO: Si ya está intentando conectar, NO iniciar otra conexión
   if (isConnecting) {
-    console.log("⏳ [WEBSOCKET] Ya hay una conexión en progreso, ignorando");
+    log("⏳ [WEBSOCKET] Ya hay una conexión en progreso, ignorando");
     return;
   }
 
@@ -160,11 +161,11 @@ function connectSockJS(token) {
 
   // IMPORTANTE: Limpiar conexiones anteriores SOLO si están realmente desconectadas
   if (stompClient && stompClient.connected) {
-    console.log("⚠️ [WEBSOCKET] Desconectando cliente STOMP anterior...");
+    log("⚠️ [WEBSOCKET] Desconectando cliente STOMP anterior...");
     stompClient.deactivate();
   }
   if (sockJSConnection && sockJSConnection.readyState === 1) {
-    console.log("⚠️ [WEBSOCKET] Cerrando conexión SockJS anterior...");
+    log("⚠️ [WEBSOCKET] Cerrando conexión SockJS anterior...");
     sockJSConnection.close();
   }
   stompClient = null;
@@ -216,12 +217,12 @@ function connectSockJS(token) {
       // Silenciar debug de STOMP - causa spam en consola
       // Solo log en desarrollo y solo errores críticos
       if (str.includes('ERROR') || str.includes('error')) {
-        console.warn('STOMP DEBUG:', str);
+        warn('STOMP DEBUG:', str);
       }
     },
     onConnect: (frame) => {
       logConnectionStatus("STOMP_CONNECT", "Conectado exitosamente a STOMP");
-      console.log(`✅ [WEBSOCKET] Conectado STOMP`);
+      log(`✅ [WEBSOCKET] Conectado STOMP`);
 
       isConnecting = false; // 🔴 NUEVO: Marcar que ya no está conectando
       updateConnectionStatus(true);
@@ -247,7 +248,7 @@ function connectSockJS(token) {
     },
     onDisconnect: (frame) => {
       logConnectionStatus("STOMP_DISCONNECT", frame);
-      console.log('🔌 [WEBSOCKET] Conexión STOMP cerrada:', frame);
+      log('🔌 [WEBSOCKET] Conexión STOMP cerrada:', frame);
 
       isConnecting = false; // 🔴 NUEVO: Marcar que no está conectando
       // 🔴 NUEVO: Limpiar subscriptions al desconectarse
@@ -279,7 +280,7 @@ function updateConnectionStatus(isConnected, isReconnecting = false) {
   wsNotificationService.update(state => {
     // Solo log si el estado realmente cambió
     if (state.isConnected !== isConnected || state.isReconnecting !== isReconnecting) {
-      console.log(`📊 [WEBSOCKET] Estado actualizado - Conectado: ${isConnected}, Reconectando: ${isReconnecting}`);
+      log(`📊 [WEBSOCKET] Estado actualizado - Conectado: ${isConnected}, Reconectando: ${isReconnecting}`);
     }
     return {
       ...state,
@@ -311,7 +312,7 @@ function updateConnectionError(error) {
 
 // Subscribe to all notification topics
 function subscribeToAllTopics() {
-  console.log("📡 [WEBSOCKET] Suscribiéndose a todos los topics STOMP...");
+  log("📡 [WEBSOCKET] Suscribiéndose a todos los topics STOMP...");
   
   const subscriptions = [
     {
@@ -359,11 +360,11 @@ function subscribeToAllTopics() {
 // Subscribe to a specific topic
 function subscribeToTopic(topic, handler) {
   if (!stompClient || !stompClient.connected) {
-    console.warn(`⚠️ [WEBSOCKET] No se puede suscribir a ${topic}: cliente no conectado`);
+    warn(`⚠️ [WEBSOCKET] No se puede suscribir a ${topic}: cliente no conectado`);
     return;
   }
   
-  console.log(`📡 [WEBSOCKET] Suscribiéndose a topic: ${topic}`);
+  log(`📡 [WEBSOCKET] Suscribiéndose a topic: ${topic}`);
   
   try {
     const subscription = stompClient.subscribe(topic, (message) => {
@@ -372,7 +373,7 @@ function subscribeToTopic(topic, handler) {
         body: message.body,
         headers: message.headers
       });
-      console.log(`📨 [WEBSOCKET] Mensaje recibido en ${topic}:`, message.body);
+      log(`📨 [WEBSOCKET] Mensaje recibido en ${topic}:`, message.body);
       handleMessage(topic, message.body, handler);
     });
     
@@ -395,7 +396,7 @@ function subscribeToTopic(topic, handler) {
 
 // Send ping message
 function sendPing() {
-  console.log("🏓 [WEBSOCKET] Enviando ping de confirmación...");
+  log("🏓 [WEBSOCKET] Enviando ping de confirmación...");
   sendWebSocketMessage('/app/ping', { 
     timestamp: Date.now(),
     client: 'frontend'
@@ -405,11 +406,11 @@ function sendPing() {
 // Send message via STOMP
 function sendWebSocketMessage(destination, body) {
   if (!stompClient || !stompClient.connected) {
-    console.warn(`⚠️ [WEBSOCKET] No se puede enviar mensaje a ${destination}: cliente no conectado`);
+    warn(`⚠️ [WEBSOCKET] No se puede enviar mensaje a ${destination}: cliente no conectado`);
     return;
   }
   
-  console.log(`📤 [WEBSOCKET] Enviando mensaje STOMP a ${destination}:`, body);
+  log(`📤 [WEBSOCKET] Enviando mensaje STOMP a ${destination}:`, body);
   try {
     stompClient.publish({
       destination: destination,
@@ -578,11 +579,11 @@ function handleUnifiedAlert(message) {
     percentageUsed: message.percentageUsed
   };
 
-  console.log('📢 [UNIFIED_ALERT] Alerta unificada recibida:', alertData);
-  console.log('🔍 [UNIFIED_ALERT] typeof addPreventiveAlert:', typeof addPreventiveAlert);
-  console.log('🔍 [UNIFIED_ALERT] Llamando a addPreventiveAlert...');
+  log('📢 [UNIFIED_ALERT] Alerta unificada recibida:', alertData);
+  log('🔍 [UNIFIED_ALERT] typeof addPreventiveAlert:', typeof addPreventiveAlert);
+  log('🔍 [UNIFIED_ALERT] Llamando a addPreventiveAlert...');
   addPreventiveAlert(alertData);
-  console.log('✅ [UNIFIED_ALERT] addPreventiveAlert ejecutada');
+  log('✅ [UNIFIED_ALERT] addPreventiveAlert ejecutada');
 }
 
 // Heartbeat to maintain connection
@@ -590,7 +591,7 @@ function startHeartbeat() {
   stopHeartbeat();
   heartbeatIntervalId = setInterval(() => {
     if (stompClient && stompClient.connected) {
-      console.log("💓 [WEBSOCKET] Verificando conexión STOMP...");
+      log("💓 [WEBSOCKET] Verificando conexión STOMP...");
       sendPing();
     }
   }, WS_CONFIG.heartbeatDelay);
@@ -601,13 +602,13 @@ function stopHeartbeat() {
   if (heartbeatIntervalId !== null) {
     clearInterval(heartbeatIntervalId);
     heartbeatIntervalId = null;
-    console.log("🛑 [WEBSOCKET] Heartbeat detenido");
+    log("🛑 [WEBSOCKET] Heartbeat detenido");
   }
 }
 
 // Handle connection errors and reconnection
 function handleConnectionError() {
-  console.warn("⚠️ [WEBSOCKET] Error de conexión - intentando reconectar...");
+  warn("⚠️ [WEBSOCKET] Error de conexión - intentando reconectar...");
 
   const currentState = get(wsNotificationService);
   const attempts = currentState.connectionStats.reconnectAttempts;
@@ -634,15 +635,15 @@ function handleConnectionError() {
     }
   }));
 
-  console.log(`🔄 [WEBSOCKET] Intento ${attempts + 1}/3 - Reconectando en ${WS_CONFIG.reconnectDelay}ms...`);
+  log(`🔄 [WEBSOCKET] Intento ${attempts + 1}/3 - Reconectando en ${WS_CONFIG.reconnectDelay}ms...`);
 
   setTimeout(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
-      console.log("🔄 [WEBSOCKET] Ejecutando reconexión...");
+      log("🔄 [WEBSOCKET] Ejecutando reconexión...");
       connectSockJS(token);
     } else {
-      console.warn("⚠️ [WEBSOCKET] No hay token disponible para reconectar");
+      warn("⚠️ [WEBSOCKET] No hay token disponible para reconectar");
       wsNotificationService.update(state => ({
         ...state,
         isReconnecting: false
@@ -653,10 +654,10 @@ function handleConnectionError() {
 
 // Handle data updates (same logic as SSE)
 function handleDataUpdate(currentView, message) {
-  console.log("🔄 [DATA_UPDATE] Manejando actualización para vista:", currentView, "mensaje:", message);
+  log("🔄 [DATA_UPDATE] Manejando actualización para vista:", currentView, "mensaje:", message);
   
   const dataState = get(data);
-  console.log("🔄 [DATA_UPDATE] Estado actual de datos:", {
+  log("🔄 [DATA_UPDATE] Estado actual de datos:", {
     dashboard: dataState.dashboard?.currentPage,
     workOrders: dataState.workOrders?.currentPage
   });
@@ -696,7 +697,7 @@ function handleDataUpdate(currentView, message) {
     case 'oil-change-alert-updated':
       // Refrescar consolidado cuando hay alerta de aceite
       if (currentView === 'consolidado') {
-        console.log("🔔 [OIL_CHANGE_ALERT] Refrescando datos de consolidado...");
+        log("🔔 [OIL_CHANGE_ALERT] Refrescando datos de consolidado...");
         data.fetchConsolidadoData();
       }
       break;
@@ -707,7 +708,7 @@ function handleDataUpdate(currentView, message) {
       } else if (currentView === 'vehicles') {
         data.fetchVehicles();
       } else if (currentView === 'consolidado') {
-        console.log('🔄 [CONSOLIDADO] Refrescando vehículos en consolidado...');
+        log('🔄 [CONSOLIDADO] Refrescando vehículos en consolidado...');
         data.fetchVehicleMonitoring();
       }
       break;
@@ -718,7 +719,7 @@ function handleDataUpdate(currentView, message) {
       } else if (currentView === 'moto-inventory') {
         data.fetchMotos();
       } else if (currentView === 'consolidado') {
-        console.log('🔄 [CONSOLIDADO] Refrescando motos en consolidado...');
+        log('🔄 [CONSOLIDADO] Refrescando motos en consolidado...');
         data.fetchMotoMonitoring();
       }
       break;
@@ -727,7 +728,7 @@ function handleDataUpdate(currentView, message) {
 
 // Disconnect from WebSocket
 export function disconnectFromWebSocket() {
-  console.log("🔌 [WEBSOCKET] Cerrando conexión WebSocket...");
+  log("🔌 [WEBSOCKET] Cerrando conexión WebSocket...");
 
   stopHeartbeat();
 
@@ -757,40 +758,40 @@ export function disconnectFromWebSocket() {
     }
   });
   
-  console.log("🔌 [WEBSOCKET] Conexión WebSocket cerrada.");
+  log("🔌 [WEBSOCKET] Conexión WebSocket cerrada.");
 }
 
 // Audio functions - FIXED AUDIO CONTEXT
 export function activateSound() {
-  console.log("🔊 [AUDIO] Activando contexto de audio WebSocket...");
+  log("🔊 [AUDIO] Activando contexto de audio WebSocket...");
   
   if (!audioCtx) {
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      console.log("🔊 [AUDIO] Contexto de audio WebSocket activado exitosamente.");
+      log("🔊 [AUDIO] Contexto de audio WebSocket activado exitosamente.");
     } catch(e) {
       console.error("❌ [AUDIO] Web Audio API no es soportada:", e.message);
       setWebSocketSoundNeedsActivation(false);
     }
   } else {
-    console.log("🔊 [AUDIO] Contexto de audio ya existía, activándolo...");
+    log("🔊 [AUDIO] Contexto de audio ya existía, activándolo...");
     if (audioCtx.state === 'suspended') {
       audioCtx.resume().then(() => {
-        console.log("🔊 [AUDIO] Contexto de audio reanudado.");
+        log("🔊 [AUDIO] Contexto de audio reanudado.");
       });
     }
   }
 }
 
 export function playNotificationSound() {
-  console.log("🔊 [AUDIO] Reproduciendo sonido WebSocket LIMPIO Y PROFESIONAL...");
+  log("🔊 [AUDIO] Reproduciendo sonido WebSocket LIMPIO Y PROFESIONAL...");
   
   if (!audioCtx) {
-    console.warn("⚠️ [AUDIO] El audio debe ser activado por un gesto del usuario.");
+    warn("⚠️ [AUDIO] El audio debe ser activado por un gesto del usuario.");
     return;
   }
   if (audioCtx.state === "suspended") {
-    console.log("🔊 [AUDIO] Reanudando contexto de audio...");
+    log("🔊 [AUDIO] Reanudando contexto de audio...");
     audioCtx.resume();
   }
   const now = audioCtx.currentTime;
@@ -819,7 +820,7 @@ export function playNotificationSound() {
     gainNode.gain.setValueAtTime(oscConfig.volume * 0.8, now + duration * 0.7); // Sostenimiento
     gainNode.gain.linearRampToValueAtTime(0, now + duration); // Decay limpio
     
-    console.log(`🔊 [AUDIO] Sonido WebSocket ${index + 1} (${oscConfig.type}, ${oscConfig.freq}Hz).`);
+    log(`🔊 [AUDIO] Sonido WebSocket ${index + 1} (${oscConfig.type}, ${oscConfig.freq}Hz).`);
     
     oscillator.start(now);
     oscillator.stop(now + duration);
@@ -844,23 +845,23 @@ export function playNotificationSound() {
     gainNode2.gain.linearRampToValueAtTime(0.8, now2 + 0.02);
     gainNode2.gain.linearRampToValueAtTime(0, now2 + duration2);
     
-    console.log(`🔊 [AUDIO] Sonido WebSocket beep adicional (2000-1500Hz).`);
+    log(`🔊 [AUDIO] Sonido WebSocket beep adicional (2000-1500Hz).`);
     
     oscillator2.start(now2);
     oscillator2.stop(now2 + duration2);
   }, 100);
   
-  console.log("🔊 [AUDIO] Sonido WebSocket LIMPIO Y PROFESIONAL: 0.8s + 0.3s beep.");
+  log("🔊 [AUDIO] Sonido WebSocket LIMPIO Y PROFESIONAL: 0.8s + 0.3s beep.");
 }
 
 export function getWebSocketSoundNeedsActivation() {
-  console.log("🔊 [AUDIO] Estado de activación WebSocket:", $soundNeedsActivation);
+  log("🔊 [AUDIO] Estado de activación WebSocket:", $soundNeedsActivation);
   return soundNeedsActivation;
 }
 
 export function getWebSocketConnectionStatus() {
   const status = wsNotificationService;
-  console.log("📊 [WEBSOCKET] Obteniendo estado de conexión WebSocket...");
+  log("📊 [WEBSOCKET] Obteniendo estado de conexión WebSocket...");
   return status;
 }
 
@@ -884,7 +885,7 @@ export function getConnectionDebugInfo() {
 }
 
 export function forceReconnect() {
-  console.log("🔄 [WEBSOCKET] Forzando reconexión manual...");
+  log("🔄 [WEBSOCKET] Forzando reconexión manual...");
   disconnectFromWebSocket();
   setTimeout(() => {
     initializeWebSocketNotifications();
