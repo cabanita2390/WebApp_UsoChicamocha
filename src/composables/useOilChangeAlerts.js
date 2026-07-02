@@ -4,6 +4,7 @@
  */
 
 import { writable } from 'svelte/store';
+import { log, warn } from '@/lib/logger.js';
 
 // Store para guardar las alertas activas
 export const oilChangeAlerts = writable({});
@@ -18,7 +19,7 @@ let onAlertCallback = null;
  */
 export function setGlobalStompClient(client) {
   globalStompClient = client;
-  console.log('✅ Cliente STOMP global configurado para alertas de aceite');
+  log('✅ Cliente STOMP global configurado para alertas de aceite');
 }
 
 /**
@@ -26,12 +27,12 @@ export function setGlobalStompClient(client) {
  */
 export function subscribeToOilChangeAlerts(onNewAlert) {
   if (!globalStompClient) {
-    console.warn('⚠️ Cliente STOMP no está disponible');
+    warn('⚠️ Cliente STOMP no está disponible');
     return null;
   }
 
   if (!globalStompClient.connected) {
-    console.warn('⚠️ Cliente STOMP no está conectado');
+    warn('⚠️ Cliente STOMP no está conectado');
     return null;
   }
 
@@ -39,11 +40,11 @@ export function subscribeToOilChangeAlerts(onNewAlert) {
   onAlertCallback = onNewAlert;
 
   if (subscription) {
-    console.log('ℹ️ Ya hay una suscripción activa a alertas de aceite (callback actualizado)');
+    log('ℹ️ Ya hay una suscripción activa a alertas de aceite (callback actualizado)');
     return subscription;
   }
 
-  console.log('🔔 Suscribiendo a /topic/oil-change-alerts...');
+  log('🔔 Suscribiendo a /topic/oil-change-alerts...');
 
   subscription = globalStompClient.subscribe('/topic/oil-change-alerts', (message) => {
     try {
@@ -61,7 +62,7 @@ export function subscribeToOilChangeAlerts(onNewAlert) {
       }
 
       // Log para debugging
-      console.log(`🔔 Alerta de aceite: ${alert.placa} | ${alert.alertColor} | ${alert.alertStatus}`);
+      log(`🔔 Alerta de aceite: ${alert.placa} | ${alert.alertColor} | ${alert.alertStatus}`);
 
     } catch (error) {
       console.error('Error procesando alerta de aceite:', error);
@@ -78,7 +79,7 @@ export function disconnectOilChangeAlerts() {
   if (subscription) {
     subscription.unsubscribe();
     subscription = null;
-    console.log('🔌 Desconectado de alertas de cambio de aceite');
+    log('🔌 Desconectado de alertas de cambio de aceite');
   }
 }
 

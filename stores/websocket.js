@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import SockJS from 'sockjs-client';
 import { Client as StompClient } from '@stomp/stompjs';
+import { log } from '@/lib/logger.js';
 
 /**
  * Store global para el cliente STOMP
@@ -26,7 +27,7 @@ function createStompClientStore() {
         heartbeatIncoming: 30000,
         heartbeatOutgoing: 30000,
         onConnect: () => {
-          console.log('🔗 STOMP connected');
+          log('🔗 STOMP connected');
           set(client);
           if (onConnect) onConnect();
         },

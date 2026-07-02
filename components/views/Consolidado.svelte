@@ -5,6 +5,7 @@
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
   import { addNotification } from '../../stores/ui.js';
+  import { download } from '../../stores/api.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -63,20 +64,7 @@
   async function handleExportConsolidated() {
     isExporting = true;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/oil-changes/consolidated/excel`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
-      });
-      if (!response.ok) throw new Error('Error al descargar el archivo');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'consolidado.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await download('oil-changes/consolidated/excel', 'consolidado.xlsx', { version: null });
       addNotification({ id: Date.now(), text: 'Archivo consolidado descargado con éxito.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar el archivo: ${e.message}` });

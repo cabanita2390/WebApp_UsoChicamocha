@@ -4,12 +4,17 @@
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
   import DocumentUpdateModal from "../shared/DocumentUpdateModal.svelte";
-  import { vehicleManagementColumns, curriculumColumns } from "../../config/table-definitions.js";
+  import QuickCatalogModal from "../shared/QuickCatalogModal.svelte";
+  import CurriculumModal from "../shared/CurriculumModal.svelte";
+  import DocHistoryModal from "../shared/DocHistoryModal.svelte";
+  import EditAssetModal from "../shared/EditAssetModal.svelte";
+  import { vehicleManagementColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
+  import { download } from '../../stores/api.js';
   import { formatVehiclePayload } from '@/lib/textFormat.js';
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
-  import { validateDocumentFileSize } from '@/lib/fileValidation.js';
+  import { normLower, normalizeBelongsTo, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -58,18 +63,11 @@
     type: 'Nuevo tipo de vehículo',
     location: 'Nueva ubicación',
   };
-
-  function normLower(s) {
-    return String(s ?? '').trim().toLowerCase();
-  }
-
-  function normalizeBelongsTo(value) {
-    if (!value) return 'Distrito';
-    const trimmed = String(value).trim().toLowerCase();
-    if (trimmed === 'asociacion') return 'Asociación';
-    if (trimmed === 'asociación') return 'Asociación';
-    return 'Distrito';
-  }
+  const quickPlaceholder = {
+    brand: 'Ej: Toyota',
+    type: 'Ej: Camión',
+    location: 'Ej: Logística',
+  };
 
   /** Usa id del API si existe; si no, busca por nombre de marca (sin distinguir mayúsculas). */
   function resolveBrandIdFromVehicle(v) {
@@ -89,23 +87,6 @@
     const nl = normLower(name);
     const hit = types.find((t) => normLower(tipoCatalogName(t)) === nl);
     return hit?.id != null ? Number(hit.id) : null;
-  }
-
-  /** Texto mostrado en el control estilo “Examinar…” de documentos. */
-  function filePickLabel(fileList) {
-    if (!fileList || fileList.length === 0) return 'Ningún archivo';
-    return fileList[0].name;
-  }
-
-  /** Filas antiguas: a veces se persistió el toString() del principal (UserPrincipal[id=…, username=…]). */
-  function formatSubidoPor(val) {
-    if (val == null || String(val).trim() === '') return '—';
-    const s = String(val).trim();
-    if (s.startsWith('UserPrincipal[')) {
-      const m = s.match(/username=([^,\]]+)/);
-      if (m) return m[1];
-    }
-    return s;
   }
 
   function openQuickCatalog(kind) {
@@ -284,10 +265,6 @@
   $: locations = Array.isArray($data.locations) ? $data.locations : [];
   $: isLoading = $data.isLoading;
 
-  function locationLabel(loc) {
-    return loc?.name ?? loc?.nombre ?? '';
-  }
-
   onMount(async () => {
     try {
       await Promise.all([
@@ -313,12 +290,7 @@
   });
 
   function firstOversizedDocError() {
-    for (const fileList of [docSoatFile, docTecnoFile, docTarjetaPropiedadFile, docExtintorFile]) {
-      const f = fileList && fileList.length ? fileList[0] : null;
-      const err = validateDocumentFileSize(f);
-      if (err) return err;
-    }
-    return null;
+    return firstOversizedDocErrorOf([docSoatFile, docTecnoFile, docTarjetaPropiedadFile, docExtintorFile]);
   }
 
   async function handleCreateVehicle(event) {
@@ -527,20 +499,7 @@
   async function handleExportVehicles() {
     isExporting = true;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/curriculum/export/vehicles`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
-      });
-      if (!response.ok) throw new Error('Error al descargar el archivo');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'vehiculos_curriculum.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await download('curriculum/export/vehicles', 'vehiculos_curriculum.xlsx');
       addNotification({ id: Date.now(), text: 'Archivo de vehículos descargado con éxito.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
@@ -775,139 +734,39 @@
 {/if}
 
 {#if isAdmin || isSupervisorOperativo}
-{#if showEditModal}
-  <div class="modal-overlay">
-    <div class="modal-content" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3>Editar Vehículo</h3>
-        <button class="close-btn" on:click={closeEditModal}>×</button>
-      </div>
-      <form class="modal-form" on:submit={handleUpdateVehicle}>
-        <div class="modal-form-grid">
-          <label class="field">
-            <span class="field-lab">Placa</span>
-            <input type="text" bind:value={vehicleInEditor.placa} required />
-          </label>
-          <label class="field">
-            <span class="field-lab field-lab-row">
-              Marca
-              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('brand')}>+ Añadir</button>
-            </span>
-            <select
-              required
-              value={vehicleInEditor.idMarca == null ? '' : String(vehicleInEditor.idMarca)}
-              on:change={(e) => {
-                const raw = e.currentTarget.value;
-                vehicleInEditor.idMarca = raw === '' ? null : Number(raw);
-              }}
-            >
-              <option value="">— Seleccione marca —</option>
-              {#each brands as brand}
-                <option value={String(brand.idMarca)}>{brand.descripcion}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-lab field-lab-row">
-              Tipo
-              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('type')}>+ Añadir</button>
-            </span>
-            <select
-              required
-              value={vehicleInEditor.idTipoVehiculo == null ? '' : String(vehicleInEditor.idTipoVehiculo)}
-              on:change={(e) => {
-                const raw = e.currentTarget.value;
-                vehicleInEditor.idTipoVehiculo = raw === '' ? null : Number(raw);
-              }}
-            >
-              <option value="">— Seleccione tipo —</option>
-              {#each types as type}
-                <option value={String(type.id)}>{type.name}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-lab">Km actual</span>
-            <input type="number" bind:value={vehicleInEditor.kilometrajeActual} required />
-          </label>
-          <label class="field">
-            <span class="field-lab">Pertenece a</span>
-            <select bind:value={vehicleInEditor.belongsTo}>
-              <option value="">— Seleccionar —</option>
-              <option value="Distrito">Distrito</option>
-              <option value="Asociación">Asociación</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-lab field-lab-row">
-              Ubicación
-              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('location')}>+ Añadir</button>
-            </span>
-            <select
-              value={vehicleInEditor.idUbicacionBase != null && vehicleInEditor.idUbicacionBase !== '' ? String(vehicleInEditor.idUbicacionBase) : ''}
-              on:change={(e) => {
-                const v = e.currentTarget.value;
-                vehicleInEditor.idUbicacionBase = v === "" ? null : Number(v);
-              }}
-            >
-              <option value="">Seleccione ubicación</option>
-              {#each locations as loc}
-                <option value={String(loc.id)}>{locationLabel(loc)}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-lab">Estado</span>
-            <select
-              value={vehicleInEditor.activo === true || vehicleInEditor.activo === 'true' || vehicleInEditor.activo === 1 || vehicleInEditor.activo === '1' ? '1' : '0'}
-              on:change={(e) => {
-                vehicleInEditor.activo = e.currentTarget.value === '1';
-              }}
-            >
-              <option value="1">Activo</option>
-              <option value="0">Inactivo</option>
-            </select>
-          </label>
-          {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input
-              type="number" step="0.001" min="0.1"
-              bind:value={vehicleInEditor.fuelTankCapacityGallons}
-              placeholder="Ej: 18.5"
-            />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input
-                type="number" step="0.01" min="0"
-                bind:value={vehicleInEditor.factoryEfficiencyKmPerGallon}
-                placeholder="Ej: 42.5"
-                style="padding:3px 4px;font-size:11px;min-height:26px"
-              />
-              <select bind:value={vehicleInEditor.factoryEfficiencyUnit} style="padding:4px;font-size:12px;min-height:28px">
-                <option value="KM_PER_GALLON">km/Gal</option>
-                <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
-              </select>
-            </div>
-          </label>
-          {/if}
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn-cancel" on:click={closeEditModal}>Cancelar</button>
-          <button type="submit" class="btn-save" disabled={isSubmitting}>
-            {isSubmitting ? "Guardando..." : "Guardar Cambios"}
-          </button>
-        </div>
-        {#if errorMessage}
-          <p class="vehicle-catalog-inline-error">{errorMessage}</p>
-        {/if}
-      </form>
-    </div>
-  </div>
-{/if}
+<EditAssetModal
+  open={showEditModal}
+  title="Editar Vehículo"
+  asset={vehicleInEditor}
+  {brands}
+  {locations}
+  {isAdmin}
+  {isSubmitting}
+  {errorMessage}
+  on:close={closeEditModal}
+  on:quickcatalog={(e) => openQuickCatalog(e.detail)}
+  on:submit={handleUpdateVehicle}
+>
+  <label class="field" slot="type-field">
+    <span class="field-lab field-lab-row">
+      Tipo
+      <button type="button" class="field-add-btn" on:click={() => openQuickCatalog('type')}>+ Añadir</button>
+    </span>
+    <select
+      required
+      value={vehicleInEditor?.idTipoVehiculo == null ? '' : String(vehicleInEditor.idTipoVehiculo)}
+      on:change={(e) => {
+        const raw = e.currentTarget.value;
+        vehicleInEditor.idTipoVehiculo = raw === '' ? null : Number(raw);
+      }}
+    >
+      <option value="">— Seleccione tipo —</option>
+      {#each types as type}
+        <option value={String(type.id)}>{type.name}</option>
+      {/each}
+    </select>
+  </label>
+</EditAssetModal>
 {/if}
 
 {#if isAdmin}
@@ -925,123 +784,34 @@
 {/if}
 {/if}
 
-{#if showDocHistoryModal}
-  <div class="modal-overlay" on:click={closeDocHistoryModal}>
-    <div class="modal-content modal-doc-history" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3>Historial de documentación — {docHistoryVehicle?.placa ?? ''}</h3>
-        <button class="close-btn" on:click={closeDocHistoryModal}>×</button>
-      </div>
-      {#if docHistoryLoading}
-        <div class="doc-history-loader"><Loader /></div>
-      {:else if docHistory && docHistory.length > 0}
-        <div class="doc-history-table-wrap">
-          <table class="doc-history-table">
-            <thead>
-              <tr>
-                <th>Tipo</th>
-                <th>Vence</th>
-                <th>Estado doc</th>
-                <th>Versión</th>
-                <th>Registrado</th>
-                <th>Por</th>
-                <th>Archivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each docHistory as row}
-                <tr class:doc-row-activa={row.vigente} class:doc-row-reemplazada={!row.vigente}>
-                  <td>{row.tipoDocumento}</td>
-                  <td>{row.fechaVigencia ?? '—'}</td>
-                  <td class="doc-estado-cell"
-                      class:doc-estado-vigente={row.estadoCalculado === 'Vigente'}
-                      class:doc-estado-vencido={row.estadoCalculado === 'Vencido'}
-                      class:doc-estado-proximo={row.estadoCalculado === 'Próximo a Vencer'}>
-                    {row.estadoCalculado ?? '—'}
-                  </td>
-                  <td class="doc-version-cell">
-                    {#if row.vigente}
-                      <span class="badge-activa">Activa</span>
-                    {:else}
-                      <span class="badge-reemplazada">Reemplazada</span>
-                    {/if}
-                  </td>
-                  <td class="doc-fecha-registro">{row.subidoEn ? (() => { const d = new Date(row.subidoEn); const day = String(d.getDate()).padStart(2, '0'); const month = String(d.getMonth() + 1).padStart(2, '0'); const year = d.getFullYear(); const hours = String(d.getHours()).padStart(2, '0'); const minutes = String(d.getMinutes()).padStart(2, '0'); return `${day}/${month}/${year} ${hours}:${minutes}`; })() : '—'}</td>
-                  <td class="doc-col-por">{formatSubidoPor(row.subidoPor)}</td>
-                  <td>
-                    {#if row.urlArchivo}
-                      <a href={row.urlArchivo} target="_blank" rel="noopener noreferrer">Ver</a>
-                    {:else}
-                      —
-                    {/if}
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {:else if docHistory}
-        <p class="doc-history-empty">Sin registros de documentos para este vehículo.</p>
-      {/if}
-      <div class="modal-actions">
-        <button type="button" class="btn-cancel" on:click={closeDocHistoryModal}>Cerrar</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<DocHistoryModal
+  open={showDocHistoryModal}
+  plate={docHistoryVehicle?.placa}
+  loading={docHistoryLoading}
+  history={docHistory}
+  emptyMessage="Sin registros de documentos para este vehículo."
+  on:close={closeDocHistoryModal}
+/>
 
-{#if quickModal}
-  <div class="modal-overlay modal-overlay-front" role="presentation" on:click={closeQuickCatalog}>
-    <div class="modal-content modal-quick" role="dialog" aria-modal="true" aria-labelledby="quick-cat-title" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3 id="quick-cat-title">{quickModalTitles[quickModal]}</h3>
-        <button type="button" class="close-btn" on:click={closeQuickCatalog}>×</button>
-      </div>
-      <label class="quick-label">
-        Nombre
-        <input
-          type="text"
-          bind:value={quickName}
-          maxlength="200"
-          disabled={quickSubmitting}
-          placeholder={quickModal === 'brand' ? 'Ej: Toyota' : quickModal === 'type' ? 'Ej: Camión' : 'Ej: Logística'}
-        />
-      </label>
-      {#if quickError}
-        <p class="vehicle-catalog-inline-error">{quickError}</p>
-      {/if}
-      <div class="modal-actions">
-        <button type="button" class="btn-cancel" disabled={quickSubmitting} on:click={closeQuickCatalog}>Cancelar</button>
-        <button type="button" class="btn-save" disabled={quickSubmitting} on:click={submitQuickCatalog}>
-          {quickSubmitting ? 'Guardando…' : 'Guardar y usar'}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<QuickCatalogModal
+  open={!!quickModal}
+  title={quickModal ? quickModalTitles[quickModal] : ''}
+  placeholder={quickModal ? quickPlaceholder[quickModal] : 'Ej: …'}
+  bind:value={quickName}
+  error={quickError}
+  submitting={quickSubmitting}
+  on:close={closeQuickCatalog}
+  on:submit={submitQuickCatalog}
+/>
 
-{#if showCvModal}
-  <div class="modal-overlay">
-    <div class="modal-content large" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3>Hoja de Vida: {curriculumData?.vehicle?.placa ?? 'Cargando...'}</h3>
-        <button class="close-btn" on:click={closeCurriculumModal}>×</button>
-      </div>
-      {#if isCvLoading}
-        <div class="loader-container"><Loader /></div>
-      {:else if curriculumData?.results?.length > 0}
-        <div class="table-wrapper modal-table">
-          <DataGrid columns={curriculumColumns} data={curriculumData.results} />
-        </div>
-      {:else}
-        <p style="padding:16px">No hay registros en la hoja de vida para este vehículo.</p>
-      {/if}
-      <div class="modal-actions">
-        <button type="button" class="btn-cancel" on:click={closeCurriculumModal}>Cerrar</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<CurriculumModal
+  open={showCvModal}
+  plate={curriculumData?.vehicle?.placa}
+  loading={isCvLoading}
+  results={curriculumData?.results}
+  emptyMessage="No hay registros en la hoja de vida para este vehículo."
+  on:close={closeCurriculumModal}
+/>
 
 {#if docModalOpen && docModalRow}
   {#key docModalRow.placa}
@@ -1198,47 +968,6 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
-  .modal-form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr));
-    gap: 8px 10px;
-    align-items: end;
-  }
-  .modal-form-grid .field {
-    min-width: 0;
-  }
-  .modal-form-grid .field input,
-  .modal-form-grid .field select {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 3px 4px;
-    border: 1px inset #c0c0c0;
-    font-family: inherit;
-    font-size: 11px;
-    background: #fff;
-    min-height: 24px;
-  }
-  .modal-overlay-front {
-    z-index: 1100;
-  }
-  .quick-help {
-    margin: 0 0 10px;
-    font-size: 10px;
-    color: #404040;
-  }
-  .quick-label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: bold;
-  }
-  .quick-label input {
-    padding: 4px 6px;
-    border: 1px inset #c0c0c0;
-    font-family: inherit;
-    font-size: 11px;
-  }
   .field input,
   .field select {
     width: 100%;
@@ -1296,35 +1025,10 @@
     box-sizing: border-box;
     box-shadow: 4px 4px 10px rgba(0,0,0,0.3);
   }
-  .modal-content.confirmation,
-  .modal-content.modal-quick {
+  .modal-content.confirmation {
     width: auto;
     max-width: min(440px, 96vw);
     min-width: min(280px, 100vw - 16px);
-  }
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #808080;
-    padding-bottom: 5px;
-  }
-  .close-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-  }
-  .modal-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .modal-form label {
-    display: flex;
-    flex-direction: column;
-    font-size: 11px;
   }
   .modal-actions {
     display: flex;
@@ -1333,98 +1037,7 @@
     margin-top: 20px;
   }
   .btn-cancel { background: #d0d0d0; border: 1px outset #fff; padding: 4px 10px; cursor: pointer; }
-  .btn-save { background: #90ee90; border: 1px outset #fff; padding: 4px 10px; cursor: pointer; }
   .btn-delete { background: #ff6b6b; color: white; border: 1px outset #fff; padding: 4px 10px; cursor: pointer; }
-  .modal-content.large {
-    width: min(1200px, 96vw);
-    min-width: min(80%, 600px);
-    max-width: 96vw;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-  }
-  .table-wrapper { overflow: hidden; }
-  .modal-table { flex: 1; min-height: 0; margin-top: 16px; }
-  .loader-container { display: flex; justify-content: center; align-items: center; flex: 1; }
-  .modal-content.modal-doc-history {
-    width: fit-content;
-    min-width: min(720px, 96vw);
-    max-width: min(96vw, 1200px);
-    max-height: min(92vh, 900px);
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-  }
-  .doc-history-loader {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 32px 0;
-  }
-  .doc-history-table-wrap {
-    flex: 1;
-    min-height: 0;
-    max-height: min(72vh, 640px);
-    overflow: auto;
-    border: 1px solid #a0a0a0;
-    background: #fff;
-    margin-bottom: 4px;
-  }
-  .doc-history-table {
-    width: max-content;
-    min-width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-  }
-  .doc-history-table th,
-  .doc-history-table td {
-    border: 1px solid #c0c0c0;
-    padding: 6px 10px;
-    text-align: left;
-    white-space: nowrap;
-    vertical-align: middle;
-  }
-  .doc-history-table td.doc-col-por {
-    white-space: normal;
-    max-width: 12rem;
-  }
-  .doc-history-table th {
-    background: #d8d8d8;
-    font-weight: bold;
-    position: sticky;
-    top: 0;
-  }
-  .doc-row-activa td { background: #f5fff5; }
-  .doc-row-reemplazada td { background: #fafafa; color: #707070; }
-  .doc-version-cell { white-space: nowrap; }
-  .badge-activa {
-    display: inline-block;
-    padding: 1px 6px;
-    background: #1a7a1a;
-    color: #fff;
-    font-size: 9px;
-    font-weight: bold;
-    border-radius: 2px;
-  }
-  .badge-reemplazada {
-    display: inline-block;
-    padding: 1px 6px;
-    background: #909090;
-    color: #fff;
-    font-size: 9px;
-    border-radius: 2px;
-  }
-  .doc-estado-cell { font-weight: bold; }
-  .doc-estado-vigente { color: #1a7a1a; }
-  .doc-estado-vencido { color: #b00000; }
-  .doc-estado-proximo { color: #b06000; }
-  .doc-fecha-registro { white-space: nowrap; font-size: 10px; }
-  .doc-history-empty {
-    padding: 16px;
-    font-size: 11px;
-    color: #606060;
-    text-align: center;
-  }
   .soft-delete-info {
     background: #f5f5f5;
     border: 1px solid #ddd;

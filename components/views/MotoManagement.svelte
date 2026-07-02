@@ -4,12 +4,17 @@
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
   import DocumentUpdateModal from "../shared/DocumentUpdateModal.svelte";
-  import { motoInventoryColumns, curriculumColumns } from "../../config/table-definitions.js";
+  import QuickCatalogModal from "../shared/QuickCatalogModal.svelte";
+  import CurriculumModal from "../shared/CurriculumModal.svelte";
+  import DocHistoryModal from "../shared/DocHistoryModal.svelte";
+  import EditAssetModal from "../shared/EditAssetModal.svelte";
+  import { motoInventoryColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
+  import { download } from "../../stores/api.js";
   import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
-  import { validateDocumentFileSize } from '@/lib/fileValidation.js';
+  import { normLower, normalizeBelongsTo, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -47,14 +52,6 @@
     curriculumData = null;
   }
 
-  function normalizeBelongsTo(value) {
-    if (!value) return 'Distrito';
-    const trimmed = String(value).trim().toLowerCase();
-    if (trimmed === 'asociacion') return 'Asociación';
-    if (trimmed === 'asociación') return 'Asociación';
-    return 'Distrito';
-  }
-
   let quickModal = null;
   let quickName = "";
   let quickError = "";
@@ -71,10 +68,6 @@
     location: "Ej: Unidad Pantano, Represa LA COPA…",
   };
 
-  function normLower(s) {
-    return String(s ?? "").trim().toLowerCase();
-  }
-
   function resolveBrandIdFromMoto(v) {
     if (v?.idMarca != null && v.idMarca !== "") return Number(v.idMarca);
     const name = v?.marca;
@@ -82,15 +75,6 @@
     const nl = normLower(name);
     const hit = brands.find((b) => normLower(b.descripcion) === nl);
     return hit?.idMarca != null ? Number(hit.idMarca) : null;
-  }
-
-  function filePickLabel(fileList) {
-    if (!fileList || fileList.length === 0) return "Ningún archivo";
-    return fileList[0].name;
-  }
-
-  function locationLabel(loc) {
-    return loc?.name ?? loc?.nombre ?? "";
   }
 
   function openQuickCatalog(kind) {
@@ -239,16 +223,6 @@
     }
   }
 
-  function formatSubidoPor(val) {
-    if (val == null || String(val).trim() === '') return '—';
-    const s = String(val).trim();
-    if (s.startsWith('UserPrincipal[')) {
-      const m = s.match(/username=([^,\]]+)/);
-      if (m) return m[1];
-    }
-    return s;
-  }
-
   $: motos = Array.isArray($data.motos) ? $data.motos : [];
   $: brands = Array.isArray($data.vehicleBrands) ? $data.vehicleBrands : [];
   $: types = Array.isArray($data.vehicleTypes) ? $data.vehicleTypes : [];
@@ -284,12 +258,7 @@
   });
 
   function firstOversizedDocError() {
-    for (const fileList of [docSoatFile, docTecnoFile, docTarjetaPropiedadFile]) {
-      const f = fileList && fileList.length ? fileList[0] : null;
-      const err = validateDocumentFileSize(f);
-      if (err) return err;
-    }
-    return null;
+    return firstOversizedDocErrorOf([docSoatFile, docTecnoFile, docTarjetaPropiedadFile]);
   }
 
   async function handleCreateMoto(event) {
@@ -466,20 +435,7 @@
   async function handleExportMotos() {
     isExporting = true;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/curriculum/export/motos`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
-      });
-      if (!response.ok) throw new Error('Error al descargar el archivo');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'motos_curriculum.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await download('curriculum/export/motos', 'motos_curriculum.xlsx');
       addNotification({ id: Date.now(), text: 'Archivo de motocicletas descargado con éxito.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
@@ -680,121 +636,24 @@
 {/if}
 
 {#if isAdmin || isSupervisorOperativo}
-{#if showEditModal}
-  <div class="modal-overlay">
-    <div class="modal-content" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3>Editar motocicleta</h3>
-        <button class="close-btn" on:click={closeEditModal}>×</button>
-      </div>
-      <form class="modal-form" on:submit={handleUpdateMoto}>
-        <div class="modal-form-grid">
-          <label class="field">
-            <span class="field-lab">Placa</span>
-            <input type="text" bind:value={motoInEditor.placa} required />
-          </label>
-          <label class="field">
-            <span class="field-lab field-lab-row">
-              Marca
-              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog("brand")}>+ Añadir</button>
-            </span>
-            <select
-              required
-              value={motoInEditor.idMarca == null ? "" : String(motoInEditor.idMarca)}
-              on:change={(e) => {
-                const raw = e.currentTarget.value;
-                motoInEditor.idMarca = raw === "" ? null : Number(raw);
-              }}
-            >
-              <option value="">— Seleccione marca —</option>
-              {#each brands as brand}
-                <option value={String(brand.idMarca)}>{brand.descripcion}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-lab">Km actual</span>
-            <input type="number" bind:value={motoInEditor.kilometrajeActual} required />
-          </label>
-          <label class="field">
-            <span class="field-lab">Pertenece a</span>
-            <select bind:value={motoInEditor.belongsTo} required>
-              <option value="">— Seleccionar —</option>
-              <option value="Distrito">Distrito</option>
-              <option value="Asociación">Asociación</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-lab field-lab-row">
-              Ubicación
-              <button type="button" class="field-add-btn" on:click={() => openQuickCatalog("location")}>+ Añadir</button>
-            </span>
-            <select
-              value={motoInEditor.idUbicacionBase != null && motoInEditor.idUbicacionBase !== '' ? String(motoInEditor.idUbicacionBase) : ''}
-              on:change={(e) => {
-                const v = e.currentTarget.value;
-                motoInEditor.idUbicacionBase = v === "" ? null : Number(v);
-              }}
-              title="Ej.: Unidad Pantano, Unidad Ayalas…"
-            >
-              <option value="">Seleccione ubicación</option>
-              {#each locations as loc}
-                <option value={String(loc.id)}>{locationLabel(loc)}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-lab">Estado</span>
-            <select
-              value={motoInEditor.activo === true || motoInEditor.activo === "true" || motoInEditor.activo === 1 || motoInEditor.activo === "1" ? "1" : "0"}
-              on:change={(e) => {
-                motoInEditor.activo = e.currentTarget.value === "1";
-              }}
-            >
-              <option value="1">Activo</option>
-              <option value="0">Inactivo</option>
-            </select>
-          </label>
-          {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input
-              type="number" step="0.001" min="0.1"
-              bind:value={motoInEditor.fuelTankCapacityGallons}
-              placeholder="Ej: 2.5"
-            />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input
-                type="number" step="0.01" min="0"
-                bind:value={motoInEditor.factoryEfficiencyKmPerGallon}
-                placeholder="Ej: 80.0"
-                style="padding:4px;font-size:12px;min-height:28px"
-              />
-              <select bind:value={motoInEditor.factoryEfficiencyUnit} style="padding:4px;font-size:12px;min-height:28px">
-                <option value="KM_PER_GALLON">km/Gal</option>
-                <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
-              </select>
-            </div>
-          </label>
-          {/if}
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn-cancel" on:click={closeEditModal}>Cancelar</button>
-          <button type="submit" class="btn-save" disabled={isSubmitting || motoTipoId == null}>
-            {isSubmitting ? "Guardando..." : "Guardar cambios"}
-          </button>
-        </div>
-        {#if errorMessage}
-          <p class="vehicle-catalog-inline-error">{errorMessage}</p>
-        {/if}
-      </form>
-    </div>
-  </div>
-{/if}
+<EditAssetModal
+  open={showEditModal}
+  title="Editar motocicleta"
+  asset={motoInEditor}
+  {brands}
+  {locations}
+  {isAdmin}
+  {isSubmitting}
+  {errorMessage}
+  submitDisabled={motoTipoId == null}
+  belongsToRequired={true}
+  locationTitle="Ej.: Unidad Pantano, Unidad Ayalas…"
+  capacityPlaceholder="Ej: 2.5"
+  efficiencyPlaceholder="Ej: 80.0"
+  on:close={closeEditModal}
+  on:quickcatalog={(e) => openQuickCatalog(e.detail)}
+  on:submit={handleUpdateMoto}
+/>
 {/if}
 
 {#if isAdmin}
@@ -812,100 +671,25 @@
 {/if}
 {/if}
 
-{#if showDocHistoryModal}
-  <div class="modal-overlay" on:click={closeDocHistoryModal}>
-    <div class="modal-content modal-doc-history" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3>Historial de documentación — {docHistoryMoto?.placa ?? ''}</h3>
-        <button class="close-btn" on:click={closeDocHistoryModal}>×</button>
-      </div>
-      {#if docHistoryLoading}
-        <div class="doc-history-loader"><Loader /></div>
-      {:else if docHistory && docHistory.length > 0}
-        <div class="doc-history-table-wrap">
-          <table class="doc-history-table">
-            <thead>
-              <tr>
-                <th>Tipo</th>
-                <th>Vence</th>
-                <th>Estado doc</th>
-                <th>Versión</th>
-                <th>Registrado</th>
-                <th>Por</th>
-                <th>Archivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each docHistory as row}
-                <tr class:doc-row-activa={row.vigente} class:doc-row-reemplazada={!row.vigente}>
-                  <td>{row.tipoDocumento}</td>
-                  <td>{row.fechaVigencia ?? '—'}</td>
-                  <td class="doc-estado-cell"
-                      class:doc-estado-vigente={row.estadoCalculado === 'Vigente'}
-                      class:doc-estado-vencido={row.estadoCalculado === 'Vencido'}
-                      class:doc-estado-proximo={row.estadoCalculado === 'Próximo a Vencer'}>
-                    {row.estadoCalculado ?? '—'}
-                  </td>
-                  <td class="doc-version-cell">
-                    {#if row.vigente}
-                      <span class="badge-activa">Activa</span>
-                    {:else}
-                      <span class="badge-reemplazada">Reemplazada</span>
-                    {/if}
-                  </td>
-                  <td class="doc-fecha-registro">{row.subidoEn ? (() => { const d = new Date(row.subidoEn); const day = String(d.getDate()).padStart(2, '0'); const month = String(d.getMonth() + 1).padStart(2, '0'); const year = d.getFullYear(); const hours = String(d.getHours()).padStart(2, '0'); const minutes = String(d.getMinutes()).padStart(2, '0'); return `${day}/${month}/${year} ${hours}:${minutes}`; })() : '—'}</td>
-                  <td>{formatSubidoPor(row.subidoPor)}</td>
-                  <td>
-                    {#if row.urlArchivo}
-                      <a href={row.urlArchivo} target="_blank" rel="noopener noreferrer">Ver</a>
-                    {:else}
-                      —
-                    {/if}
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {:else if docHistory}
-        <p class="doc-history-empty">Sin registros de documentos para esta motocicleta.</p>
-      {/if}
-      <div class="modal-actions">
-        <button type="button" class="btn-cancel" on:click={closeDocHistoryModal}>Cerrar</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<DocHistoryModal
+  open={showDocHistoryModal}
+  plate={docHistoryMoto?.placa}
+  loading={docHistoryLoading}
+  history={docHistory}
+  emptyMessage="Sin registros de documentos para esta motocicleta."
+  on:close={closeDocHistoryModal}
+/>
 
-{#if quickModal}
-  <div class="modal-overlay modal-overlay-front" role="presentation" on:click={closeQuickCatalog}>
-    <div class="modal-content modal-quick" role="dialog" aria-modal="true" aria-labelledby="quick-cat-title" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3 id="quick-cat-title">{quickModalTitles[quickModal]}</h3>
-        <button type="button" class="close-btn" on:click={closeQuickCatalog}>×</button>
-      </div>
-      <label class="quick-label">
-        Nombre
-        <input
-          type="text"
-          bind:value={quickName}
-          maxlength="200"
-          disabled={quickSubmitting}
-          placeholder={quickPlaceholder[quickModal] ?? "Ej: …"}
-        />
-      </label>
-      {#if quickError}
-        <p class="vehicle-catalog-inline-error">{quickError}</p>
-      {/if}
-      <div class="modal-actions">
-        <button type="button" class="btn-cancel" disabled={quickSubmitting} on:click={closeQuickCatalog}>Cancelar</button>
-        <button type="button" class="btn-save" disabled={quickSubmitting} on:click={submitQuickCatalog}>
-          {quickSubmitting ? "Guardando…" : "Guardar y usar"}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<QuickCatalogModal
+  open={!!quickModal}
+  title={quickModal ? quickModalTitles[quickModal] : ''}
+  placeholder={quickModal ? (quickPlaceholder[quickModal] ?? 'Ej: …') : 'Ej: …'}
+  bind:value={quickName}
+  error={quickError}
+  submitting={quickSubmitting}
+  on:close={closeQuickCatalog}
+  on:submit={submitQuickCatalog}
+/>
 
 {#if docModalOpen && docModalRow}
   {#key docModalRow.placa}
@@ -1071,47 +855,6 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
-  .modal-form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr));
-    gap: 8px 10px;
-    align-items: end;
-  }
-  .modal-form-grid .field {
-    min-width: 0;
-  }
-  .modal-form-grid .field input,
-  .modal-form-grid .field select {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 3px 4px;
-    border: 1px inset #c0c0c0;
-    font-family: inherit;
-    font-size: 11px;
-    background: #fff;
-    min-height: 24px;
-  }
-  .modal-overlay-front {
-    z-index: 1100;
-  }
-  .quick-help {
-    margin: 0 0 10px;
-    font-size: 10px;
-    color: #404040;
-  }
-  .quick-label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: bold;
-  }
-  .quick-label input {
-    padding: 4px 6px;
-    border: 1px inset #c0c0c0;
-    font-family: inherit;
-    font-size: 11px;
-  }
   .field input,
   .field select {
     width: 100%;
@@ -1168,35 +911,10 @@
     box-sizing: border-box;
     box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.3);
   }
-  .modal-content.confirmation,
-  .modal-content.modal-quick {
+  .modal-content.confirmation {
     width: auto;
     max-width: min(440px, 96vw);
     min-width: min(280px, 100vw - 16px);
-  }
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #808080;
-    padding-bottom: 5px;
-  }
-  .close-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-  }
-  .modal-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .modal-form label {
-    display: flex;
-    flex-direction: column;
-    font-size: 11px;
   }
   .modal-actions {
     display: flex;
@@ -1210,97 +928,12 @@
     padding: 4px 10px;
     cursor: pointer;
   }
-  .btn-save {
-    background: #90ee90;
-    border: 1px outset #fff;
-    padding: 4px 10px;
-    cursor: pointer;
-  }
   .btn-delete {
     background: #ff6b6b;
     color: white;
     border: 1px outset #fff;
     padding: 4px 10px;
     cursor: pointer;
-  }
-  .modal-content.large {
-    width: min(1200px, 96vw);
-    min-width: min(80%, 600px);
-    max-width: 96vw;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-  }
-  .modal-table { flex: 1; min-height: 0; margin-top: 16px; }
-  .loader-container { display: flex; justify-content: center; align-items: center; flex: 1; }
-  .modal-content.modal-doc-history {
-    width: min(96vw, 620px);
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
-  }
-  .doc-history-loader {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 32px 0;
-  }
-  .doc-history-table-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    border: 1px solid #a0a0a0;
-    background: #fff;
-    margin-bottom: 4px;
-  }
-  .doc-history-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-  }
-  .doc-history-table th,
-  .doc-history-table td {
-    border: 1px solid #c0c0c0;
-    padding: 6px 8px;
-    text-align: left;
-    white-space: nowrap;
-  }
-  .doc-history-table th {
-    background: #d8d8d8;
-    font-weight: bold;
-    position: sticky;
-    top: 0;
-  }
-  .doc-row-activa td { background: #f5fff5; }
-  .doc-row-reemplazada td { background: #fafafa; color: #707070; }
-  .doc-version-cell { white-space: nowrap; }
-  .badge-activa {
-    display: inline-block;
-    padding: 1px 6px;
-    background: #1a7a1a;
-    color: #fff;
-    font-size: 9px;
-    font-weight: bold;
-    border-radius: 2px;
-  }
-  .badge-reemplazada {
-    display: inline-block;
-    padding: 1px 6px;
-    background: #909090;
-    color: #fff;
-    font-size: 9px;
-    border-radius: 2px;
-  }
-  .doc-estado-cell { font-weight: bold; }
-  .doc-estado-vigente { color: #1a7a1a; }
-  .doc-estado-vencido { color: #b00000; }
-  .doc-estado-proximo { color: #b06000; }
-  .doc-fecha-registro { white-space: nowrap; font-size: 10px; }
-  .doc-history-empty {
-    padding: 16px;
-    font-size: 11px;
-    color: #606060;
-    text-align: center;
   }
   .soft-delete-info {
     background: #f5f5f5;
@@ -1315,25 +948,11 @@
   }
 </style>
 
-{#if showCvModal}
-  <div class="modal-overlay">
-    <div class="modal-content large" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3>Hoja de Vida: {curriculumData?.vehicle?.placa ?? 'Cargando...'}</h3>
-        <button class="close-btn" on:click={closeCurriculumModal}>×</button>
-      </div>
-      {#if isCvLoading}
-        <div class="loader-container"><Loader /></div>
-      {:else if curriculumData?.results?.length > 0}
-        <div class="table-wrapper modal-table">
-          <DataGrid columns={curriculumColumns} data={curriculumData.results} />
-        </div>
-      {:else}
-        <p style="padding:16px">No hay registros en la hoja de vida para esta motocicleta.</p>
-      {/if}
-      <div class="modal-actions">
-        <button type="button" class="btn-cancel" on:click={closeCurriculumModal}>Cerrar</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<CurriculumModal
+  open={showCvModal}
+  plate={curriculumData?.vehicle?.placa}
+  loading={isCvLoading}
+  results={curriculumData?.results}
+  emptyMessage="No hay registros en la hoja de vida para esta motocicleta."
+  on:close={closeCurriculumModal}
+/>

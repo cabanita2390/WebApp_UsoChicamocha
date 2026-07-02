@@ -2,6 +2,7 @@
   import { vehicleInspectionReportColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
   import { ui, addNotification } from '../../stores/ui.js';
+  import { download } from '../../stores/api.js';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
 
@@ -22,20 +23,7 @@
   async function handleExport() {
     isExporting = true;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/vehicle-inspection/export`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
-      });
-      if (!response.ok) throw new Error('Error al descargar el archivo');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'inspecciones_vehiculos.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await download('vehicle-inspection/export', 'inspecciones_vehiculos.xlsx');
       addNotification({ id: Date.now(), text: 'Inspecciones de vehículos descargadas.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
