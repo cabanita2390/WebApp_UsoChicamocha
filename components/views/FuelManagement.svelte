@@ -1,8 +1,6 @@
 <script>
   import { onMount } from 'svelte';
   import { data as dataStore } from '../../stores/data.js';
-  import DataGrid from '../shared/DataGrid.svelte';
-  import Loader from '../shared/Loader.svelte';
   import FuelRegistrationModal from '../shared/FuelRegistrationModal.svelte';
   import FuelStationsPanel from './fuel/FuelStationsPanel.svelte';
   import FuelRankingPanel from './fuel/FuelRankingPanel.svelte';
