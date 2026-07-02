@@ -5,7 +5,8 @@
   import Loader from "../shared/Loader.svelte";
   import DocumentUpdateModal from "../shared/DocumentUpdateModal.svelte";
   import QuickCatalogModal from "../shared/QuickCatalogModal.svelte";
-  import { vehicleManagementColumns, curriculumColumns } from "../../config/table-definitions.js";
+  import CurriculumModal from "../shared/CurriculumModal.svelte";
+  import { vehicleManagementColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
   import { download } from '../../stores/api.js';
@@ -957,28 +958,14 @@
   on:submit={submitQuickCatalog}
 />
 
-{#if showCvModal}
-  <div class="modal-overlay">
-    <div class="modal-content large" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3>Hoja de Vida: {curriculumData?.vehicle?.placa ?? 'Cargando...'}</h3>
-        <button class="close-btn" on:click={closeCurriculumModal}>×</button>
-      </div>
-      {#if isCvLoading}
-        <div class="loader-container"><Loader /></div>
-      {:else if curriculumData?.results?.length > 0}
-        <div class="table-wrapper modal-table">
-          <DataGrid columns={curriculumColumns} data={curriculumData.results} />
-        </div>
-      {:else}
-        <p style="padding:16px">No hay registros en la hoja de vida para este vehículo.</p>
-      {/if}
-      <div class="modal-actions">
-        <button type="button" class="btn-cancel" on:click={closeCurriculumModal}>Cerrar</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<CurriculumModal
+  open={showCvModal}
+  plate={curriculumData?.vehicle?.placa}
+  loading={isCvLoading}
+  results={curriculumData?.results}
+  emptyMessage="No hay registros en la hoja de vida para este vehículo."
+  on:close={closeCurriculumModal}
+/>
 
 {#if docModalOpen && docModalRow}
   {#key docModalRow.placa}
@@ -1255,17 +1242,6 @@
   .btn-cancel { background: #d0d0d0; border: 1px outset #fff; padding: 4px 10px; cursor: pointer; }
   .btn-save { background: #90ee90; border: 1px outset #fff; padding: 4px 10px; cursor: pointer; }
   .btn-delete { background: #ff6b6b; color: white; border: 1px outset #fff; padding: 4px 10px; cursor: pointer; }
-  .modal-content.large {
-    width: min(1200px, 96vw);
-    min-width: min(80%, 600px);
-    max-width: 96vw;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-  }
-  .table-wrapper { overflow: hidden; }
-  .modal-table { flex: 1; min-height: 0; margin-top: 16px; }
-  .loader-container { display: flex; justify-content: center; align-items: center; flex: 1; }
   .modal-content.modal-doc-history {
     width: fit-content;
     min-width: min(720px, 96vw);
