@@ -4,6 +4,7 @@
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
   import DocumentUpdateModal from "../shared/DocumentUpdateModal.svelte";
+  import QuickCatalogModal from "../shared/QuickCatalogModal.svelte";
   import { motoInventoryColumns, curriculumColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
@@ -829,35 +830,16 @@
   </div>
 {/if}
 
-{#if quickModal}
-  <div class="modal-overlay modal-overlay-front" role="presentation" on:click={closeQuickCatalog}>
-    <div class="modal-content modal-quick" role="dialog" aria-modal="true" aria-labelledby="quick-cat-title" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3 id="quick-cat-title">{quickModalTitles[quickModal]}</h3>
-        <button type="button" class="close-btn" on:click={closeQuickCatalog}>×</button>
-      </div>
-      <label class="quick-label">
-        Nombre
-        <input
-          type="text"
-          bind:value={quickName}
-          maxlength="200"
-          disabled={quickSubmitting}
-          placeholder={quickPlaceholder[quickModal] ?? "Ej: …"}
-        />
-      </label>
-      {#if quickError}
-        <p class="vehicle-catalog-inline-error">{quickError}</p>
-      {/if}
-      <div class="modal-actions">
-        <button type="button" class="btn-cancel" disabled={quickSubmitting} on:click={closeQuickCatalog}>Cancelar</button>
-        <button type="button" class="btn-save" disabled={quickSubmitting} on:click={submitQuickCatalog}>
-          {quickSubmitting ? "Guardando…" : "Guardar y usar"}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<QuickCatalogModal
+  open={!!quickModal}
+  title={quickModal ? quickModalTitles[quickModal] : ''}
+  placeholder={quickModal ? (quickPlaceholder[quickModal] ?? 'Ej: …') : 'Ej: …'}
+  bind:value={quickName}
+  error={quickError}
+  submitting={quickSubmitting}
+  on:close={closeQuickCatalog}
+  on:submit={submitQuickCatalog}
+/>
 
 {#if docModalOpen && docModalRow}
   {#key docModalRow.placa}
@@ -1043,26 +1025,10 @@
     background: #fff;
     min-height: 24px;
   }
-  .modal-overlay-front {
-    z-index: 1100;
-  }
   .quick-help {
     margin: 0 0 10px;
     font-size: 10px;
     color: #404040;
-  }
-  .quick-label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: bold;
-  }
-  .quick-label input {
-    padding: 4px 6px;
-    border: 1px inset #c0c0c0;
-    font-family: inherit;
-    font-size: 11px;
   }
   .field input,
   .field select {
@@ -1120,8 +1086,7 @@
     box-sizing: border-box;
     box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.3);
   }
-  .modal-content.confirmation,
-  .modal-content.modal-quick {
+  .modal-content.confirmation {
     width: auto;
     max-width: min(440px, 96vw);
     min-width: min(280px, 100vw - 16px);
