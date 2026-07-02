@@ -2,6 +2,7 @@
   import { push } from 'svelte-spa-router';
   import { data } from '../../stores/data.js';
   import { addNotification } from '../../stores/ui.js';
+  import { download } from '../../stores/api.js';
 
   let isExportingVehicles = false;
   let isExportingMotos = false;
@@ -9,20 +10,7 @@
   async function handleExportVehicles() {
     isExportingVehicles = true;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/vehicle/monitoring/consolidated/export`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
-      });
-      if (!response.ok) throw new Error('Error al descargar el archivo');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'consolidado_vehiculos.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await download('vehicle/monitoring/consolidated/export', 'consolidado_vehiculos.xlsx');
       addNotification({ id: Date.now(), text: 'Consolidado de vehículos descargado.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
@@ -34,20 +22,7 @@
   async function handleExportMotos() {
     isExportingMotos = true;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/moto/monitoring/consolidated/export`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
-      });
-      if (!response.ok) throw new Error('Error al descargar el archivo');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'consolidado_motos.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await download('moto/monitoring/consolidated/export', 'consolidado_motos.xlsx');
       addNotification({ id: Date.now(), text: 'Consolidado de motos descargado.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });

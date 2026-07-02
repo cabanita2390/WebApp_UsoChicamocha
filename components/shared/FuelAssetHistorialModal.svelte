@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte';
+  import { getFileUrl } from '../../stores/api.js';
 
   export let assetType = '';
   export let assetPlate = '';
@@ -174,7 +175,7 @@
                 <td style="text-align:center">
                   {#if r.invoicePhotoUrl}
                     <a
-                      href={r.invoicePhotoUrl.startsWith('http') ? r.invoicePhotoUrl : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080') + '/' + r.invoicePhotoUrl}
+                      href={getFileUrl(r.invoicePhotoUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       style="color:#0050a0; text-decoration:none; font-weight:500; cursor:pointer;"

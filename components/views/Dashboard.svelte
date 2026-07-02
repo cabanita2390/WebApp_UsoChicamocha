@@ -6,6 +6,7 @@
   import { dashboardColumns } from "../../config/table-definitions.js";
   import { data } from "../../stores/data.js";
   import { addNotification, ui } from "../../stores/ui.js";
+  import { download } from "../../stores/api.js";
 
   const dispatch = createEventDispatcher();
 
@@ -61,30 +62,7 @@
   async function handleExportInspections() {
     isExporting = true;
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/v1/inspection/export`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Error al descargar el archivo");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "inspecciones.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
+      await download("inspection/export", "inspecciones.xlsx");
       addNotification({
         id: Date.now(),
         text: "Archivo de inspecciones descargado con éxito.",

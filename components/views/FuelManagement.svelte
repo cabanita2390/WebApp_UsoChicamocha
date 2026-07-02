@@ -1,6 +1,5 @@
 <script>
   import { onMount } from 'svelte';
-  import { get } from 'svelte/store';
   import { data as dataStore } from '../../stores/data.js';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
@@ -8,6 +7,7 @@
   import FuelAssetHistorialModal from '../shared/FuelAssetHistorialModal.svelte';
   import { auth } from '../../stores/auth.js';
   import { addNotification } from '../../stores/ui.js';
+  import { download } from '../../stores/api.js';
 
   // ── store state ──────────────────────────────────────────────────────────────
   let fuelLogs = [];
@@ -401,20 +401,15 @@
 
   // ── export excel ─────────────────────────────────────────────────────────────
   async function handleExportExcel() {
-    const base = import.meta.env.VITE_API_BASE_URL;
     const params = new URLSearchParams();
     if (filterFrom) params.append('from', filterFrom + 'T00:00:00');
     if (filterTo)   params.append('to',   filterTo   + 'T23:59:59');
     const qs = params.toString() ? `?${params}` : '';
-    const authState = get(auth);
-    const token = authState?.token;
-    const res = await fetch(`${base}fuel/export${qs}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) { error = 'Error al exportar'; return; }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'combustibles.xlsx'; a.click();
-    URL.revokeObjectURL(url);
+    try {
+      await download(`fuel/export${qs}`, 'combustibles.xlsx');
+    } catch (e) {
+      error = e.message || 'Error al exportar';
+    }
   }
 
   // ── lifecycle ─────────────────────────────────────────────────────────────────

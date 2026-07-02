@@ -5,6 +5,7 @@
   import { vehicleWorkOrderColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
   import { addNotification } from '../../stores/ui.js';
+  import { download } from '../../stores/api.js';
 
   export let overrideData = null;
 
@@ -47,20 +48,7 @@
   async function handleExport() {
     isExporting = true;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/order/vehicle/export`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
-      });
-      if (!response.ok) throw new Error('Error al descargar el archivo');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'ordenes_vehiculos.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await download('order/vehicle/export', 'ordenes_vehiculos.xlsx');
       addNotification({ id: Date.now(), text: 'Órdenes de vehículos descargadas.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });

@@ -7,6 +7,7 @@
   import { motoInventoryColumns, curriculumColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
+  import { download } from "../../stores/api.js";
   import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
   import { validateDocumentFileSize } from '@/lib/fileValidation.js';
@@ -466,20 +467,7 @@
   async function handleExportMotos() {
     isExporting = true;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/curriculum/export/motos`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
-      });
-      if (!response.ok) throw new Error('Error al descargar el archivo');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'motos_curriculum.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await download('curriculum/export/motos', 'motos_curriculum.xlsx');
       addNotification({ id: Date.now(), text: 'Archivo de motocicletas descargado con éxito.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
