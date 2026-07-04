@@ -48,10 +48,14 @@
 
   let isProcessing = false;
 
+  // Campos vacíos equivalen a 0 (el placeholder "0" así lo sugiere al usuario).
+  $: effectiveHours = hoursSpent === "" || hoursSpent == null ? 0 : Number(hoursSpent);
+  $: effectiveMinutes = minutesSpent === "" || minutesSpent == null ? 0 : Number(minutesSpent);
+
   $: isFormValid =
-    hoursSpent >= 0 &&
-    minutesSpent >= 0 && minutesSpent < 60 &&
-    (hoursSpent > 0 || minutesSpent > 0) &&
+    effectiveHours >= 0 &&
+    effectiveMinutes >= 0 && effectiveMinutes < 60 &&
+    (effectiveHours > 0 || effectiveMinutes > 0) &&
     description.trim() !== "" &&
     (labor.sameMecanic || labor.contractor.trim() !== "") &&
     (labor.price === "" || labor.price === null || Number(labor.price) >= 0) &&
@@ -102,8 +106,8 @@
 
     const finalPayload = {
       orderId: workOrder.order.id,
-      hoursSpent: hoursSpent,
-      minutesSpent: minutesSpent,
+      hoursSpent: effectiveHours,
+      minutesSpent: effectiveMinutes,
       description,
       labor: laborPayload,
       sparePart: sparePartPayload,
