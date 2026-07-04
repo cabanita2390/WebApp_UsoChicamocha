@@ -74,7 +74,7 @@ describe('fetchWithAuth', () => {
     // Nota: checkAuth ya no se invoca por request; el refresh de token es proactivo (monitor en segundo plano).
     expect(localStorageMock.getItem).toHaveBeenCalledWith('accessToken'); // Se obtuvo el token.
     expect(global.fetch).toHaveBeenCalledWith( // Se llamó a fetch con la URL y headers correctos.
-      'http://localhost:8080/api/v1/test/endpoint',
+      `${import.meta.env.VITE_API_BASE_URL}/api/v1/test/endpoint`,
       {
         headers: {
           'Authorization': 'Bearer mockToken',
@@ -186,7 +186,7 @@ describe('fetchWithAuth', () => {
 
     await fetchWithAuth('test/endpoint', { version: 'v2' });
 
-    expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/v2/test/endpoint', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith(`${import.meta.env.VITE_API_BASE_URL}/api/v2/test/endpoint`, expect.any(Object));
   });
 
   /**
@@ -200,7 +200,7 @@ describe('fetchWithAuth', () => {
     
     await fetchWithAuth('test/endpoint', { version: null });
 
-    expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/test/endpoint', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith(`${import.meta.env.VITE_API_BASE_URL}/api/test/endpoint`, expect.any(Object));
   });
 
   /**
@@ -216,7 +216,7 @@ describe('fetchWithAuth', () => {
       headers: { 'Custom-Header': 'value' },
     });
 
-    expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/v1/test/endpoint', {
+    expect(global.fetch).toHaveBeenCalledWith(`${import.meta.env.VITE_API_BASE_URL}/api/v1/test/endpoint`, {
       headers: {
         'Authorization': 'Bearer mockToken',
         'Content-Type': 'application/json; charset=UTF-8',
