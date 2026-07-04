@@ -34,8 +34,7 @@ describe('ExecuteOrderModal', () => {
   };
 
   async function setInputValue(input, value) {
-    input.value = value;
-    await fireEvent.change(input, { target: { value } });
+    await fireEvent.input(input, { target: { value } });
     await tick();
   }
 
@@ -215,8 +214,6 @@ describe('ExecuteOrderModal', () => {
       executeCount++;
     });
 
-    const addButton = screen.getByText('+ Agregar Repuesto');
-    await fireEvent.click(addButton);
     await tick();
 
     // Llenar el formulario con datos válidos
