@@ -7,12 +7,12 @@
 
   const dispatch = createEventDispatcher();
 
-  let hoursSpent = 0;
-  let minutesSpent = 0;
+  let hoursSpent;
+  let minutesSpent;
   let description = "";
 
   let labor = {
-    price: "0",
+    price:"",
     sameMecanic: true,
     contractor: "",
     observations: "",
@@ -26,13 +26,13 @@
     if (oid != null && oid !== previousWorkOrderId) {
       previousWorkOrderId = oid;
       labor = {
-        price: workOrder.labor?.price?.toString() || "0",
+        price: workOrder.labor?.price?.toString() || "",
         sameMecanic: workOrder.labor?.sameMecanic ?? true,
         contractor: workOrder.labor?.contractor || "",
         observations: workOrder.labor?.observations || "",
       };
-      hoursSpent = 0;
-      minutesSpent = 0;
+      hoursSpent
+      minutesSpent
       description = "";
       spareParts = [{ id: 1, ref: "", name: "", quantity: 1, price: "", supplier: "" }];
       nextSparePartId = 2;
@@ -185,6 +185,7 @@
           <div class="form-grid">
             <label>Horas empleadas:
               <input
+                placeholder="0" 
                 type="number"
                 min="0"
                 step="1"
@@ -194,6 +195,7 @@
             </label>
             <label>Minutos empleados:
               <input
+                placeholder="0"
                 type="number"
                 min="0"
                 max="59"
@@ -221,6 +223,7 @@
             >
             <label
               >Precio: <input
+                placeholder="0"
                 type="number"
                 min="0"
                 bind:value={labor.price}
@@ -288,6 +291,7 @@
                 >
                 <label
                   >Precio total: <input
+                    placeholder="0"
                     type="number"
                     min="0"
                     bind:value={part.price}
