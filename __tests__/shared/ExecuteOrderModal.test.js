@@ -233,11 +233,15 @@ describe('ExecuteOrderModal', () => {
     await tick();
 
     const submitButton = screen.getByText('Ejecutar y Completar Orden');
-    
+    await tick();
+
     // Hacer clic múltiples veces rápidamente
     await fireEvent.click(submitButton);
+    await tick();
     await fireEvent.click(submitButton);
+    await tick();
     await fireEvent.click(submitButton);
+    await tick();
 
     // Solo debería haberse ejecutado una vez
     expect(executeCount).toBe(1);

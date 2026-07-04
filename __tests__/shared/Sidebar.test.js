@@ -5,7 +5,8 @@ import Sidebar from '../../components/shared/Sidebar.svelte';
 /**
  * @description Suite de pruebas para el componente Sidebar.
  * El componente no recibe props: la navegación y el estado activo dependen de
- * svelte-spa-router (link/active), y el ítem "Usuarios" solo aparece para rol ADMIN.
+ * svelte-spa-router (link/active). Actualmente Combustibles está oculto en el
+ * markup porque esa sección está en desarrollo.
  */
 
 const ADMIN_ITEM_TITLES = [
@@ -15,8 +16,9 @@ const ADMIN_ITEM_TITLES = [
   'Órdenes de trabajo: Maquinaria · Vehículos · Motos',
   'Consolidado de aceites y estado: Maquinaria · Vehículos · Motos',
   'Marcas de aceite del catálogo compartido',
-  'Registro de cargas de combustible — Maquinaria · Vehículos · Motos',
 ];
+
+const ADMIN_ITEM_COUNT = ADMIN_ITEM_TITLES.length;
 
 function mockAuth(role) {
   vi.doMock('../../stores/auth.js', () => ({
@@ -36,21 +38,21 @@ describe('Sidebar', () => {
       mockAuth('ADMIN');
     });
 
-    it('renderiza los 7 ítems de navegación, incluyendo Usuarios', async () => {
+    it('renderiza los 6 ítems de navegación visibles del sidebar', async () => {
       const { default: SidebarAdmin } = await import('../../components/shared/Sidebar.svelte');
       const { container } = render(SidebarAdmin);
 
       for (const title of ADMIN_ITEM_TITLES) {
         expect(screen.getByTitle(title)).toBeTruthy();
       }
-      expect(container.querySelectorAll('.nav-item').length).toBe(7);
+      expect(container.querySelectorAll('.nav-item').length).toBe(ADMIN_ITEM_COUNT);
     });
 
-    it('renderiza un ícono SVG por cada ítem', async () => {
+    it('renderiza un ícono SVG por cada ítem visible', async () => {
       const { default: SidebarAdmin } = await import('../../components/shared/Sidebar.svelte');
       const { container } = render(SidebarAdmin);
 
-      expect(container.querySelectorAll('nav svg').length).toBe(7);
+      expect(container.querySelectorAll('nav svg').length).toBe(ADMIN_ITEM_COUNT);
     });
   });
 
@@ -60,7 +62,7 @@ describe('Sidebar', () => {
       mockAuth('SUPERVISOR_OPERATIVO');
     });
 
-    it('oculta el ítem de Usuarios pero muestra el resto', async () => {
+    it('oculta el ítem de Usuarios pero mantiene el resto visible', async () => {
       const { default: SidebarNonAdmin } = await import('../../components/shared/Sidebar.svelte');
       const { container } = render(SidebarNonAdmin);
 
@@ -68,7 +70,8 @@ describe('Sidebar', () => {
       for (const title of ADMIN_ITEM_TITLES.filter((t) => t !== 'Usuarios del sistema')) {
         expect(screen.getByTitle(title)).toBeTruthy();
       }
-      expect(container.querySelectorAll('.nav-item').length).toBe(6);
+      expect(container.querySelectorAll('.nav-item').length).toBe(ADMIN_ITEM_COUNT - 1);
+      expect(screen.queryByTitle('Registro de cargas de combustible — Maquinaria · Vehículos · Motos')).toBeNull();
     });
   });
 
