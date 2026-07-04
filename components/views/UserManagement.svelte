@@ -143,7 +143,7 @@
     if (type === 'edit') openEditModal(userData);
     else if (type === 'delete') openDeleteModal(userData);
     else if (type === 'view_license_doc' && userData.licenseDocumentUrl) {
-      window.open(`${import.meta.env.VITE_API_BASE_URL}${userData.licenseDocumentUrl}`, '_blank', 'noopener,noreferrer');
+      window.open(userData.licenseDocumentUrl, '_blank', 'noopener,noreferrer');
     }
   }
 
@@ -381,7 +381,7 @@
           {#if userToEdit.licenseDocumentUrl}
             <a
               class="license-doc-card__preview"
-              href="{import.meta.env.VITE_API_BASE_URL}{userToEdit.licenseDocumentUrl}"
+              href={userToEdit.licenseDocumentUrl}
               target="_blank"
               rel="noopener noreferrer"
             >
