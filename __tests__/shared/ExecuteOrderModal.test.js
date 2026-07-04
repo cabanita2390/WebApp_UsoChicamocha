@@ -33,6 +33,12 @@ describe('ExecuteOrderModal', () => {
     }
   };
 
+  async function setInputValue(input, value) {
+    input.value = value;
+    await fireEvent.change(input, { target: { value } });
+    await tick();
+  }
+
   /**
    * @test renders modal with work order details.
    * Verifica que el modal se renderice con detalles de la orden de trabajo, incluyendo máquina y descripción.
@@ -209,10 +215,13 @@ describe('ExecuteOrderModal', () => {
       executeCount++;
     });
 
+    const addButton = screen.getByText('+ Agregar Repuesto');
+    await fireEvent.click(addButton);
     await tick();
 
     // Llenar el formulario con datos válidos
     const hoursInput = screen.getByLabelText('Horas empleadas:');
+    const minutesInput = screen.getByLabelText('Minutos empleados:');
     const descriptionInput = screen.getByLabelText('Descripción / Detalles del Trabajo Realizado:');
     const priceInput = screen.getByLabelText('Precio:');
     const refInput = screen.getByLabelText('Referencia:');
@@ -221,14 +230,15 @@ describe('ExecuteOrderModal', () => {
     const quantityInput = screen.getByLabelText('Cantidad:');
     const sparePartPriceInput = screen.getByLabelText('Precio total:');
 
-    await fireEvent.input(hoursInput, { target: { value: '2' } });
-    await fireEvent.input(descriptionInput, { target: { value: 'Trabajo realizado' } });
-    await fireEvent.input(priceInput, { target: { value: '100' } });
-    await fireEvent.input(refInput, { target: { value: 'REF001' } });
-    await fireEvent.input(nameInput, { target: { value: 'Repuesto 1' } });
-    await fireEvent.input(supplierInput, { target: { value: 'Distribuidora XYZ' } });
-    await fireEvent.input(quantityInput, { target: { value: '1' } });
-    await fireEvent.input(sparePartPriceInput, { target: { value: '50' } });
+    await setInputValue(hoursInput, '2');
+    await setInputValue(minutesInput, '0');
+    await setInputValue(descriptionInput, 'Trabajo realizado');
+    await setInputValue(priceInput, '100');
+    await setInputValue(refInput, 'REF001');
+    await setInputValue(nameInput, 'Repuesto 1');
+    await setInputValue(supplierInput, 'Distribuidora XYZ');
+    await setInputValue(quantityInput, '1');
+    await setInputValue(sparePartPriceInput, '50');
 
     await tick();
 
@@ -265,6 +275,7 @@ describe('ExecuteOrderModal', () => {
 
     // Llenar el formulario sin precio de mano de obra
     const hoursInput = screen.getByLabelText('Horas empleadas:');
+    const minutesInput = screen.getByLabelText('Minutos empleados:');
     const descriptionInput = screen.getByLabelText('Descripción / Detalles del Trabajo Realizado:');
     const refInput = screen.getByLabelText('Referencia:');
     const nameInput = screen.getByLabelText('Nombre:');
@@ -272,13 +283,14 @@ describe('ExecuteOrderModal', () => {
     const quantityInput = screen.getByLabelText('Cantidad:');
     const sparePartPriceInput = screen.getByLabelText('Precio total:');
 
-    await fireEvent.input(hoursInput, { target: { value: '2' } });
-    await fireEvent.input(descriptionInput, { target: { value: 'Trabajo realizado' } });
-    await fireEvent.input(refInput, { target: { value: 'REF001' } });
-    await fireEvent.input(nameInput, { target: { value: 'Repuesto 1' } });
-    await fireEvent.input(supplierInput, { target: { value: 'Distribuidora XYZ' } });
-    await fireEvent.input(quantityInput, { target: { value: '1' } });
-    await fireEvent.input(sparePartPriceInput, { target: { value: '50' } });
+    await setInputValue(hoursInput, '2');
+    await setInputValue(minutesInput, '0');
+    await setInputValue(descriptionInput, 'Trabajo realizado');
+    await setInputValue(refInput, 'REF001');
+    await setInputValue(nameInput, 'Repuesto 1');
+    await setInputValue(supplierInput, 'Distribuidora XYZ');
+    await setInputValue(quantityInput, '1');
+    await setInputValue(sparePartPriceInput, '50');
 
     await tick();
 
