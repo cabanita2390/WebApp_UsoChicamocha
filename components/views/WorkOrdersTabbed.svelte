@@ -47,7 +47,7 @@
     {:else if activeTab === 'vehiculos'}
       <VehicleOrderManagement overrideData={vehiculosData} />
     {:else if activeTab === 'motos'}
-      <VehicleOrderManagement overrideData={motosData} />
+      <VehicleOrderManagement overrideData={motosData} soloMotos={true} />
     {/if}
   </TabPanel>
 </div>

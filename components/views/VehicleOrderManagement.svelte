@@ -8,6 +8,7 @@
   import { download } from '../../stores/api.js';
 
   export let overrideData = null;
+  export let soloMotos = false;
 
   $: workOrderInfo = overrideData ?? $data.vehicleWorkOrders;
   $: isLoading = $data.isLoading;
@@ -48,8 +49,10 @@
   async function handleExport() {
     isExporting = true;
     try {
-      await download('order/vehicle/export', 'ordenes_vehiculos.xlsx');
-      addNotification({ id: Date.now(), text: 'Órdenes de vehículos descargadas.' });
+      const endpoint = soloMotos ? 'order/vehicle/export?soloMotos=true' : 'order/vehicle/export';
+      const filename = soloMotos ? 'ordenes_motos.xlsx' : 'ordenes_vehiculos.xlsx';
+      await download(endpoint, filename);
+      addNotification({ id: Date.now(), text: soloMotos ? 'Órdenes de motos descargadas.' : 'Órdenes de vehículos descargadas.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
     } finally {
