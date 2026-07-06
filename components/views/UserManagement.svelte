@@ -5,6 +5,7 @@
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
   import { userColumns } from '../../config/table-definitions.js';
+  import { openDocumentSafely } from '../../stores/api.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
 
@@ -384,6 +385,7 @@
               href={userToEdit.licenseDocumentUrl}
               target="_blank"
               rel="noopener noreferrer"
+              on:click|preventDefault={() => openDocumentSafely(userToEdit.licenseDocumentUrl)}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>

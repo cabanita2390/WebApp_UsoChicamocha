@@ -1,4 +1,5 @@
 import { auth } from './auth';
+import { documentErrorVisible } from './ui.js';
 
 let isRefreshingToken = false;
 let refreshTokenPromise = null;
@@ -148,6 +149,31 @@ export function getFileUrl(relativePath) {
     if (relativePath.startsWith('http')) return relativePath;
     const BASE_URL = import.meta.env.VITE_API_BASE_URL;
     return `${BASE_URL}/${relativePath}`;
+}
+
+/**
+ * Abre un documento (SOAT, Tecnomecánica, foto de factura, etc.) en una pestaña nueva,
+ * pero primero verifica que el archivo exista. Si no existe (o falla la verificación),
+ * no abre ninguna pestaña: en su lugar muestra el modal de "documento no disponible"
+ * (ver `documentErrorVisible` en stores/ui.js), dejando al usuario justo donde estaba.
+ * @param {string} url - URL absoluta del documento (ya resuelta con getFileUrl si aplica).
+ */
+export async function openDocumentSafely(url) {
+    if (!url) {
+        documentErrorVisible.set(true);
+        return;
+    }
+
+    try {
+        const res = await fetch(url, { method: 'HEAD' });
+        if (res.ok) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        } else {
+            documentErrorVisible.set(true);
+        }
+    } catch {
+        documentErrorVisible.set(true);
+    }
 }
 
 export default fetchWithAuth;

@@ -17,6 +17,9 @@ export const sortedPreventiveAlerts = derived(preventiveAlerts, ($alerts) => {
 // --- Contador visible en el dropdown (después de deduplicación) ---
 export const visibleAlertCount = writable(0);
 
+// --- Modal global de "documento no disponible" (ver openDocumentSafely en stores/api.js) ---
+export const documentErrorVisible = writable(false);
+
 // --- Acciones de Notificaciones ---
 export function addNotification(notification) {
   const currentMessages = get(notificationMessages);

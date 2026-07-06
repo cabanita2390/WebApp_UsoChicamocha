@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { getFileUrl } from '../../stores/api.js';
+  import { getFileUrl, openDocumentSafely } from '../../stores/api.js';
 
   export let assetType = '';
   export let assetPlate = '';
@@ -180,6 +180,7 @@
                       rel="noopener noreferrer"
                       style="color:#0050a0; text-decoration:none; font-weight:500; cursor:pointer;"
                       title="Ver factura"
+                      on:click|preventDefault={() => openDocumentSafely(getFileUrl(r.invoicePhotoUrl))}
                     >👁 Ver</a>
                   {:else}
                     <label style="cursor:pointer; color:#666; font-weight:500;">

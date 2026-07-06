@@ -25,6 +25,7 @@
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import MaintenanceTabbed from "./components/views/MaintenanceTabbed.svelte";
   import FuelManagement from "./components/views/FuelManagement.svelte";
+  import DocumentErrorModal from "./components/shared/DocumentErrorModal.svelte";
   import { auth } from "./stores/auth.js";
   import {
     ui,
@@ -318,6 +319,8 @@
     <Loader />
   </div>
 {/if}
+
+<DocumentErrorModal />
 
 {#if $auth.isRefreshing}
   <div class="overlay">

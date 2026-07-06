@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   import Loader from './Loader.svelte';
+  import { openDocumentSafely } from '../../stores/api.js';
 
   export let imageUrls = [];
   export let isLoading = false;
@@ -99,7 +100,13 @@
                 <div class="pdf-preview">
                   <span class="pdf-icon">📄</span>
                   <span class="pdf-label">{blobImages[currentIndex].label ?? 'Documento PDF'}</span>
-                  <a class="pdf-open-btn" href={blobImages[currentIndex].url} target="_blank" rel="noopener noreferrer">Abrir PDF</a>
+                  <a
+                    class="pdf-open-btn"
+                    href={blobImages[currentIndex].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    on:click|preventDefault={() => openDocumentSafely(blobImages[currentIndex].url)}
+                  >Abrir PDF</a>
                 </div>
               {:else if imageHasError || !blobImages[currentIndex].blobUrl}
                 <div class="image-error">

@@ -8,7 +8,7 @@
     getFilteredRowModel,
     getSortedRowModel,
   } from "@tanstack/svelte-table";
-  import { getFileUrl } from "../../stores/api";
+  import { getFileUrl, openDocumentSafely } from "../../stores/api";
   import { getStatusTailwindClass } from "../../config/table-definitions.js";
 
   export let columns = [];
@@ -473,6 +473,7 @@
                         rel="noopener noreferrer"
                         class="btn-action mon-action-text mon-action-text--compact"
                         title="Ver factura"
+                        on:click|preventDefault={() => openDocumentSafely(getFileUrl(row.original.invoicePhotoUrl))}
                       >
                         👁 Ver
                       </a>
@@ -618,7 +619,8 @@
                   {@const url = cell.row.original.invoicePhotoUrl}
                   {#if url}
                     <a href={getFileUrl(url)}
-                       target="_blank" rel="noopener noreferrer" class="inv-photo-link">👁 Ver</a>
+                       target="_blank" rel="noopener noreferrer" class="inv-photo-link"
+                       on:click|preventDefault={() => openDocumentSafely(getFileUrl(url))}>👁 Ver</a>
                   {:else}
                     <label class="btn-action mon-action-text mon-action-text--compact" title="Subir recibo">
                       ⬆ Subir
