@@ -299,4 +299,44 @@ describe('ExecuteOrderModal', () => {
       expect(executedPayload.labor.price).toBe(0);
     });
   });
+
+  /**
+   * @test allows submit without filling spare parts.
+   * Verifica que los repuestos son opcionales: se puede ejecutar la orden dejando esa sección en blanco.
+   */
+  it('allows submit without filling spare parts', async () => {
+    const { component } = render(ExecuteOrderModal, {
+      props: { workOrder: mockWorkOrder }
+    });
+
+    let executedPayload = null;
+    component.$on('execute', (event) => {
+      executedPayload = event.detail;
+    });
+
+    await tick();
+
+    const hoursInput = screen.getByLabelText('Horas empleadas:');
+    const minutesInput = screen.getByLabelText('Minutos empleados:');
+    const descriptionInput = screen.getByLabelText('Descripción / Detalles del Trabajo Realizado:');
+
+    await setInputValue(hoursInput, '1');
+    await setInputValue(minutesInput, '30');
+    await setInputValue(descriptionInput, 'Trabajo realizado sin repuestos');
+
+    await tick();
+
+    const submitButton = screen.getByText('Ejecutar y Completar Orden');
+    expect(submitButton.disabled).toBe(false);
+
+    await fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(executedPayload).toBeTruthy();
+      expect(executedPayload.sparePart.ref).toBe('');
+      expect(executedPayload.sparePart.name).toBe('');
+      expect(executedPayload.sparePart.supplier).toBe('');
+      expect(executedPayload.sparePart.price).toBe(0);
+    });
+  });
 });

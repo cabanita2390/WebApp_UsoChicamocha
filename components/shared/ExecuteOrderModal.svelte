@@ -52,6 +52,30 @@
   $: effectiveHours = hoursSpent === "" || hoursSpent == null ? 0 : Number(hoursSpent);
   $: effectiveMinutes = minutesSpent === "" || minutesSpent == null ? 0 : Number(minutesSpent);
 
+  // Un repuesto sin diligenciar (fila por defecto) es válido: los repuestos son opcionales.
+  // Si el usuario empieza a llenar una fila, esa fila sí debe quedar completa.
+  function isSparePartBlank(p) {
+    return (
+      p.ref.trim() === "" &&
+      p.name.trim() === "" &&
+      p.supplier.trim() === "" &&
+      (p.price === "" || p.price === null)
+    );
+  }
+
+  function isSparePartValid(p) {
+    return (
+      isSparePartBlank(p) ||
+      (p.ref.trim() !== "" &&
+        p.name.trim() !== "" &&
+        p.supplier.trim() !== "" &&
+        p.quantity !== "" &&
+        Number(p.quantity) > 0 &&
+        p.price !== "" &&
+        Number(p.price) >= 0)
+    );
+  }
+
   $: isFormValid =
     effectiveHours >= 0 &&
     effectiveMinutes >= 0 && effectiveMinutes < 60 &&
@@ -59,16 +83,7 @@
     description.trim() !== "" &&
     (labor.sameMecanic || labor.contractor.trim() !== "") &&
     (labor.price === "" || labor.price === null || Number(labor.price) >= 0) &&
-    spareParts.every(
-      (p) =>
-        p.ref.trim() !== "" &&
-        p.name.trim() !== "" &&
-        p.supplier.trim() !== "" &&
-        p.quantity !== "" &&
-        Number(p.quantity) > 0 &&
-        p.price !== "" &&
-        Number(p.price) >= 0,
-    );
+    spareParts.every(isSparePartValid);
 
   function addSparePart() {
     spareParts = [
@@ -90,12 +105,14 @@
 
     isProcessing = true;
 
+    const usedSpareParts = spareParts.filter((p) => !isSparePartBlank(p));
+
     const sparePartPayload = {
-      ref: spareParts.map((p) => p.ref).join(" - "),
-      name: spareParts.map((p) => p.name).join(" - "),
-      quantity: spareParts.map((p) => p.quantity).join(" - "),
-      price: spareParts.reduce((sum, p) => sum + (Number(p.price) || 0), 0),
-      supplier: spareParts.map((p) => p.supplier).join(" - "),
+      ref: usedSpareParts.map((p) => p.ref).join(" - "),
+      name: usedSpareParts.map((p) => p.name).join(" - "),
+      quantity: usedSpareParts.map((p) => p.quantity).join(" - "),
+      price: usedSpareParts.reduce((sum, p) => sum + (Number(p.price) || 0), 0),
+      supplier: usedSpareParts.map((p) => p.supplier).join(" - "),
     };
 
     const laborPayload = {
@@ -249,7 +266,7 @@
         </fieldset>
 
         <fieldset class="form-section">
-          <legend>Partes y Repuestos</legend>
+          <legend>Partes y Repuestos (opcional)</legend>
           {#each spareParts as part (part.id)}
             <div class="spare-part-card">
               <div class="card-header">
@@ -267,14 +284,12 @@
                   >Referencia: <input
                     type="text"
                     bind:value={part.ref}
-                    required
                   /></label
                 >
                 <label
                   >Nombre: <input
                     type="text"
                     bind:value={part.name}
-                    required
                   /></label
                 >
                 <label
@@ -282,7 +297,6 @@
                     type="text"
                     bind:value={part.supplier}
                     placeholder="Ej: Distribuidora XYZ"
-                    required
                   /></label
                 >
                 <label
@@ -290,7 +304,6 @@
                     type="number"
                     min="1"
                     bind:value={part.quantity}
-                    required
                   /></label
                 >
                 <label
@@ -299,7 +312,6 @@
                     type="number"
                     min="0"
                     bind:value={part.price}
-                    required
                   /></label
                 >
               </div>
