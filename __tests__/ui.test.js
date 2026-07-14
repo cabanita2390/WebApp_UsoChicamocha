@@ -4,7 +4,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
-import { ui, notificationCount, notificationMessages, addNotification, removeNotification, clearNotifications } from '../stores/ui.js';
+import {
+  ui, notificationCount, notificationMessages, addNotification, removeNotification, clearNotifications,
+  preventiveAlerts, preventiveAlertCount, addPreventiveAlert, clearPreventiveAlerts
+} from '../stores/ui.js';
 
 // Mock localStorage and sessionStorage
 const localStorageMock = {
@@ -153,6 +156,56 @@ describe('ui store', () => {
 
       expect(get(notificationCount)).toBe(0);
       expect(get(notificationMessages)).toEqual([]);
+    });
+  });
+
+  /**
+   * @description Pruebas para las alertas preventivas recibidas por WebSocket (ver
+   * useWebSocketNotifications.js), incluida su actualización/resolución en vivo.
+   */
+  describe('preventive alerts', () => {
+    beforeEach(() => {
+      clearPreventiveAlerts();
+    });
+
+    it('adds a new preventive alert and increments count', () => {
+      const alert = { placa: 'ABC123', tipoAlerta: 'CAMBIO_ACEITE_VEHICULO', estado: 'ACTIVA', colorEstado: 'AMARILLO' };
+
+      addPreventiveAlert(alert);
+
+      expect(get(preventiveAlertCount)).toBe(1);
+      expect(get(preventiveAlerts)).toEqual([alert]);
+    });
+
+    it('updates an existing active alert in place instead of ignoring it', () => {
+      const yellow = { placa: 'ABC123', tipoAlerta: 'CAMBIO_ACEITE_VEHICULO', estado: 'ACTIVA', colorEstado: 'AMARILLO' };
+      const red = { placa: 'ABC123', tipoAlerta: 'CAMBIO_ACEITE_VEHICULO', estado: 'ACTIVA', colorEstado: 'ROJO' };
+
+      addPreventiveAlert(yellow);
+      addPreventiveAlert(red);
+
+      expect(get(preventiveAlertCount)).toBe(1);
+      expect(get(preventiveAlerts)).toEqual([red]);
+    });
+
+    it('removes the alert from the store when the backend reports it as resolved', () => {
+      const active = { placa: 'ABC123', tipoAlerta: 'CAMBIO_ACEITE_VEHICULO', estado: 'ACTIVA', colorEstado: 'ROJO' };
+      const resolved = { placa: 'ABC123', tipoAlerta: 'CAMBIO_ACEITE_VEHICULO', estado: 'RESUELTA' };
+
+      addPreventiveAlert(active);
+      addPreventiveAlert(resolved);
+
+      expect(get(preventiveAlertCount)).toBe(0);
+      expect(get(preventiveAlerts)).toEqual([]);
+    });
+
+    it('ignores a resolved message for an alert that was not in the store', () => {
+      const resolved = { placa: 'XYZ999', tipoAlerta: 'CAMBIO_ACEITE_VEHICULO', estado: 'RESUELTA' };
+
+      addPreventiveAlert(resolved);
+
+      expect(get(preventiveAlertCount)).toBe(0);
+      expect(get(preventiveAlerts)).toEqual([]);
     });
   });
 });

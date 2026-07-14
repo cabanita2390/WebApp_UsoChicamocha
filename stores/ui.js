@@ -46,25 +46,38 @@ export function clearNotifications() {
 
 // --- Acciones de Alertas Preventivas ---
 export function addPreventiveAlert(alert) {
-  console.log('📌 [STORE] Intentando agregar alerta al store:', alert);
   const currentAlerts = get(preventiveAlerts);
-  console.log('📌 [STORE] Alertas actuales:', currentAlerts);
 
-  // Evitar duplicados basados en placa + tipo de alerta
-  const exists = currentAlerts.some(
-    a => a.placa === alert.placa && a.tipoAlerta === alert.tipoAlerta && a.estado === 'ACTIVA'
-  );
-
-  if (exists) {
-    console.log(`⚠️ [STORE] Alerta preventiva duplicada ignorada: ${alert.placa} - ${alert.tipoAlerta}`);
+  // El backend avisa así cuando una alerta se resolvió (ej. se subió el documento
+  // renovado, se registró el cambio de aceite, o se actualizó el kilometraje): hay
+  // que quitarla del store ya mismo, no solo ignorar el mensaje.
+  if (alert.estado === 'RESUELTA') {
+    const withoutResolved = currentAlerts.filter(
+      a => !(a.placa === alert.placa && a.tipoAlerta === alert.tipoAlerta)
+    );
+    if (withoutResolved.length !== currentAlerts.length) {
+      preventiveAlerts.set(withoutResolved);
+      preventiveAlertCount.update(n => Math.max(0, n - 1));
+    }
     return;
   }
 
-  preventiveAlerts.update(alerts => {
-    const newAlerts = [alert, ...alerts];
-    console.log('✅ [STORE] Alerta agregada. Total:', newAlerts.length);
-    return newAlerts;
-  });
+  // Si ya existe una alerta activa para la misma placa+tipo, actualizarla en su lugar
+  // (pudo cambiar de color/valor, ej. de AMARILLO a ROJO) en vez de ignorar el mensaje.
+  const existingIndex = currentAlerts.findIndex(
+    a => a.placa === alert.placa && a.tipoAlerta === alert.tipoAlerta && a.estado === 'ACTIVA'
+  );
+
+  if (existingIndex !== -1) {
+    preventiveAlerts.update(alerts => {
+      const updated = [...alerts];
+      updated[existingIndex] = alert;
+      return updated;
+    });
+    return;
+  }
+
+  preventiveAlerts.update(alerts => [alert, ...alerts]);
   preventiveAlertCount.update(n => n + 1);
 }
 
