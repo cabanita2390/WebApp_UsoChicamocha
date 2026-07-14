@@ -10,6 +10,7 @@
   } from "../../config/table-definitions.js";
   import { onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
+  import { syncPreventiveAlertsFromServer } from '../../composables/useAlerts.js';
   import { download } from '../../stores/api.js';
   import { formatMachinePayload } from '@/lib/textFormat.js';
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
@@ -78,6 +79,8 @@
     try {
       await data.createMachine(formatMachinePayload(newMachine));
       newMachine = { ...initialMachineState };
+      // El backend ya recalculó las alertas (SOAT/seguro todo riesgo) al guardar la máquina.
+      syncPreventiveAlertsFromServer(false);
     } catch (e) {
       errorMessage = e.message || "Error al crear máquina.";
     } finally {
@@ -93,6 +96,8 @@
     try {
       await data.updateMachine({ id: machineInEditor.id, ...formatMachinePayload(machineInEditor) });
       closeEditModal();
+      // El backend ya recalculó las alertas (SOAT/seguro todo riesgo) al guardar la máquina.
+      syncPreventiveAlertsFromServer(false);
     } catch (e) {
       errorMessage = e.message || "Error al actualizar máquina.";
     } finally {

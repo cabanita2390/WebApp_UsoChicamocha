@@ -51,7 +51,7 @@
     isAutoRefreshEnabled,
     isAutoRefreshActive,
   } from "./composables/useAutoRefresh.js";
-  import { fetchAllAlerts, refreshAlertsOnServer } from "./composables/useAlerts.js";
+  import { syncPreventiveAlertsFromServer } from "./composables/useAlerts.js";
   import fetchWithAuth from "./stores/api.js";
   import { preventiveAlerts, preventiveAlertCount } from "./stores/ui.js";
   import ImageCarouselModal from "./components/shared/ImageCarouselModal.svelte";
@@ -95,37 +95,10 @@
 
   // 📢 Cargar alertas preventivas automáticamente al iniciar sesión o recargar página
   async function loadInitialAlerts() {
-    try {
-      console.log("📢 [APP] Cargando alertas iniciales al iniciar sesión...");
-
-      // Recalcular alertas con la fecha actual antes de leer
-      await refreshAlertsOnServer();
-
-      // Cargar alertas del servidor
-      const response = await fetchAllAlerts(0, 200, { estado: "ACTIVA" });
-      console.log("📢 [APP] Respuesta del API:", response);
-
-      let alertas = [];
-      if (response && response.content && Array.isArray(response.content)) {
-        alertas = response.content;
-      } else if (Array.isArray(response)) {
-        alertas = response;
-      }
-
-      if (alertas.length > 0) {
-        preventiveAlerts.set(alertas);
-        preventiveAlertCount.set(alertas.length);
-        console.log(`✅ [APP] ${alertas.length} alertas cargadas automáticamente`);
-      } else {
-        console.log("ℹ️ [APP] No hay alertas activas en el servidor");
-        preventiveAlerts.set([]);
-        preventiveAlertCount.set(0);
-      }
-    } catch (error) {
-      console.error("❌ [APP] Error cargando alertas iniciales:", error);
-      preventiveAlerts.set([]);
-      preventiveAlertCount.set(0);
-    }
+    console.log("📢 [APP] Cargando alertas iniciales al iniciar sesión...");
+    // recalculate=true: fuerza un recálculo completo en el servidor antes de leer,
+    // para reflejar la fecha actual (ej. algo que venció desde la última vez).
+    await syncPreventiveAlertsFromServer(true);
   }
 
   let unsubscribeAuth;

@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import fetchWithAuth from '../stores/api.js';
+import { preventiveAlerts, preventiveAlertCount } from '../stores/ui.js';
 
 /**
  * Composable para manejar alertas preventivas
@@ -47,6 +48,33 @@ export async function fetchAllAlerts(page = 0, size = 20, filters = {}) {
     alertsError.set(error.message);
     alertsLoading.set(false);
     throw error;
+  }
+}
+
+/**
+ * Sincroniza el store global de alertas preventivas (`preventiveAlerts`) con el servidor.
+ * Llamar justo después de subir/editar un documento (SOAT, tecnomecánica, extintor,
+ * seguro todo riesgo, licencia) para que la alerta correspondiente desaparezca o se
+ * actualice de inmediato en la UI, sin esperar a un F5 o a la reapertura del dropdown.
+ *
+ * @param {boolean} recalculate si es true, primero dispara POST /alerts/refresh (recálculo
+ *   completo en el servidor). No es necesario si quien llama ya sabe que el backend recalculó
+ *   de forma síncrona al guardar (ej. subida de documento), pero es más seguro pasarlo en true
+ *   si existe duda.
+ */
+export async function syncPreventiveAlertsFromServer(recalculate = false) {
+  try {
+    if (recalculate) {
+      await refreshAlertsOnServer();
+    }
+    const response = await fetchAllAlerts(0, 200, { estado: 'ACTIVA' });
+    const alertas = response?.content && Array.isArray(response.content)
+      ? response.content
+      : (Array.isArray(response) ? response : []);
+    preventiveAlerts.set(alertas);
+    preventiveAlertCount.set(alertas.length);
+  } catch (error) {
+    console.warn('⚠️ No se pudo sincronizar el store de alertas preventivas:', error.message);
   }
 }
 

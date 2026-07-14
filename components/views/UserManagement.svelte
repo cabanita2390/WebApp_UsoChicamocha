@@ -6,6 +6,7 @@
   import Loader from '../shared/Loader.svelte';
   import { userColumns } from '../../config/table-definitions.js';
   import { openDocumentSafely } from '../../stores/api.js';
+  import { syncPreventiveAlertsFromServer } from '../../composables/useAlerts.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
 
@@ -68,6 +69,9 @@
       if (created?.id && newUserLicenseFile && newUserLicenseFile.length) {
         await data.uploadUserLicenseDocument(created.id, newUserLicenseFile[0]);
       }
+      if (newUser.licenseExpiry) {
+        syncPreventiveAlertsFromServer(false);
+      }
       newUser = { ...initialUserState };
       newUserLicenseFile = null;
     } catch (e) {
@@ -120,6 +124,10 @@
       }
 
       if (updatePromises.length > 0) await Promise.all(updatePromises);
+      if (hasInfoChange && (originalUser.licenseExpiry ?? '') !== (userToEdit.licenseExpiry ?? '')) {
+        // El backend ya recalculó las alertas de licencia al guardar; solo sincronizamos el store.
+        syncPreventiveAlertsFromServer(false);
+      }
       closeEditModal();
     } catch (e) {
       errorMessage = e.message || "Error al actualizar usuario.";

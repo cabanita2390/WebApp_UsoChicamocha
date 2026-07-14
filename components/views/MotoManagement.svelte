@@ -11,6 +11,7 @@
   import { motoInventoryColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
+  import { syncPreventiveAlertsFromServer } from "../../composables/useAlerts.js";
   import { download } from "../../stores/api.js";
   import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
@@ -190,6 +191,8 @@
       addNotification({ id: Date.now(), text: 'Documentación actualizada.' });
       resetDocModal();
       await data.fetchMotos();
+      // El backend ya recalculó las alertas al guardar el documento; solo sincronizamos el store.
+      syncPreventiveAlertsFromServer(false);
     } catch (e) {
       addNotification({ id: Date.now(), text: e.message || 'Error al guardar.' });
       docModalSubmitting = false;
@@ -311,6 +314,9 @@
       docTecnoFile = null;
       docTarjetaPropiedadFile = null;
       await data.fetchMotos();
+      if (docExtra) {
+        syncPreventiveAlertsFromServer(false);
+      }
       addNotification({ id: Date.now(), text: "Motocicleta registrada." + docExtra });
     } catch (e) {
       if (e.status === 409 && e.body?.softDeletedVehicle) {
