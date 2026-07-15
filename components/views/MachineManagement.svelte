@@ -34,7 +34,6 @@
     soat: "",
     runt: "",
     belongsTo: "Distrito",
-    fuelTankCapacityGallons: null,
   };
   let newMachine = { ...initialMachineState };
 
@@ -155,9 +154,6 @@
       machineInEditor = {
         ...fullMachine,
         belongsTo: normalizeBelongsTo(fullMachine.belongsTo),
-        fuelTankCapacityGallons: fullMachine.fuelTankCapacityGallons ?? null,
-        factoryEfficiencyGalPerHour: fullMachine.factoryEfficiencyGalPerHour ?? null,
-        factoryEfficiencyUnit: fullMachine.factoryEfficiencyUnit ?? 'GAL_PER_HOUR',
       };
       console.log("✏️ machineInEditor.belongsTo asignado a:", machineInEditor.belongsTo);
       showEditModal = true;
@@ -257,22 +253,6 @@
               disabled={isSubmitting}
             />
           </label>
-          {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input type="number" step="0.001" min="0.1" bind:value={newMachine.fuelTankCapacityGallons} placeholder="Ej: 10.5" disabled={isSubmitting} />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input type="number" step="0.01" min="0" bind:value={newMachine.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" disabled={isSubmitting} style="padding:3px 4px;font-size:11px;min-height:26px" />
-              <select bind:value={newMachine.factoryEfficiencyUnit} disabled={isSubmitting} style="padding:3px 4px;font-size:11px;min-height:22px">
-                <option value="GAL_PER_HOUR">Gal/h</option>
-                <option value="M3_PER_HOUR">m³/h (gas)</option>
-              </select>
-            </div>
-          </label>
-          {/if}
         </div>
         <div class="create-actions">
           <button type="submit" class="btn-create" disabled={isSubmitting}>
@@ -344,22 +324,6 @@
               on:change={(e) => machineInEditor.runt = e.target.value}
             />
           </label>
-          {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input type="number" step="0.001" min="0.1" bind:value={machineInEditor.fuelTankCapacityGallons} placeholder="Ej: 10.5" />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input type="number" step="0.01" min="0" bind:value={machineInEditor.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" style="padding:3px 4px;font-size:11px;min-height:26px" />
-              <select bind:value={machineInEditor.factoryEfficiencyUnit} style="padding:3px 4px;font-size:11px;min-height:22px">
-                <option value="GAL_PER_HOUR">Gal/h</option>
-                <option value="M3_PER_HOUR">m³/h (gas)</option>
-              </select>
-            </div>
-          </label>
-          {/if}
         </div>
         <div class="modal-actions">
           <button type="button" class="btn-cancel" on:click={closeEditModal}>Cancelar</button>
