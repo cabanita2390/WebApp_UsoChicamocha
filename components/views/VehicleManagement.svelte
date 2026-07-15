@@ -154,6 +154,7 @@
     belongsTo: "",
     idUbicacionBase: null,
     activo: true,
+    fuelTankCapacityGallons: null,
   };
   let newVehicle = { ...initialVehicleState };
   /** Vigencias y archivos al alta. */
@@ -461,6 +462,9 @@
         })(),
         belongsTo: normalizeBelongsTo(fullVehicle.belongsTo),
         activo: fullVehicle.activo !== false && fullVehicle.activo !== 'false' && fullVehicle.activo !== 0 && fullVehicle.activo !== '0',
+        fuelTankCapacityGallons: fullVehicle.fuelTankCapacityGallons ?? null,
+        factoryEfficiencyKmPerGallon: fullVehicle.factoryEfficiencyKmPerGallon ?? null,
+        factoryEfficiencyUnit: fullVehicle.factoryEfficiencyUnit ?? 'KM_PER_GALLON',
       };
       console.log("✏️ vehicleInEditor.belongsTo asignado a:", vehicleInEditor.belongsTo);
       showEditModal = true;
@@ -625,6 +629,33 @@
               <option value="0">Inactivo</option>
             </select>
           </label>
+          {#if isAdmin}
+          <label class="field">
+            <span class="field-lab">Capacidad del tanque (Gal)</span>
+            <input
+              type="number" step="0.001" min="0.1"
+              bind:value={newVehicle.fuelTankCapacityGallons}
+              placeholder="Ej: 18.5"
+              disabled={isSubmitting}
+            />
+          </label>
+          <label class="field">
+            <span class="field-lab">Eficiencia de fábrica</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
+              <input
+                type="number" step="0.01" min="0"
+                bind:value={newVehicle.factoryEfficiencyKmPerGallon}
+                placeholder="Ej: 42.5"
+                disabled={isSubmitting}
+                style="padding:3px 4px;font-size:11px;min-height:26px"
+              />
+              <select bind:value={newVehicle.factoryEfficiencyUnit} disabled={isSubmitting} style="padding:4px;font-size:12px;min-height:28px">
+                <option value="KM_PER_GALLON">km/Gal</option>
+                <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
+              </select>
+            </div>
+          </label>
+          {/if}
         </div>
         <div class="create-docs-head">Documentación</div>
         <div class="create-docs-grid">
@@ -715,6 +746,7 @@
   asset={vehicleInEditor}
   {brands}
   {locations}
+  {isAdmin}
   {isSubmitting}
   {errorMessage}
   on:close={closeEditModal}

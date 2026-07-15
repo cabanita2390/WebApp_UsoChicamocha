@@ -133,6 +133,7 @@
     belongsTo: "",
     idUbicacionBase: null,
     activo: true,
+    fuelTankCapacityGallons: null,
   };
   let newMoto = { ...initialMotoState };
   let docSoatVencimiento = "";
@@ -419,6 +420,9 @@
         })(),
         belongsTo: normalizeBelongsTo(fullMoto.belongsTo),
         activo: fullMoto.activo !== false && fullMoto.activo !== 'false' && fullMoto.activo !== 0 && fullMoto.activo !== '0',
+        fuelTankCapacityGallons: fullMoto.fuelTankCapacityGallons ?? null,
+        factoryEfficiencyKmPerGallon: fullMoto.factoryEfficiencyKmPerGallon ?? null,
+        factoryEfficiencyUnit: fullMoto.factoryEfficiencyUnit ?? 'KM_PER_GALLON',
       };
       console.log("✏️ motoInEditor.belongsTo asignado a:", motoInEditor.belongsTo);
       showEditModal = true;
@@ -541,6 +545,33 @@
                 <option value="0">Inactivo</option>
               </select>
             </label>
+            {#if isAdmin}
+            <label class="field">
+              <span class="field-lab">Capacidad del tanque (Gal)</span>
+              <input
+                type="number" step="0.001" min="0.1"
+                bind:value={newMoto.fuelTankCapacityGallons}
+                placeholder="Ej: 2.5"
+                disabled={isSubmitting}
+              />
+            </label>
+            <label class="field">
+              <span class="field-lab">Eficiencia de fábrica</span>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
+                <input
+                  type="number" step="0.01" min="0"
+                  bind:value={newMoto.factoryEfficiencyKmPerGallon}
+                  placeholder="Ej: 80.0"
+                  disabled={isSubmitting}
+                  style="padding:3px 4px;font-size:11px;min-height:26px"
+                />
+                <select bind:value={newMoto.factoryEfficiencyUnit} disabled={isSubmitting} style="padding:4px;font-size:12px;min-height:28px">
+                  <option value="KM_PER_GALLON">km/Gal</option>
+                  <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
+                </select>
+              </div>
+            </label>
+            {/if}
           </div>
           <div class="create-docs-head">Documentación</div>
           <div class="create-docs-grid">
@@ -617,11 +648,14 @@
   asset={motoInEditor}
   {brands}
   {locations}
+  {isAdmin}
   {isSubmitting}
   {errorMessage}
   submitDisabled={motoTipoId == null}
   belongsToRequired={true}
   locationTitle="Ej.: Unidad Pantano, Unidad Ayalas…"
+  capacityPlaceholder="Ej: 2.5"
+  efficiencyPlaceholder="Ej: 80.0"
   on:close={closeEditModal}
   on:quickcatalog={(e) => openQuickCatalog(e.detail)}
   on:submit={handleUpdateMoto}

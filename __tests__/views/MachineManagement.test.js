@@ -160,6 +160,8 @@ describe('MachineManagement', () => {
         soat: '',
         runt: '',
         belongsTo: 'Distrito',
+        fuelTankCapacityGallons: null,
+        factoryEfficiencyUnit: 'GAL_PER_HOUR',
       });
     });
   });
