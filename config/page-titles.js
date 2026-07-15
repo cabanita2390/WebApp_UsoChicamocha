@@ -29,7 +29,6 @@ const ROUTE_TITLES = {
     "/moto-inventory": "Inventario de motocicletas",
     "/vehicle-oil-history": "Historial de cambios de aceite — Vehículo",
     "/maintenance": "Historial de mantenimiento — Vehículos · Motos",
-    "/fuel": "Módulo de Combustibles",
 };
 
 /**

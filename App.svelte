@@ -24,7 +24,6 @@
   import MotoCambioAceiteForm from "./components/views/MotoCambioAceiteForm.svelte";
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import MaintenanceTabbed from "./components/views/MaintenanceTabbed.svelte";
-  import FuelManagement from "./components/views/FuelManagement.svelte";
   import DocumentErrorModal from "./components/shared/DocumentErrorModal.svelte";
   import { auth } from "./stores/auth.js";
   import {
@@ -71,7 +70,6 @@
     "/moto-oil-history/:placa": MotoCambioAceiteHistorial,
     "/moto-oil-change": MotoCambioAceiteForm,
     "/maintenance": MaintenanceTabbed,
-    "/fuel": FuelManagement,
   };
 
   function handleActivateSound() {
@@ -255,10 +253,6 @@
       ui.setCurrentView("moto-oil-change");
       data.fetchMotos();
       data.fetchOils();
-    } else if (location.includes("/fuel")) {
-      ui.setCurrentView("fuel");
-      data.fetchFuelLogs();
-      data.fetchFuelDashboard();
     }
   }
 </script>

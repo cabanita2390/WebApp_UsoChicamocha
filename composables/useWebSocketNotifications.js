@@ -688,12 +688,6 @@ function handleDataUpdate(currentView, message) {
         data.fetchConsolidadoData();
       }
       break;
-    case 'fuel-updated':
-      if (currentView === 'fuel') {
-        data.fetchFuelLogs(null, null);
-        data.fetchFuelDashboard(null, null);
-      }
-      break;
     case 'oil-change-alert-updated':
       // Refrescar consolidado cuando hay alerta de aceite
       if (currentView === 'consolidado') {

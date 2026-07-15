@@ -106,7 +106,7 @@ async function fetchWithAuth(endpoint, options = {}, retryCount = 0) {
 /**
  * Descarga un archivo binario (ej. exports a Excel) reutilizando la autenticación,
  * el refresh de token en 401 y el manejo de 403 del resto de la app.
- * @param {string} endpoint - Ruta relativa, misma convención que fetchWithAuth (ej. 'fuel/export').
+ * @param {string} endpoint - Ruta relativa, misma convención que fetchWithAuth (ej. 'vehicle/export').
  * @param {string} filename - Nombre con el que se descarga el archivo en el navegador.
  * @param {object} options - { version, headers, ...resto de opciones de fetch }.
  */
