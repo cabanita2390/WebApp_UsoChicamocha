@@ -8,7 +8,6 @@
     getFilteredRowModel,
     getSortedRowModel,
   } from "@tanstack/svelte-table";
-  import { getFileUrl, openDocumentSafely } from "../../stores/api";
   import { getStatusTailwindClass } from "../../config/table-definitions.js";
 
   export let columns = [];
@@ -347,10 +346,7 @@
                   cell.column.columnDef.meta?.isConsolidadoMotoActions ||
                   cell.column.columnDef.meta?.isConsolidadoMaqActions ||
                   cell.column.columnDef.meta?.isDocHistoryAction ||
-                  cell.column.columnDef.meta?.isFuelHistorial ||
-                  cell.column.columnDef.meta?.isFuelInvoice ||
-                  cell.column.columnDef.meta?.isLicenseDocAction ||
-                  cell.column.columnDef.meta?.isAnomDismissAction}
+                  cell.column.columnDef.meta?.isLicenseDocAction}
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
@@ -464,41 +460,6 @@
                       Corregir Horómetro
                     </button>
                   </div>
-                {:else if cell.column.columnDef.meta?.isFuelInvoice}
-                  <div class="actions-cell">
-                    {#if row.original.invoicePhotoUrl}
-                      <a
-                        href={getFileUrl(row.original.invoicePhotoUrl)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="btn-action mon-action-text mon-action-text--compact"
-                        title="Ver factura"
-                        on:click|preventDefault={() => openDocumentSafely(getFileUrl(row.original.invoicePhotoUrl))}
-                      >
-                        👁 Ver
-                      </a>
-                    {:else}
-                      <label class="btn-action mon-action-text mon-action-text--compact" title="Subir factura">
-                        ⬆ Subir
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          style="display:none"
-                          on:change={e => handleAction("fuel_invoice_upload", row.original, e)}
-                        />
-                      </label>
-                    {/if}
-                  </div>
-                {:else if cell.column.columnDef.meta?.isFuelHistorial}
-                  <div class="actions-cell">
-                    <button
-                      type="button"
-                      class="btn-action mon-action-text mon-action-text--compact mon-action-text--hist"
-                      on:click={() => handleAction("fuel_historial", row.original)}
-                    >
-                      Ver historial
-                    </button>
-                  </div>
                 {:else if cell.column.columnDef.meta?.isMonitoringDocsAction}
                   <div class="actions-cell">
                     <button
@@ -604,64 +565,6 @@
                   <span class="order-status {(lower === 'done' || lower === 'completada') ? 'order-status--done' : lower === 'pending' ? 'order-status--pending' : ''}">
                     {(lower === 'done' || lower === 'completada') ? 'Completada' : lower === 'pending' ? 'Pendiente' : raw}
                   </span>
-                {:else if cell.column.columnDef.meta?.isAnomalyEfficiency}
-                  {@const label = cell.row.original._effLabel ?? '—'}
-                  <span class="badge-warn">⚠ {label}</span>
-                {:else if cell.column.columnDef.meta?.isAnomalyCost}
-                  {@const r = cell.row.original}
-                  <div>
-                    <span>{r._costLabel ?? '—'}</span>
-                    {#if r.totalCostMismatch}
-                      <div style="color:#c00;font-size:10px">⚠ declarado: {r._costMismatchLabel ?? ''}</div>
-                    {/if}
-                  </div>
-                {:else if cell.column.columnDef.meta?.isInvoicePhotoLink}
-                  {@const url = cell.row.original.invoicePhotoUrl}
-                  {#if url}
-                    <a href={getFileUrl(url)}
-                       target="_blank" rel="noopener noreferrer" class="inv-photo-link"
-                       on:click|preventDefault={() => openDocumentSafely(getFileUrl(url))}>👁 Ver</a>
-                  {:else}
-                    <label class="btn-action mon-action-text mon-action-text--compact" title="Subir recibo">
-                      ⬆ Subir
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        style="display:none"
-                        on:change={e => handleAction("fuel_invoice_upload", row.original, e)}
-                      />
-                    </label>
-                  {/if}
-                {:else if cell.column.columnDef.meta?.isAnomDismissAction}
-                  <div class="actions-cell">
-                    <button class="btn-action dismiss-btn"
-                      on:click={() => handleAction('dismiss_anomaly', row.original)}>
-                      Quitar anomalía
-                    </button>
-                  </div>
-                {:else if cell.column.columnDef.meta?.isRankPosition}
-                  {@const pos = cell.row.index + 1}
-                  <strong style="font-size:13px;color:{pos===1?'#b8860b':pos===2?'#707070':pos===3?'#8b4513':'inherit'}">{pos}</strong>
-                {:else if cell.column.columnDef.meta?.isRankBar}
-                  {@const pct = Number(cell.getContext().getValue() ?? 0)}
-                  <div style="display:flex;align-items:center;gap:6px;min-width:120px">
-                    <div style="flex:1;height:10px;background:#ddd;border:1px inset #bbb">
-                      <div style="height:100%;width:{pct.toFixed(1)}%;background:linear-gradient(to right,#5a9fd4,#2a6fa8)"></div>
-                    </div>
-                    <span style="font-size:10px;white-space:nowrap">{pct.toFixed(0)}%</span>
-                  </div>
-                {:else if cell.column.columnDef.meta?.isEfficiencyRank}
-                  {@const r = cell.row.original}
-                  {@const isConsumption = ['GALLON_PER_HOUR','GAL_PER_HOUR','M3_PER_HOUR','L_PER_HOUR'].includes(r.factoryEfficiencyUnit)}
-                  {@const below = r.factoryEfficiency != null && r.efficiencyValue != null && (isConsumption ? +r.efficiencyValue > +r.factoryEfficiency : +r.efficiencyValue < +r.factoryEfficiency)}
-                  {@const dev = (r.factoryEfficiency != null && r.efficiencyValue != null && +r.factoryEfficiency !== 0) ? (isConsumption ? (+r.efficiencyValue - +r.factoryEfficiency) / +r.factoryEfficiency * 100 : (+r.factoryEfficiency - +r.efficiencyValue) / +r.factoryEfficiency * 100) : null}
-                  {@const label = cell.getContext().getValue() ?? '—'}
-                  <div style="text-align:right">
-                    <span style="font-weight:bold;color:{below?'#c00':label==='—'?'#999':'#1a5c1a'}">{label}{below?' ↓':''}</span>
-                    {#if dev !== null}
-                      <div style="font-size:10px;color:{dev>0?'#c00':'#1a5c1a'}">{dev>0?'+':''}{dev.toFixed(1)}% vs fábrica</div>
-                    {/if}
-                  </div>
                 {:else if cell.column.columnDef.meta?.isStatus || cell.column.columnDef.meta?.isBadge}
                   {@const cellValue = cell.getContext().getValue()}
                   {@const colorClass = getStatusClass(cellValue)}
