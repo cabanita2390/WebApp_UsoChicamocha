@@ -28,6 +28,17 @@ function createDataStore() {
         vehicleTypes: [],
         areas: [],
         locations: [],
+        // Combustibles (Fase 4) — se rellenan en Tasks 18-23, cada uno con su fetchFuelX.
+        fuelTypes: [],
+        fuelPurchases: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
+        fuelRefueling: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
+        fuelDashboard: null,
+        fuelTrend: [],
+        fuelWarehouseBalance: [],
+        fuelWarehouseMovements: null,
+        fuelPerformance: [],
+        fuelDistribution: null,
+        fuelAssetConfig: [],
         isLoading: false,
         error: null
     });
@@ -629,7 +640,137 @@ function createDataStore() {
             const stateMap = { 'area': 'areas', 'location': 'locations', 'type': 'vehicleTypes' };
             await fetchWithAuth(`${endpointMap[type]}/${id}`, { method: 'DELETE' });
             update(s => ({ ...s, [stateMap[type]]: s[stateMap[type]].filter(i => i.id !== id) }));
-        }
+        },
+        // Combustibles — Tanqueo (Fase 4, Task 18)
+        fetchFuelTypes: () => fetchAll('fuelTypes', 'fuel/types'),
+        fetchRefueling: (page = 0, size = 20) => fetchPaginated('fuelRefueling', 'fuel/refueling', page, size),
+        createRefueling: async (formData) => {
+            const created = await fetchWithAuth('fuel/refueling', { method: 'POST', body: formData });
+            update(s => ({
+                ...s,
+                fuelRefueling: { ...s.fuelRefueling, data: [created, ...s.fuelRefueling.data] },
+            }));
+            return created;
+        },
+        // Combustibles — Suministro de Almacén (Fase 4, Task 19)
+        fetchFuelPurchases: (page = 0, size = 20) => fetchPaginated('fuelPurchases', 'fuel/purchases', page, size),
+        createFuelPurchase: async (formData) => {
+            const created = await fetchWithAuth('fuel/purchases', { method: 'POST', body: formData });
+            update(s => ({
+                ...s,
+                fuelPurchases: { ...s.fuelPurchases, data: [created, ...s.fuelPurchases.data] },
+            }));
+            return created;
+        },
+        // Combustibles — Dashboard Financiero (Fase 4, Task 20)
+        fetchFuelDashboard: async (fechaInicio, fechaFin) => {
+            setLoading(true);
+            try {
+                const params = new URLSearchParams();
+                if (fechaInicio) params.set('fechaInicio', fechaInicio);
+                if (fechaFin) params.set('fechaFin', fechaFin);
+                const qs = params.toString();
+                const result = await fetchWithAuth(`fuel/dashboard/financiero${qs ? `?${qs}` : ''}`);
+                update(s => ({ ...s, fuelDashboard: result, isLoading: false, error: null }));
+                return result;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
+        fetchFuelTrend: async (meses, fechaFin) => {
+            try {
+                const params = new URLSearchParams();
+                if (meses) params.set('meses', meses);
+                if (fechaFin) params.set('fechaFin', fechaFin);
+                const qs = params.toString();
+                const result = await fetchWithAuth(`fuel/dashboard/tendencia${qs ? `?${qs}` : ''}`);
+                update(s => ({ ...s, fuelTrend: result ?? [] }));
+                return result;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
+        // Combustibles — Control de Almacén (Fase 4, Task 21)
+        fetchFuelWarehouseBalance: async () => {
+            setLoading(true);
+            try {
+                const result = await fetchWithAuth('fuel/almacen/saldos');
+                update(s => ({ ...s, fuelWarehouseBalance: result?.saldos ?? [], isLoading: false, error: null }));
+                return result;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
+        fetchFuelWarehouseMovements: async (fechaInicio, fechaFin) => {
+            setLoading(true);
+            try {
+                const params = new URLSearchParams();
+                if (fechaInicio) params.set('fechaInicio', fechaInicio);
+                if (fechaFin) params.set('fechaFin', fechaFin);
+                const qs = params.toString();
+                const result = await fetchWithAuth(`fuel/almacen/movimientos${qs ? `?${qs}` : ''}`);
+                update(s => ({ ...s, fuelWarehouseMovements: result, isLoading: false, error: null }));
+                return result;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
+        createFuelReintegration: async (payload) => {
+            return await fetchWithAuth('fuel/reintegros', { method: 'POST', body: JSON.stringify(payload) });
+        },
+        // Combustibles — Configuración de rendimiento y Rendimiento Operativo (Fase 4, Task 22)
+        fetchAssetFuelConfig: () => fetchAll('fuelAssetConfig', 'fuel/config'),
+        updateAssetFuelConfigVehicle: async (vehicleId, payload) => {
+            const updated = await fetchWithAuth(`fuel/config/vehicle/${vehicleId}`, { method: 'PUT', body: JSON.stringify(payload) });
+            update(s => ({
+                ...s,
+                fuelAssetConfig: [...s.fuelAssetConfig.filter(c => c.vehicleId !== vehicleId), updated],
+            }));
+            return updated;
+        },
+        updateAssetFuelConfigMachine: async (machineId, payload) => {
+            const updated = await fetchWithAuth(`fuel/config/machine/${machineId}`, { method: 'PUT', body: JSON.stringify(payload) });
+            update(s => ({
+                ...s,
+                fuelAssetConfig: [...s.fuelAssetConfig.filter(c => c.machineId !== machineId), updated],
+            }));
+            return updated;
+        },
+        fetchFuelPerformance: async (tipo, fechaInicio, fechaFin) => {
+            setLoading(true);
+            try {
+                const params = new URLSearchParams();
+                params.set('tipo', tipo);
+                if (fechaInicio) params.set('fechaInicio', fechaInicio);
+                if (fechaFin) params.set('fechaFin', fechaFin);
+                const result = await fetchWithAuth(`fuel/rendimiento?${params.toString()}`);
+                update(s => ({ ...s, fuelPerformance: result ?? [], isLoading: false, error: null }));
+                return result;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
+        // Combustibles — Distribución Asociación/Distrito (Fase 4, Task 23)
+        fetchFuelDistribution: async (area, fechaInicio, fechaFin) => {
+            setLoading(true);
+            try {
+                const params = new URLSearchParams();
+                params.set('area', area);
+                if (fechaInicio) params.set('fechaInicio', fechaInicio);
+                if (fechaFin) params.set('fechaFin', fechaFin);
+                const result = await fetchWithAuth(`fuel/distribucion?${params.toString()}`);
+                update(s => ({ ...s, fuelDistribution: result, isLoading: false, error: null }));
+                return result;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
     };
 
     return {
