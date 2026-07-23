@@ -56,6 +56,10 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    border: 1px solid var(--border, rgba(11, 11, 11, 0.08));
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: var(--page, #f7f7f6);
   }
   .trend-head {
     font-size: 12px;

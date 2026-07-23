@@ -132,6 +132,16 @@ describe('FuelFinancialDashboard', () => {
     expect(data.fetchFuelTrend).toHaveBeenLastCalledWith(24, undefined);
   });
 
+  it('apila las gráficas de tendencia verticalmente cuando el rango es mayor a 6 meses', async () => {
+    const { container } = render(FuelFinancialDashboard);
+
+    expect(container.querySelector('.chart-row--trend').classList.contains('chart-row--stacked')).toBe(false);
+
+    await fireEvent.click(screen.getByRole('button', { name: '12m' }));
+
+    expect(container.querySelector('.chart-row--trend').classList.contains('chart-row--stacked')).toBe(true);
+  });
+
   it('permite elegir un número de meses libre para la tendencia', async () => {
     render(FuelFinancialDashboard);
 

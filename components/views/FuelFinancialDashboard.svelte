@@ -198,7 +198,7 @@
           </form>
         </div>
       </div>
-      <div class="chart-row">
+      <div class="chart-row chart-row--trend" class:chart-row--stacked={mesesTendencia > 6}>
         <FuelTrendChart
           label="Consumo mensual (galones)"
           months={trendMonthLabels}
@@ -322,6 +322,9 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
   .fuel-filtros {
     display: flex;
@@ -478,6 +481,12 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 14px;
+  }
+  /* Con muchos meses (12/24/otro > 6) cada mini-gráfica necesita más ancho para
+     que las etiquetas de mes no queden amontonadas — se apilan verticalmente
+     en vez de ir lado a lado. */
+  .chart-row--stacked {
+    grid-template-columns: 1fr;
   }
 
   /* Barras horizontales: gruesas 24px máx, extremo redondeado 4px, valor
