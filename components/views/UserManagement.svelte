@@ -266,6 +266,7 @@
             <option value="ADMIN">ADMIN </option>
             <option value="SUPERVISOR_OPERATIVO">SUPERVISOR OPERATIVO </option>
             <option value="OPERARIO">OPERARIO</option>
+            <option value="ALMACEN">ALMACEN</option>
           </select>
         </label>
       </div>
@@ -339,6 +340,7 @@
                 <option value="ADMIN">ADMIN</option>
                 <option value="SUPERVISOR_OPERATIVO">SUPERVISOR OPERATIVO</option>
                 <option value="OPERARIO">OPERARIO</option>
+                <option value="ALMACEN">ALMACEN</option>
               </select>
             </label>
           {/if}

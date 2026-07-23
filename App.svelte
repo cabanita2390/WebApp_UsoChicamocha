@@ -24,6 +24,7 @@
   import MotoCambioAceiteForm from "./components/views/MotoCambioAceiteForm.svelte";
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import MaintenanceTabbed from "./components/views/MaintenanceTabbed.svelte";
+  import FuelTabbed from "./components/views/FuelTabbed.svelte";
   import DocumentErrorModal from "./components/shared/DocumentErrorModal.svelte";
   import { auth } from "./stores/auth.js";
   import {
@@ -70,6 +71,7 @@
     "/moto-oil-history/:placa": MotoCambioAceiteHistorial,
     "/moto-oil-change": MotoCambioAceiteForm,
     "/maintenance": MaintenanceTabbed,
+    "/fuel": FuelTabbed,
   };
 
   function handleActivateSound() {
@@ -253,6 +255,10 @@
       ui.setCurrentView("moto-oil-change");
       data.fetchMotos();
       data.fetchOils();
+    } else if (location.includes("/fuel")) {
+      ui.setCurrentView("fuel");
+      // Cada pestaña dispara su propio fetch de forma perezosa (patrón WorkOrdersTabbed),
+      // implementado en Tasks 18-24 a medida que existen las funciones fetchFuelX en data.js.
     }
   }
 </script>

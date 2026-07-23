@@ -55,6 +55,14 @@
     <span class="nav-text">Marcas (catálogo)</span>
   </a>
 
+  <!-- ── Combustibles ── -->
+  <div class="section-header"><span>Combustibles</span></div>
+
+  <a class="nav-item" href="/fuel" use:link use:active={{ path: "/fuel", className: "active" }} title="Tanqueo, suministro, dashboard financiero, almacén, rendimiento y distribución">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.77,7.23L19.78,7.22L16.06,3.5L15,4.56L17.11,6.67C16.17,7 15.5,7.93 15.5,9A2.5,2.5 0 0,0 18,11.5C18.36,11.5 18.69,11.42 19,11.29V18.5A1,1 0 0,1 18,19.5A1,1 0 0,1 17,18.5V14A2,2 0 0,0 15,12H14V4A2,2 0 0,0 12,2H6A2,2 0 0,0 4,4V20H14V13.5H15.5V18.5A2.5,2.5 0 0,0 18,21A2.5,2.5 0 0,0 20.5,18.5V9C20.5,8.31 20.22,7.68 19.77,7.23M12,10H6V4H12V10Z" /></svg>
+    <span class="nav-text">Combustibles</span>
+  </a>
+
 </nav>
 
 <style>
