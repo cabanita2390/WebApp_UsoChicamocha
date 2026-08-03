@@ -18,18 +18,16 @@ export function normalizeAppPath(path) {
 
 /** Títulos del encabezado y de la pestaña del navegador por ruta. */
 const ROUTE_TITLES = {
-    "/": "Panel de Control — Estado de equipos",
-    "/users": "Gestión de usuarios",
-    "/inventory": "Inventario — Maquinaria · Vehículos · Motos",
-    "/machines": "Gestión de máquinas",
-    "/work-orders": "Órdenes de Trabajo",
-    "/consolidado": "Consolidado de activos",
-    "/oil-management": "Gestión de aceites",
-    "/vehicles": "Inventario de vehículos",
-    "/moto-inventory": "Inventario de motocicletas",
-    "/vehicle-oil-history": "Historial de cambios de aceite — Vehículo",
-    "/maintenance": "Historial de mantenimiento — Vehículos · Motos",
-    "/fuel": "Combustibles — Tanqueo · Suministro · Almacén · Rendimiento",
+    "/": "Estado De Equipos",
+    "/users": "Gestión De Usuarios",
+    "/inventory": "Inventario",
+    "/work-orders": "Órdenes De Trabajo",
+    "/consolidado": "Consolidado De Activos",
+    "/oil-management": "Gestión De Aceites",
+    "/vehicle-oil-history": "Historial De Cambios De Aceite",
+    "/moto-oil-history": "Historial De Cambios De Aceite",
+    "/moto-oil-change": "Registrar Cambio De Aceite",
+    "/fuel": "Combustibles",
 };
 
 /**
