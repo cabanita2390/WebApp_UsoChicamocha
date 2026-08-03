@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   import { locationLabel } from '@/lib/assetUtils.js';
+  import FuelConfigFields from './FuelConfigFields.svelte';
 
   export let open = false;
   export let title = '';
@@ -13,8 +14,11 @@
   export let submitDisabled = false;
   export let belongsToRequired = false;
   export let locationTitle = null;
-  export let capacityPlaceholder = 'Ej: 18.5';
-  export let efficiencyPlaceholder = 'Ej: 42.5';
+  // Consumo estándar / capacidad de tanque — conectado a asset_fuel_config
+  // (mismo backend que "Configurar rendimiento del activo"), no al activo en
+  // sí. Objeto aparte porque es una entidad distinta en el backend.
+  export let fuelConfig = null;
+  export let fuelTypes = [];
 
   const dispatch = createEventDispatcher();
 
@@ -106,30 +110,16 @@
               <option value="0">Inactivo</option>
             </select>
           </label>
-          {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input
-              type="number" step="0.001" min="0.1"
-              bind:value={asset.fuelTankCapacityGallons}
-              placeholder={capacityPlaceholder}
+          {#if isAdmin && fuelConfig}
+            <FuelConfigFields
+              bind:fuelTypeDefaultId={fuelConfig.fuelTypeDefaultId}
+              bind:consumoEstandar={fuelConfig.consumoEstandar}
+              bind:unidadConsumo={fuelConfig.unidadConsumo}
+              bind:tanqueCapacidadGal={fuelConfig.tanqueCapacidadGal}
+              {fuelTypes}
+              disabled={isSubmitting}
+              idPrefix="editAssetFuel"
             />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input
-                type="number" step="0.01" min="0"
-                bind:value={asset.factoryEfficiencyKmPerGallon}
-                placeholder={efficiencyPlaceholder}
-                style="padding:3px 4px;font-size:11px;min-height:26px"
-              />
-              <select bind:value={asset.factoryEfficiencyUnit} style="padding:4px;font-size:12px;min-height:28px">
-                <option value="KM_PER_GALLON">km/Gal</option>
-                <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
-              </select>
-            </div>
-          </label>
           {/if}
         </div>
 

@@ -69,8 +69,8 @@
   .sidebar {
     height: 100%;
     width: 60px;
-    background: linear-gradient(to bottom, #e0e0e0 0%, #c0c0c0 100%);
-    border-right: 2px outset #c0c0c0;
+    background: #ffffff;
+    border-right: 1px solid #d8d8d6;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -79,6 +79,7 @@
     transition: width 0.3s ease;
     overflow-y: auto;
     overflow-x: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   .sidebar:hover {
     width: 220px;
@@ -86,17 +87,15 @@
 
   .section-header {
     width: 100%;
-    padding: 10px 10px 4px 10px;
-    font-size: 9px;
-    color: #555;
-    font-weight: bold;
+    padding: 6px 16px;
+    font-size: 10px;
+    color: #5a6069;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(0,0,0,0.05);
-    border-bottom: 1px solid #aaa;
+    background: #e4e5e7;
     white-space: nowrap;
+    box-sizing: border-box;
     margin-top: 0;
   }
   .sidebar:not(:hover) .section-header {
@@ -109,10 +108,8 @@
   .nav-item {
     width: 100%;
     height: 40px;
-    background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%);
+    background: #ffffff;
     border: none;
-    border-top: 1px solid #ffffff;
-    border-bottom: 1px solid #808080;
     cursor: pointer;
     display: flex;
     justify-content: flex-start;
@@ -120,27 +117,26 @@
     padding: 0 14px;
     gap: 14px;
     text-decoration: none;
-    color: inherit;
+    color: #33322f;
     box-sizing: border-box;
   }
   .nav-item:hover {
-    background: linear-gradient(to bottom, #ffffff 0%, #e0e0e0 100%);
+    background: #f5f6f8;
   }
   .nav-item:active,
   :global(.nav-item.active) {
-    background: #c0c0c0;
-    border-top-color: #808080;
+    background: #eef2f7;
+    color: #2a78d6;
   }
   .nav-item svg {
-    width: 24px;
-    height: 24px;
-    fill: #000000;
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
     flex-shrink: 0;
   }
 
   /* Consolidado: documento + aceite (trazo + gota rellena); anula fill heredado en trazos */
   .nav-item svg.nav-icon-consolidado {
-    color: #000000;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
@@ -161,9 +157,8 @@
   }
 
   .nav-text {
-    font-family: "MS Sans Serif", "Tahoma", sans-serif;
-    font-size: 11px;
-    font-weight: bold;
+    font-size: 13px;
+    font-weight: 600;
     white-space: nowrap;
     opacity: 0;
     transition: opacity 0.2s ease;
@@ -171,5 +166,8 @@
   .sidebar:hover .nav-text {
     opacity: 1;
     transition-delay: 0.15s;
+  }
+  :global(.nav-item.active) .nav-text {
+    font-weight: 700;
   }
 </style>

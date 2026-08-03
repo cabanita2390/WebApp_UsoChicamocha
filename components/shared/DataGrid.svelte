@@ -22,6 +22,12 @@
   export let showPagination = true;
   /** Controla si se muestran los botones de eliminación en las acciones */
   export let showDeleteButton = true;
+  /**
+   * "retro" (default) mantiene el look Windows-98 del resto de la app — no cambiar
+   * sin pedirlo explícitamente, DataGrid es compartido por toda la app. "modern"
+   * es opt-in por vista, solo para reportes ya rediseñados (Combustibles).
+   */
+  export let variant = "retro";
 
   const dispatch = createEventDispatcher();
 
@@ -258,7 +264,7 @@
   }
 </script>
 
-<div class="data-grid-wrapper">
+<div class="data-grid-wrapper" class:modern={variant === "modern"}>
   <div class="controls-container">
     <div class="filter-group">
       <label for="search-input">Filtrar:</label>
@@ -346,7 +352,8 @@
                   cell.column.columnDef.meta?.isConsolidadoMotoActions ||
                   cell.column.columnDef.meta?.isConsolidadoMaqActions ||
                   cell.column.columnDef.meta?.isDocHistoryAction ||
-                  cell.column.columnDef.meta?.isLicenseDocAction}
+                  cell.column.columnDef.meta?.isLicenseDocAction ||
+                  cell.column.columnDef.meta?.isViewHistoryAction}
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
@@ -392,6 +399,15 @@
                       on:click={() => handleAction("docHistory", row.original)}
                     >
                       Historial docs
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isViewHistoryAction}
+                  <div class="actions-cell">
+                    <button
+                      class="btn-action btn-view-history"
+                      on:click={() => handleAction("viewHistory", row.original)}
+                    >
+                      Ver historial
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isLicenseDocAction}
@@ -896,6 +912,10 @@
     background-color: #d1c4e9;
     font-weight: bold;
   }
+  .btn-view-history {
+    background-color: #b3e5fc;
+    font-weight: bold;
+  }
   .status-btn {
     font-weight: bold;
     color: #000;
@@ -994,6 +1014,84 @@
   .pagination-controls button:disabled {
     cursor: not-allowed;
     color: #808080;
+  }
+
+  /* ── Variante "modern" — opt-in por vista (prop variant="modern"), solo para
+     reportes de Combustibles ya rediseñados. El resto de la app sigue retro. ── */
+  .data-grid-wrapper.modern .controls-container {
+    padding: 12px 14px;
+    background: #ffffff;
+    border: 1px solid rgba(11, 11, 11, 0.08);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+  }
+  .data-grid-wrapper.modern .filter-group label {
+    font-size: 12px;
+    color: #52514e;
+  }
+  .data-grid-wrapper.modern .search-input {
+    font-family: inherit;
+    padding: 7px 14px;
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 999px;
+    font-size: 12px;
+    background-color: #ffffff;
+    width: 240px;
+  }
+  .data-grid-wrapper.modern .table-container {
+    border: 1px solid rgba(11, 11, 11, 0.08);
+    border-top: none;
+  }
+  .data-grid-wrapper.modern .data-grid {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 12px;
+  }
+  .data-grid-wrapper.modern .data-grid th,
+  .data-grid-wrapper.modern .data-grid td {
+    border: none;
+    border-bottom: 1px solid #f0f0ef;
+    padding: 10px 8px;
+  }
+  .data-grid-wrapper.modern .data-grid th {
+    background: #ffffff;
+    font-weight: 600;
+    border-bottom: 1px solid #eee;
+    color: #52514e;
+    text-align: left;
+  }
+  .data-grid-wrapper.modern .data-grid tr:nth-child(even) td {
+    background-color: #f9fafb;
+  }
+  .data-grid-wrapper.modern th.sortable:hover {
+    background: #f5f6f8;
+  }
+  .data-grid-wrapper.modern .footer-controls {
+    padding: 10px 14px;
+    background: #ffffff;
+    border: 1px solid rgba(11, 11, 11, 0.08);
+    border-top: 1px solid #eee;
+    border-radius: 0 0 10px 10px;
+  }
+  .data-grid-wrapper.modern .record-count,
+  .data-grid-wrapper.modern .pagination-controls {
+    font-size: 12px;
+    color: #52514e;
+  }
+  .data-grid-wrapper.modern .pagination-controls button,
+  .data-grid-wrapper.modern .pagination-controls select {
+    font-family: inherit;
+    padding: 5px 10px;
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 6px;
+    font-size: 11px;
+    background-color: #ffffff;
+    color: #52514e;
+  }
+  .data-grid-wrapper.modern .pagination-controls button:hover:not(:disabled) {
+    background-color: #f5f6f8;
+  }
+  .data-grid-wrapper.modern .pagination-controls button:disabled {
+    color: #c7c6c2;
   }
 
   :global(th.motor-oil-cell),

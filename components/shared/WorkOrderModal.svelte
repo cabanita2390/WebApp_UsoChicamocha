@@ -3,13 +3,18 @@
 
   // --- PROPS ---
   export let rowData = null;
-  // CORRECCIÓN: Se simplifica, ahora solo se usa 'columnDef'.
   export let columnDef = null;
   export let currentUser = '';
-  
+  /**
+   * 'machine' (default — comportamiento original de WorkOrderModal, para órdenes
+   * desde inspecciones de maquinaria) | 'vehicle' (comportamiento original de
+   * VehicleWorkOrderModal, para órdenes desde inspecciones de vehículo/moto).
+   */
+  export let assetType = 'machine';
+
   const dispatch = createEventDispatcher();
 
-  // --- LÓGICA DE FECHA PARA EL EXTINTOR ---
+  // --- LÓGICA DE FECHA PARA EL EXTINTOR (solo aplica a máquinas) ---
   function getExtintorStatus(dateString) {
     if (!dateString || typeof dateString !== "string") return "N/A";
     const expirationDate = new Date(dateString);
@@ -32,17 +37,37 @@
     cleanColumnHeader = 'N/A';
   }
 
-  let machineFullName = '';
-  $: if (rowData && rowData.machine) {
-    machineFullName = `${rowData.machine.name || ''} ${rowData.machine.brand || ''} ${rowData.machine.numInterIdentification || ''}`.trim();
+  /** Etiqueta del activo: nombre de máquina o placa/marca/tipo de vehículo, según assetType. */
+  let assetLabel = '';
+  $: if (assetType === 'vehicle') {
+    assetLabel = rowData
+      ? [rowData.placa, rowData.marca, rowData.tipoVehiculo].filter(Boolean).join(' — ')
+      : 'No especificado';
+  } else if (rowData && rowData.machine) {
+    assetLabel = `${rowData.machine.name || ''} ${rowData.machine.brand || ''} ${rowData.machine.numInterIdentification || ''}`.trim();
   } else {
-    machineFullName = 'No especificada';
+    assetLabel = 'No especificada';
   }
+
+  $: assetLabelPrefix = assetType === 'vehicle' ? 'Vehículo' : 'Máquina';
+  $: modalTitle = assetType === 'vehicle' ? 'Crear Orden de Trabajo — Vehículo' : 'Crear Orden de Trabajo';
+  $: detallesPlaceholder = assetType === 'vehicle'
+    ? 'Describa en detalle el trabajo a realizar...'
+    : 'Describa en detalle el trabajo a realizar, los procedimientos y las precauciones necesarias...';
 
   let currentStatus;
   $: {
     if (!rowData || !columnDef) {
       currentStatus = 'Desconocido';
+    } else if (assetType === 'vehicle') {
+      if (columnDef.accessorKey) {
+        currentStatus = rowData[columnDef.accessorKey] ?? 'Desconocido';
+      } else if (typeof columnDef.accessorFn === 'function') {
+        try { currentStatus = columnDef.accessorFn(rowData) ?? 'Desconocido'; }
+        catch { currentStatus = 'Desconocido'; }
+      } else {
+        currentStatus = 'Desconocido';
+      }
     } else {
       const accessorKey = columnDef.accessorKey;
       if (accessorKey === 'expirationDateFireExtinguisher') {
@@ -62,7 +87,7 @@
     maintenanceCategory: '',
   };
   let showConfirmation = false;
-  
+
   // --- FUNCTIONS ---
   function getStatusClass(status) {
     const raw = String(status ?? '').trim();
@@ -105,33 +130,51 @@
     }
     return 'status-unknown';
   }
-  
+
   function handleSubmit(event) {
     event.preventDefault();
     showConfirmation = true;
   }
-  
-  function confirmCreate() {
-    const inspectionType = rowData.isUnexpected ? 'Imprevisto' : 'Inspección';
-    const description = [
-      inspectionType,
-      cleanColumnHeader,
-      currentStatus,
-      workOrderForm.detalles,
-      workOrderForm.asignadoA
-    ].join('|');
 
-    dispatch('createWorkOrder', {
-      inspectionId: rowData.id,
-      description: description,
-      orderType: workOrderForm.orderType || null,
-      maintenanceType: workOrderForm.maintenanceType || null,
-      maintenanceCategory: workOrderForm.maintenanceCategory || null,
-    });
+  function confirmCreate() {
+    if (assetType === 'vehicle') {
+      const description = [
+        'Inspección',
+        cleanColumnHeader,
+        currentStatus,
+        workOrderForm.detalles,
+        workOrderForm.asignadoA,
+      ].join('|');
+
+      dispatch('createVehicleOrder', {
+        vehicleInspectionId: rowData.idInspeccion,
+        description,
+        orderType: workOrderForm.orderType || null,
+        maintenanceType: workOrderForm.maintenanceType || null,
+        maintenanceCategory: workOrderForm.maintenanceCategory || null,
+      });
+    } else {
+      const inspectionType = rowData.isUnexpected ? 'Imprevisto' : 'Inspección';
+      const description = [
+        inspectionType,
+        cleanColumnHeader,
+        currentStatus,
+        workOrderForm.detalles,
+        workOrderForm.asignadoA
+      ].join('|');
+
+      dispatch('createWorkOrder', {
+        inspectionId: rowData.id,
+        description: description,
+        orderType: workOrderForm.orderType || null,
+        maintenanceType: workOrderForm.maintenanceType || null,
+        maintenanceCategory: workOrderForm.maintenanceCategory || null,
+      });
+    }
 
     showConfirmation = false;
   }
-  
+
   function cancelCreate() {
     showConfirmation = false;
   }
@@ -144,7 +187,7 @@
 <div class="modal-overlay" on:keydown={(e) => e.key === 'Escape' && onCancel()}>
   <div class="modal-content" on:click|stopPropagation>
     <div class="modal-header">
-      <h2>Crear Orden de Trabajo</h2>
+      <h2>{modalTitle}</h2>
       <button class="close-btn" on:click={onCancel}>×</button>
     </div>
     
@@ -152,7 +195,7 @@
       <div class="info-panel">
         <div class="info-panel-header">Panel Informativo</div>
         <div class="info-panel-body">
-          <p><strong>Máquina:</strong> {machineFullName}</p>
+          <p><strong>{assetLabelPrefix}:</strong> {assetLabel}</p>
           <p><strong>Área afectada:</strong> {cleanColumnHeader}</p>
           <p><strong>Estado del área afectada:</strong> <span class="status-badge {getStatusClass(currentStatus)}">{currentStatus}</span></p>
           <p><strong>Asignado por:</strong> {currentUser}</p>
@@ -182,8 +225,8 @@
 
         <div class="form-group full-width">
           <label for="detalles">Detalles de la Orden de Trabajo:</label>
-          <textarea bind:value={workOrderForm.detalles} id="detalles" rows="6" 
-                    placeholder="Describa en detalle el trabajo a realizar, los procedimientos y las precauciones necesarias..."></textarea>
+          <textarea bind:value={workOrderForm.detalles} id="detalles" rows="6"
+                    placeholder={detallesPlaceholder}></textarea>
         </div>
         
         <div class="form-row">
@@ -208,7 +251,7 @@
       <h3>Confirmar Creación</h3>
       <p>¿Está seguro que desea crear esta orden de trabajo?</p>
       <div class="confirmation-details">
-        <p><strong>Máquina:</strong> {machineFullName}</p>
+        <p><strong>{assetLabelPrefix}:</strong> {assetLabel}</p>
         <p><strong>Componente:</strong> {cleanColumnHeader}</p>
         <p><strong>Estado:</strong> <span class="status-badge {getStatusClass(currentStatus)}">{currentStatus}</span></p>
         <p><strong>Asignado a:</strong> {workOrderForm.asignadoA}</p>
@@ -220,7 +263,6 @@
     </div>
   </div>
 {/if}
-
 
 
 <style>
@@ -508,4 +550,3 @@
     background: linear-gradient(to bottom, #70CC70 0%, #90EE90 100%);
   }
 </style>
-
