@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { data } from "../../stores/data.js";
+  import { fuelDateRange } from "../../stores/fuelFilters.js";
   import Loader from "../shared/Loader.svelte";
   import FuelTrendChart from "./FuelTrendChart.svelte";
 
@@ -12,11 +13,8 @@
   const ACCENT_BLUE = "#2a78d6";
   const GOOD_GREEN = "#006300";
   const CRITICAL_RED = "#d03b3b";
-  const WARNING_AMBER = "#c98500";
   const TREND_OPTIONS = [2, 3, 6, 12, 24];
 
-  let fechaInicio = "";
-  let fechaFin = "";
   let mesesTendencia = 6;
   let mesesCustom = "";
 
@@ -26,20 +24,30 @@
   $: fuelTypesById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.nombre]));
   $: unidadMedidaById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.unidadMedida]));
   $: galonesPorTipo = [...(dashboard?.galonesPorTipo ?? [])].sort((a, b) => a.fuelTypeId - b.fuelTypeId);
-  $: maxGalones = galonesPorTipo.length ? Math.max(...galonesPorTipo.map((g) => Number(g.cantidad) || 0)) : 0;
 
   $: gastoPorTipo = [...(dashboard?.gastoPorTipo ?? [])].sort((a, b) => a.fuelTypeId - b.fuelTypeId);
-  $: maxGastoTipo = gastoPorTipo.length ? Math.max(...gastoPorTipo.map((g) => Number(g.monto) || 0)) : 0;
+  $: galonesBombaPorTipo = dashboard?.galonesBombaPorTipo ?? [];
 
-  // Almacén vs Bomba no son identidades de tipo de combustible — colores propios,
-  // distintos de la paleta categórica de tipos, para no confundir ambas leyendas.
-  $: origenGasto = dashboard
-    ? [
-        { id: "almacen", label: "Compras almacén", monto: dashboard.totalComprasAlmacen, color: "#2a78d6" },
-        { id: "bomba", label: "Tanqueos bomba", monto: dashboard.totalTanqueosBomba, color: "#eb6834" },
-      ]
-    : [];
-  $: maxOrigenGasto = origenGasto.length ? Math.max(...origenGasto.map((o) => Number(o.monto) || 0)) : 0;
+
+  $: combustibleRows = (() => {
+    const ids = [...new Set([...galonesPorTipo.map((g) => g.fuelTypeId), ...gastoPorTipo.map((g) => g.fuelTypeId)])].sort((a, b) => a - b);
+    return ids.map((id, i) => {
+      const cantidad = Number(galonesPorTipo.find((g) => g.fuelTypeId === id)?.cantidad) || 0;
+      const cantidadBomba = Number(galonesBombaPorTipo.find((g) => g.fuelTypeId === id)?.cantidad) || 0;
+      const monto = Number(gastoPorTipo.find((g) => g.fuelTypeId === id)?.monto) || 0;
+      const unidad = unidadMedidaById[id] === "M3" ? "m³" : "gal";
+      return {
+        fuelTypeId: id,
+        nombre: fuelTypesById[id] ?? `Tipo #${id}`,
+        cantidad,
+        monto,
+        unidad,
+        color: colorFor(i),
+        precioUnidadTexto: formatPrecioUnidad(monto, cantidadBomba, unidad),
+      };
+    });
+  })();
+  $: maxMontoCombustible = combustibleRows.length ? Math.max(...combustibleRows.map((r) => r.monto)) : 0;
 
   $: trend = $data.fuelTrend ?? [];
   $: trendMonthLabels = trend.map((t) => formatMesCorto(t.mes));
@@ -67,14 +75,14 @@
   function handleMesesChange(n) {
     mesesTendencia = n;
     mesesCustom = "";
-    data.fetchFuelTrend(n, fechaFin || undefined);
+    data.fetchFuelTrend(n, $fuelDateRange.fechaFin || undefined);
   }
 
   function applyCustomMeses() {
     const n = Number(mesesCustom);
     if (!Number.isInteger(n) || n <= 0) return;
     mesesTendencia = n;
-    data.fetchFuelTrend(n, fechaFin || undefined);
+    data.fetchFuelTrend(n, $fuelDateRange.fechaFin || undefined);
   }
 
   function formatMesCorto(fechaIso) {
@@ -93,9 +101,19 @@
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
       currency: "COP",
-      notation: "compact",
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 0,
     }).format(value);
+  }
+
+  function formatPrecioUnidad(monto, cantidad, unidad) {
+    if (!cantidad) return "—";
+    const precio = monto / cantidad;
+    const formateado = new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0,
+    }).format(precio);
+    return `${formateado}/${unidad}`;
   }
 
   // El gas natural vehicular se mide en m³, no en galones (fuel_types.unidad_medida).
@@ -108,13 +126,13 @@
 
   onMount(() => {
     data.fetchFuelTypes();
-    data.fetchFuelDashboard(fechaInicio || undefined, fechaFin || undefined);
-    data.fetchFuelTrend(mesesTendencia, fechaFin || undefined);
+    data.fetchFuelDashboard($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
+    data.fetchFuelTrend(mesesTendencia, $fuelDateRange.fechaFin || undefined);
   });
 
   function handleFiltrar() {
-    data.fetchFuelDashboard(fechaInicio || undefined, fechaFin || undefined);
-    data.fetchFuelTrend(mesesTendencia, fechaFin || undefined);
+    data.fetchFuelDashboard($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
+    data.fetchFuelTrend(mesesTendencia, $fuelDateRange.fechaFin || undefined);
   }
 </script>
 
@@ -122,11 +140,11 @@
   <div class="fuel-filtros">
     <label class="field" for="dashFechaInicio">
       <span class="field-lab">Fecha inicio</span>
-      <input id="dashFechaInicio" type="date" bind:value={fechaInicio} />
+      <input id="dashFechaInicio" type="date" bind:value={$fuelDateRange.fechaInicio} />
     </label>
     <label class="field" for="dashFechaFin">
       <span class="field-lab">Fecha fin</span>
-      <input id="dashFechaFin" type="date" bind:value={fechaFin} />
+      <input id="dashFechaFin" type="date" bind:value={$fuelDateRange.fechaFin} />
     </label>
     <button type="button" class="btn-filter" on:click={handleFiltrar}>Filtrar</button>
   </div>
@@ -136,40 +154,75 @@
       <Loader />
     </div>
   {:else if dashboard}
-    <div class="stat-grid stat-grid--primary">
-      <div class="stat-tile" style="--tile-accent: {ACCENT_BLUE}">
-        <span class="stat-label">Gasto bruto</span>
-        <span class="stat-value">{formatCOP(dashboard.gastoBruto)}</span>
-        {#if deltaGastoBruto}
-          <span class="stat-delta" style="color: {deltaGastoBruto.color}">{deltaGastoBruto.flecha} {deltaGastoBruto.texto}</span>
-        {/if}
-      </div>
-      <div class="stat-tile" style="--tile-accent: {ACCENT_BLUE}">
-        <span class="stat-label">Gasto neto</span>
-        <span class="stat-value">{formatCOP(dashboard.gastoNeto)}</span>
+    <div class="kpi-card">
+      <div class="kpi-section" style="--tile-accent: {ACCENT_BLUE}">
+        <span class="kpi-label">Gasto neto del periodo</span>
+        <span class="kpi-value kpi-value--primary">{formatCOP(dashboard.gastoNeto)}</span>
         {#if deltaGastoNeto}
-          <span class="stat-delta" style="color: {deltaGastoNeto.color}">{deltaGastoNeto.flecha} {deltaGastoNeto.texto}</span>
+          <span class="kpi-pill" style="background: {deltaGastoNeto.color}1a; color: {deltaGastoNeto.color}">{deltaGastoNeto.flecha} {deltaGastoNeto.texto}</span>
         {/if}
       </div>
-      <div class="stat-tile" style="--tile-accent: {GOOD_GREEN}">
-        <span class="stat-label">Ahorro por descuentos</span>
-        <span class="stat-value stat-value--good">{formatCOP(dashboard.ahorro)}</span>
-        {#if deltaAhorro}
-          <span class="stat-delta" style="color: {deltaAhorro.color}">{deltaAhorro.flecha} {deltaAhorro.texto}</span>
+      <div class="kpi-section">
+        <span class="kpi-label">Gasto bruto</span>
+        <span class="kpi-value  kpi-value--primary" >{formatCOP(dashboard.gastoBruto)}</span>
+        {#if deltaGastoBruto}
+          <span class="kpi-delta" style="color: {deltaGastoBruto.color}">{deltaGastoBruto.flecha} {deltaGastoBruto.texto}</span>
         {/if}
+      </div>
+      <div class="kpi-section">
+        <span class="kpi-label">Ahorro por descuentos</span>
+        <span class="kpi-value kpi-value--good  kpi-value--primary">{formatCOP(dashboard.ahorro)}</span>
+        {#if deltaAhorro}
+          <span class="kpi-delta" style="color: {deltaAhorro.color}">{deltaAhorro.flecha} {deltaAhorro.texto}</span>
+        {/if}
+      </div>
+      <div class="kpi-section">
+        <span class="kpi-label">Discrepancias detectadas</span>
+        <span class="kpi-value  kpi-value--primary" class:kpi-value--warning={dashboard.discrepancias > 0}>{dashboard.discrepancias}</span>
+        <span class="kpi-hint">Ingresado ≠ calculado</span>
       </div>
     </div>
 
-    <div class="stat-grid stat-grid--primary">
-      <div class="stat-tile" style="--tile-accent: {dashboard.discrepancias > 0 ? WARNING_AMBER : GOOD_GREEN}">
-        <span class="stat-label">Discrepancias detectadas</span>
-        <span class="stat-value" class:stat-value--warning={dashboard.discrepancias > 0}>{dashboard.discrepancias}</span>
-        <span class="stat-hint">Compras y tanqueos donde lo ingresado no coincide con lo calculado</span>
-      </div>
-      <div class="stat-tile" style="--tile-accent: {ACCENT_BLUE}">
-        <span class="stat-label">Precio promedio por galón comprado</span>
-        <span class="stat-value">{dashboard.precioPromedioGalonComprado != null ? formatCOP(dashboard.precioPromedioGalonComprado) : "—"}</span>
-      </div>
+    <div class="fuel-chart">
+      <div class="fuel-chart-head">Combustible</div>
+      {#if combustibleRows.length}
+        <table class="combustible-table">
+          <thead>
+            <tr>
+              <th>Combustible</th>
+              <th>Precio/unidad</th>
+              <th>Cantidad</th>
+              <th>Gasto</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each combustibleRows as row}
+              <tr>
+                <td class="td-combustible">
+                  <span class="combustible-name">
+                    <span class="legend-swatch" style="background: {row.color}"></span>
+                    <span>{row.nombre}</span>
+                  </span>
+                </td>
+                <td>{row.precioUnidadTexto}</td>
+                <td>{formatCantidad(row.cantidad, row.unidad)}</td>
+                <td class="td-gasto">{formatCOP(row.monto)}</td>
+                <td class="td-bar">
+                  <div class="bar-track">
+                    <div
+                      class="bar-fill"
+                      style="width: {maxMontoCombustible > 0 ? (row.monto / maxMontoCombustible) * 100 : 0}%; background: {row.color}"
+                    ></div>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {:else}
+        <p class="no-data">Sin datos en el rango seleccionado.</p>
+      {/if}
     </div>
 
     <div class="fuel-chart">
@@ -216,90 +269,6 @@
       </div>
     </div>
 
-    <div class="chart-row">
-      <div class="fuel-chart">
-        <div class="fuel-chart-head">Origen del gasto: almacén vs. bomba</div>
-        <ul class="chart-legend">
-          {#each origenGasto as o}
-            <li class="legend-item">
-              <span class="legend-swatch" style="background: {o.color}"></span>
-              <span class="legend-label">{o.label}</span>
-            </li>
-          {/each}
-        </ul>
-        <div class="bar-chart">
-          {#each origenGasto as o}
-            <div class="bar-row">
-              <div class="bar-track">
-                <div
-                  class="bar-fill"
-                  style="width: {maxOrigenGasto > 0 ? (o.monto / maxOrigenGasto) * 100 : 0}%; background: {o.color}"
-                ></div>
-              </div>
-              <span class="bar-value">{formatCOP(o.monto)}</span>
-            </div>
-          {/each}
-        </div>
-      </div>
-
-      <div class="fuel-chart">
-        <div class="fuel-chart-head">Gasto por tipo de combustible</div>
-        {#if gastoPorTipo.length}
-          <ul class="chart-legend">
-            {#each gastoPorTipo as fila, i}
-              <li class="legend-item">
-                <span class="legend-swatch" style="background: {colorFor(i)}"></span>
-                <span class="legend-label">{fuelTypesById[fila.fuelTypeId] ?? `Tipo #${fila.fuelTypeId}`}</span>
-              </li>
-            {/each}
-          </ul>
-          <div class="bar-chart">
-            {#each gastoPorTipo as fila, i}
-              <div class="bar-row">
-                <div class="bar-track">
-                  <div
-                    class="bar-fill"
-                    style="width: {maxGastoTipo > 0 ? (fila.monto / maxGastoTipo) * 100 : 0}%; background: {colorFor(i)}"
-                  ></div>
-                </div>
-                <span class="bar-value">{formatCOP(fila.monto)}</span>
-              </div>
-            {/each}
-          </div>
-        {:else}
-          <p class="no-data">Sin gasto en el rango seleccionado.</p>
-        {/if}
-      </div>
-    </div>
-
-    <div class="fuel-chart">
-      <div class="fuel-chart-head">Cantidad por tipo de combustible</div>
-      {#if galonesPorTipo.length}
-        <ul class="chart-legend">
-          {#each galonesPorTipo as fila, i}
-            <li class="legend-item">
-              <span class="legend-swatch" style="background: {colorFor(i)}"></span>
-              <span class="legend-label">{fuelTypesById[fila.fuelTypeId] ?? `Tipo #${fila.fuelTypeId}`}</span>
-            </li>
-          {/each}
-        </ul>
-        <div class="bar-chart">
-          {#each galonesPorTipo as fila, i}
-            <div class="bar-row">
-              <div class="bar-track">
-                <div
-                  class="bar-fill"
-                  style="width: {maxGalones > 0 ? (fila.cantidad / maxGalones) * 100 : 0}%; background: {colorFor(i)}"
-                ></div>
-              </div>
-              <span class="bar-value">{formatCantidad(fila.cantidad, unidadMedidaById[fila.fuelTypeId] === "M3" ? "m³" : "gal")}</span>
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <p class="no-data">Sin tanqueos en el rango seleccionado.</p>
-      {/if}
-    </div>
   {/if}
 </div>
 
@@ -343,26 +312,29 @@
     color: var(--ink-secondary);
   }
   .field input {
-    padding: 6px 10px;
+    font-family: inherit;
+    padding: 8px 14px;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 999px;
     font-size: 12px;
     background: var(--surface);
+    color: var(--ink);
   }
   .field input:focus {
     outline: 2px solid #86b6ef;
     outline-offset: 1px;
   }
   .btn-filter {
-    padding: 7px 16px;
+    font-family: inherit;
+    padding: 9px 20px;
     background: #2a78d6;
     color: #fff;
     border: none;
-    border-radius: 6px;
+    border-radius: 999px;
     cursor: pointer;
     font-size: 12px;
-    font-weight: 500;
-    height: 32px;
+    font-weight: 600;
+    height: 34px;
   }
   .btn-filter:hover {
     background: #256abf;
@@ -373,59 +345,72 @@
     padding: 32px;
   }
 
-  /* Stat tiles: tarjeta blanca, sombra suave, radio de esquina — jerarquía
-     real (etiqueta muted + valor grande) con un punto de acento en vez de
-     texto coloreado (el color nunca vive en el texto, ver dataviz skill). */
-  .stat-grid {
-    display: grid;
-    gap: 14px;
-  }
-  .stat-grid--primary {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  }
-  .stat-tile {
+  /* Tarjeta KPI única con divisores verticales — la sección "Gasto neto"
+     (primary) es más ancha y lleva el acento de color + badge de tendencia;
+     las otras 3 son planas, sin color por sección (ver mockup de diseño). */
+  .kpi-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 14px;
     box-shadow: var(--shadow);
-    padding: 16px 18px;
+    display: flex;
+    flex-wrap: wrap;
+    overflow: hidden;
+  }
+  .kpi-section {
+    flex: 1;
+    min-width: 160px;
+    padding: 20px 22px;
+    border-left: 1px solid #eee;
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
-  .stat-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--ink-secondary);
+  .kpi-section:first-child {
+    border-left: none;
   }
-  .stat-label::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--tile-accent, #2a78d6);
-    flex-shrink: 0;
+  .kpi-section--primary {
+    flex: 1.4;
+    min-width: 220px;
+    border-left: 4px solid var(--tile-accent, #2a78d6);
   }
-  .stat-value {
-    font-size: 26px;
-    font-weight: 600;
+  .kpi-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .kpi-value {
+    font-size: 22px;
+    font-weight: 700;
     color: var(--ink);
     letter-spacing: -0.01em;
   }
-  .stat-value--good {
+  .kpi-value--primary {
+    font-size: 34px;
+  }
+  .kpi-value--good {
     color: #006300;
   }
-  .stat-value--warning {
+  .kpi-value--warning {
     color: #c98500;
   }
-  .stat-delta {
+  .kpi-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .kpi-delta {
     font-size: 11px;
     font-weight: 500;
   }
-  .stat-hint {
+  .kpi-hint {
     font-size: 10.5px;
     color: var(--ink-muted);
     line-height: 1.3;
@@ -445,6 +430,7 @@
     gap: 4px;
   }
   .trend-period-btn {
+    font-family: inherit;
     padding: 4px 10px;
     font-size: 11px;
     border: 1px solid var(--border);
@@ -464,6 +450,7 @@
     margin-left: 4px;
   }
   .trend-period-custom input {
+    font-family: inherit;
     width: 52px;
     padding: 4px 6px;
     font-size: 11px;
@@ -505,54 +492,58 @@
     margin-bottom: 14px;
     color: var(--ink);
   }
-  .chart-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    list-style: none;
-    margin: 0 0 14px;
-    padding: 0;
-  }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--ink-secondary);
-  }
   .legend-swatch {
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
     flex-shrink: 0;
   }
-  .bar-chart {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+
+  .combustible-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
   }
-  .bar-row {
-    display: grid;
-    grid-template-columns: 1fr 90px;
+  .combustible-table thead tr {
+    text-align: left;
+    color: var(--ink-secondary);
+    border-bottom: 1px solid #eee;
+  }
+  .combustible-table th {
+    padding: 6px 8px;
+    font-weight: 600;
+  }
+  .combustible-table td {
+    padding: 10px 8px;
+    border-top: 1px solid #f0f0ef;
+    color: var(--ink-secondary);
+  }
+  .combustible-name {
+    display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+  }
+  .td-combustible {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .td-gasto {
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .td-bar {
+    width: 36%;
   }
   .bar-track {
-    background: #f0efec;
-    border-radius: 4px;
-    height: 20px;
+    background: #eef0f2;
+    border-radius: 8px;
+    height: 10px;
+    overflow: hidden;
   }
   .bar-fill {
     height: 100%;
-    max-height: 24px;
-    border-radius: 4px;
+    border-radius: 8px;
     transition: width 0.2s ease;
-  }
-  .bar-value {
-    font-size: 12px;
-    color: var(--ink);
-    text-align: right;
-    font-variant-numeric: tabular-nums;
   }
   .no-data {
     color: var(--ink-muted);

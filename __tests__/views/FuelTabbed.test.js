@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import FuelTabbed from '../../components/views/FuelTabbed.svelte';
+import { fuelDateRange } from '../../stores/fuelFilters.js';
 
 vi.mock('../../stores/data.js', () => ({
   data: {
@@ -30,6 +31,7 @@ vi.mock('../../stores/data.js', () => ({
     fetchAssetFuelConfig: vi.fn(),
     fetchFuelPerformance: vi.fn(),
     fetchFuelDistribution: vi.fn(),
+    createRefueling: vi.fn().mockResolvedValue({ id: 1 }),
   },
 }));
 
@@ -45,6 +47,7 @@ vi.mock('../../stores/auth.js', () => ({
 describe('FuelTabbed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fuelDateRange.set({ fechaInicio: '', fechaFin: '' });
   });
 
   it('muestra el Dashboard Financiero por defecto', () => {
@@ -55,22 +58,39 @@ describe('FuelTabbed', () => {
   it('cambia a cada pestaña y renderiza el componente correcto', async () => {
     const { container } = render(FuelTabbed);
 
-    await fireEvent.click(screen.getByRole('tab', { name: 'Tanqueo' }));
-    expect(screen.getByRole('button', { name: /\+ registrar tanqueo/i })).toBeTruthy();
-
-    await fireEvent.click(screen.getByRole('tab', { name: 'Suministro de Almacén' }));
-    expect(screen.getByRole('button', { name: /\+ registrar compra/i })).toBeTruthy();
-
-    await fireEvent.click(screen.getByRole('tab', { name: 'Control de Almacén' }));
-    expect(container.querySelector('#almFechaInicio')).toBeTruthy();
-
     await fireEvent.click(screen.getByRole('tab', { name: 'Rendimiento' }));
-    expect(container.querySelector('#perfTipo')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^vehículos/i })).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('tab', { name: 'Distribución' }));
-    expect(container.querySelector('#distArea')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('tab', { name: 'Tanqueo y Distribución' }));
+    expect(container.querySelector('#tdArea')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /\+ registrar tanqueo/i })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('tab', { name: 'Dashboard Financiero' }));
     expect(container.querySelector('#dashFechaInicio')).toBeTruthy();
+  });
+
+  it('no muestra las pestañas ocultas de Suministro de Almacén ni Control de Almacén', () => {
+    render(FuelTabbed);
+    expect(screen.queryByRole('tab', { name: 'Suministro de Almacén' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Control de Almacén' })).toBeNull();
+  });
+
+  it('el rango de fechas filtrado en una pestaña se mantiene al cambiar a las otras dos', async () => {
+    const { container } = render(FuelTabbed);
+
+    await fireEvent.input(container.querySelector('#dashFechaInicio'), { target: { value: '2026-07-01' } });
+    await fireEvent.input(container.querySelector('#dashFechaFin'), { target: { value: '2026-07-31' } });
+
+    await fireEvent.click(screen.getByRole('tab', { name: 'Rendimiento' }));
+    expect(container.querySelector('#perfFechaInicio').value).toBe('2026-07-01');
+    expect(container.querySelector('#perfFechaFin').value).toBe('2026-07-31');
+
+    await fireEvent.click(screen.getByRole('tab', { name: 'Tanqueo y Distribución' }));
+    expect(container.querySelector('#tdFechaInicio').value).toBe('2026-07-01');
+    expect(container.querySelector('#tdFechaFin').value).toBe('2026-07-31');
+
+    await fireEvent.click(screen.getByRole('tab', { name: 'Dashboard Financiero' }));
+    expect(container.querySelector('#dashFechaInicio').value).toBe('2026-07-01');
+    expect(container.querySelector('#dashFechaFin').value).toBe('2026-07-31');
   });
 });

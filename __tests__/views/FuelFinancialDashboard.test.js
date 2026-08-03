@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import FuelFinancialDashboard from '../../components/views/FuelFinancialDashboard.svelte';
+import { fuelDateRange } from '../../stores/fuelFilters.js';
 
 vi.mock('../../stores/data.js', () => ({
   data: {
@@ -31,6 +32,9 @@ const mockDashboard = {
   totalTanqueosBomba: 200000,
   galonesPorTipo: [{ fuelTypeId: 1, cantidad: 45.5 }, { fuelTypeId: 4, cantidad: 12.3 }],
   gastoPorTipo: [{ fuelTypeId: 1, monto: 900000 }],
+  // Solo 30 de los 45,5 galones totales del tipo 1 fueron en BOMBA — el resto fue
+  // ALMACEN (sin costo). El precio/unidad debe usar este valor, no el total.
+  galonesBombaPorTipo: [{ fuelTypeId: 1, cantidad: 30 }],
   discrepancias: 2,
   precioPromedioGalonComprado: 10000,
   comparacionAnterior: {
@@ -48,6 +52,7 @@ const mockDashboard = {
 describe('FuelFinancialDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fuelDateRange.set({ fechaInicio: '', fechaFin: '' });
     data.subscribe.mockImplementation((callback) => {
       callback({
         fuelDashboard: mockDashboard,
@@ -65,12 +70,12 @@ describe('FuelFinancialDashboard', () => {
     });
   });
 
-  it('muestra los KPIs de gasto bruto, neto y ahorro formateados como moneda compacta', () => {
+  it('muestra los KPIs de gasto bruto, neto y ahorro con el valor completo (no notación compacta)', () => {
     render(FuelFinancialDashboard);
-    // gastoBruto (1.200.000) y gastoNeto (1.150.000) deben distinguirse — no ambos "$1,2 M".
-    expect(screen.getByText(/\$\s?1,2\s?M/)).toBeTruthy();
-    expect(screen.getByText(/\$\s?1,15\s?M/)).toBeTruthy();
-    expect(screen.getByText(/\$\s?50\s?k/i)).toBeTruthy();
+    // Valor completo para evitar que montos distintos luzcan iguales (ej. "1,2 M" vs "1,15 M").
+    expect(screen.getByText(/\$\s?1\.200\.000/)).toBeTruthy();
+    expect(screen.getByText(/\$\s?1\.150\.000/)).toBeTruthy();
+    expect(screen.getByText(/\$\s?50\.000/)).toBeTruthy();
   });
 
   it('muestra la leyenda y el nombre del tipo de combustible en el gráfico de galones', () => {
@@ -84,15 +89,14 @@ describe('FuelFinancialDashboard', () => {
     expect(screen.getByText(/12,3\s?m³/)).toBeTruthy();
   });
 
-  it('muestra la comparación almacén vs. bomba', () => {
+  it('muestra la tabla combinada de combustible con precio, cantidad y gasto', () => {
     render(FuelFinancialDashboard);
-    expect(screen.getByText('Compras almacén')).toBeTruthy();
-    expect(screen.getByText('Tanqueos bomba')).toBeTruthy();
-  });
-
-  it('muestra el gasto por tipo de combustible en pesos', () => {
-    render(FuelFinancialDashboard);
-    expect(screen.getByText('Gasto por tipo de combustible')).toBeTruthy();
+    expect(screen.getAllByText('Combustible').length).toBeGreaterThan(0);
+    // Cantidad mostrada sigue siendo el total (bomba+almacén): 45,5 gal.
+    expect(screen.getByText(/45,5\s?gal/)).toBeTruthy();
+    // Precio/unidad = gasto (900.000) ÷ SOLO galones de bomba (30) = 30.000/gal —
+    // no ÷ 45,5 (el total), que diluiría el precio con galones de almacén sin costo.
+    expect(screen.getByText(/30[.,]000\/gal/)).toBeTruthy();
   });
 
   it('muestra la tendencia mensual de consumo y gasto neto', () => {
@@ -117,11 +121,20 @@ describe('FuelFinancialDashboard', () => {
     expect(screen.getByText(/\+20% vs\. periodo anterior/)).toBeTruthy();
   });
 
-  it('muestra discrepancias detectadas y precio promedio por galón', () => {
+  it('no muestra una tarjeta separada de "Gasto bomba" (redundante con Gasto bruto/neto dado el alcance sin compras)', () => {
+    render(FuelFinancialDashboard);
+    expect(screen.queryByText('Gasto bomba')).toBeNull();
+  });
+
+  it('muestra discrepancias detectadas', () => {
     render(FuelFinancialDashboard);
     expect(screen.getByText('Discrepancias detectadas')).toBeTruthy();
     expect(screen.getByText('2')).toBeTruthy();
-    expect(screen.getByText('Precio promedio por galón comprado')).toBeTruthy();
+  });
+
+  it('no muestra "Precio promedio por galón comprado" (sin compras/inventario en el alcance actual, siempre daría "—")', () => {
+    render(FuelFinancialDashboard);
+    expect(screen.queryByText('Precio promedio por galón comprado')).toBeNull();
   });
 
   it('cambia el rango de meses de la tendencia al hacer click en el selector', async () => {

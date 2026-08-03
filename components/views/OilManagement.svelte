@@ -34,7 +34,9 @@
     try {
       await dataStore.createOil(formatOilBrandPayload({ name: newOilName, type: newOilType }));
       newOilName = '';
-    } catch (err) {}
+    } catch (err) {
+      formError = err.message || 'No se pudo crear el aceite.';
+    }
   }
 
   async function confirmEdit() {
@@ -46,14 +48,18 @@
     try {
       await dataStore.updateOil(selectedOil.id, formatOilBrandPayload({ ...selectedOil, name: editedName }));
       closeModals();
-    } catch (err) {}
+    } catch (err) {
+      modalError = err.message || 'No se pudo actualizar el aceite.';
+    }
   }
 
   async function confirmDelete() {
     try {
       await dataStore.deleteOil(selectedOil.id);
       closeModals();
-    } catch (err) {}
+    } catch (err) {
+      modalError = err.message || 'No se pudo eliminar el aceite.';
+    }
   }
 
   function closeModals() {
@@ -72,6 +78,7 @@
       showEditModal = true;
     } else if (type === 'delete') {
       selectedOil = data;
+      modalError = '';
       showDeleteModal = true;
     }
   }
@@ -233,6 +240,9 @@
     <div class="modal-content confirmation" on:click|stopPropagation>
       <h3>Confirmar Eliminación</h3>
       <p>¿Está seguro que desea eliminar el registro "<strong>{selectedOil?.name}</strong>"?</p>
+      {#if modalError}
+        <p class="error">{modalError}</p>
+      {/if}
       <div class="modal-actions">
         <button type="button" class="btn-cancel" on:click={closeModals}>Cancelar</button>
         <button type="button" class="btn-delete-confirm" on:click={confirmDelete}>Sí, Eliminar</button>

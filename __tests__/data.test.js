@@ -142,4 +142,36 @@ describe('data store', () => {
       expect(result).toEqual([]);
     });
   });
+
+  /**
+   * @description deleteOil no existía en el store (bug real: el botón "Eliminar"
+   * de OilManagement.svelte llamaba a una función inexistente). El backend ya
+   * tenía el endpoint DELETE /api/v1/oil/brand/{id} completo.
+   */
+  describe('deleteOil', () => {
+    it('llama al endpoint DELETE y quita el aceite del store', async () => {
+      fetchWithAuth.mockResolvedValue(undefined);
+
+      await data.deleteOil(5);
+
+      expect(fetchWithAuth).toHaveBeenCalledWith('oil/brand/5', { method: 'DELETE' });
+      expect(get(data).oils.find(o => o.id === 5)).toBeUndefined();
+    });
+  });
+
+  /**
+   * @description Las motos viven en la misma tabla `vehiculos` que los carros — el
+   * historial de cambio de aceite lo sirve el mismo endpoint de vehículo para
+   * cualquier placa, no hay una ruta separada `/moto/{placa}/oil-change-history`
+   * en el backend (confirmado: no existe ningún controller con esa ruta).
+   */
+  describe('fetchMotoOilHistory', () => {
+    it('llama al mismo endpoint de historial de vehículo (las motos comparten tabla vehiculos)', async () => {
+      fetchWithAuth.mockResolvedValue([]);
+
+      await data.fetchMotoOilHistory('XMX28F');
+
+      expect(fetchWithAuth).toHaveBeenCalledWith('vehicle/oil-change/history/XMX28F');
+    });
+  });
 });

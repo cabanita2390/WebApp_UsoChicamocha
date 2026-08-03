@@ -8,6 +8,7 @@
   import CurriculumModal from "../shared/CurriculumModal.svelte";
   import DocHistoryModal from "../shared/DocHistoryModal.svelte";
   import EditAssetModal from "../shared/EditAssetModal.svelte";
+  import FuelConfigFields from "../shared/FuelConfigFields.svelte";
   import { motoInventoryColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
@@ -133,9 +134,15 @@
     belongsTo: "",
     idUbicacionBase: null,
     activo: true,
-    fuelTankCapacityGallons: null,
   };
   let newMoto = { ...initialMotoState };
+
+  // Consumo estándar / capacidad de tanque — asset_fuel_config, entidad aparte
+  // de la moto (mismo backend que "Configurar rendimiento del activo"). Motos
+  // usan el mismo endpoint que vehículos (viven en la tabla vehiculos).
+  const initialFuelConfig = { fuelTypeDefaultId: "", consumoEstandar: "", unidadConsumo: "", tanqueCapacidadGal: "" };
+  let fuelConfigNew = { ...initialFuelConfig };
+  let fuelConfigEdit = { ...initialFuelConfig };
   let docSoatVencimiento = "";
   let docTecnoVencimiento = "";
   let docSoatFile = null;
@@ -230,6 +237,8 @@
   $: brands = Array.isArray($data.vehicleBrands) ? $data.vehicleBrands : [];
   $: types = Array.isArray($data.vehicleTypes) ? $data.vehicleTypes : [];
   $: locations = Array.isArray($data.locations) ? $data.locations : [];
+  $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
+  $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
   $: isLoading = $data.isLoading;
   $: motoTipoId =
     (types || []).find((t) => String(t?.name ?? t?.nombreTipo ?? "").toUpperCase() === "MOTOCICLETA")?.id ?? null;
@@ -242,6 +251,8 @@
         data.fetchLocations().catch((e) => console.warn("No se cargó ubicaciones:", e)),
         data.fetchVehicleBrands(),
         data.fetchVehicleTypes(),
+        data.fetchFuelTypes(),
+        data.fetchAssetFuelConfig(),
       ]);
       await data.fetchMotos();
 
@@ -262,6 +273,17 @@
 
   function firstOversizedDocError() {
     return firstOversizedDocErrorOf([docSoatFile, docTecnoFile, docTarjetaPropiedadFile]);
+  }
+
+  /** Motos usan el mismo endpoint que vehículos (misma tabla vehiculos en el backend). Opcional, no bloquea el alta/edición. */
+  async function guardarFuelConfigMoto(vehicleId, fuelConfig) {
+    if (!fuelConfig.fuelTypeDefaultId || !fuelConfig.consumoEstandar) return null;
+    return data.updateAssetFuelConfigVehicle(vehicleId, {
+      fuelTypeDefaultId: Number(fuelConfig.fuelTypeDefaultId),
+      consumoEstandar: Number(fuelConfig.consumoEstandar),
+      unidadConsumo: fuelConfig.unidadConsumo,
+      tanqueCapacidadGal: fuelConfig.tanqueCapacidadGal ? Number(fuelConfig.tanqueCapacidadGal) : null,
+    });
   }
 
   async function handleCreateMoto(event) {
@@ -306,8 +328,14 @@
         } catch (docErr) {
           docExtra = " " + (docErr.message || "No se pudieron guardar los documentos (¿rol ADMIN?).");
         }
+        try {
+          await guardarFuelConfigMoto(vid, fuelConfigNew);
+        } catch (fuelErr) {
+          docExtra += " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+        }
       }
       newMoto = { ...initialMotoState };
+      fuelConfigNew = { ...initialFuelConfig };
       docSoatVencimiento = "";
       docTecnoVencimiento = "";
       docSoatFile = null;
@@ -367,9 +395,15 @@
     errorMessage = "";
     try {
       await data.updateMoto(motoInEditor.id, formatMotoVehiclePayload(motoInEditor, motoTipoId));
+      let fuelExtra = "";
+      try {
+        await guardarFuelConfigMoto(motoInEditor.id, fuelConfigEdit);
+      } catch (fuelErr) {
+        fuelExtra = " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+      }
       await data.fetchMotos();
       closeEditModal();
-      addNotification({ id: Date.now(), text: "Motocicleta actualizada." });
+      addNotification({ id: Date.now(), text: "Motocicleta actualizada." + fuelExtra });
     } catch (e) {
       errorMessage = e.message || "Error al actualizar motocicleta.";
     } finally {
@@ -408,7 +442,6 @@
   async function openEditModal(moto) {
     try {
       const fullMoto = await data.getMotoByPlaca(moto.placa);
-      console.log("🔍 fullMoto cargado:", fullMoto);
       motoInEditor = {
         ...fullMoto,
         idMarca: resolveBrandIdFromMoto(fullMoto),
@@ -420,11 +453,16 @@
         })(),
         belongsTo: normalizeBelongsTo(fullMoto.belongsTo),
         activo: fullMoto.activo !== false && fullMoto.activo !== 'false' && fullMoto.activo !== 0 && fullMoto.activo !== '0',
-        fuelTankCapacityGallons: fullMoto.fuelTankCapacityGallons ?? null,
-        factoryEfficiencyKmPerGallon: fullMoto.factoryEfficiencyKmPerGallon ?? null,
-        factoryEfficiencyUnit: fullMoto.factoryEfficiencyUnit ?? 'KM_PER_GALLON',
       };
-      console.log("✏️ motoInEditor.belongsTo asignado a:", motoInEditor.belongsTo);
+      const existingConfig = fuelAssetConfigs.find((c) => c.vehicleId === fullMoto.id);
+      fuelConfigEdit = existingConfig
+        ? {
+            fuelTypeDefaultId: String(existingConfig.fuelTypeDefaultId),
+            consumoEstandar: String(existingConfig.consumoEstandar),
+            unidadConsumo: existingConfig.unidadConsumo,
+            tanqueCapacidadGal: existingConfig.tanqueCapacidadGal != null ? String(existingConfig.tanqueCapacidadGal) : "",
+          }
+        : { ...initialFuelConfig };
       showEditModal = true;
     } catch (e) {
       errorMessage = 'No se pudo cargar la moto para editar.';
@@ -435,6 +473,7 @@
   function closeEditModal() {
     showEditModal = false;
     motoInEditor = null;
+    fuelConfigEdit = { ...initialFuelConfig };
     errorMessage = "";
   }
 
@@ -546,31 +585,15 @@
               </select>
             </label>
             {#if isAdmin}
-            <label class="field">
-              <span class="field-lab">Capacidad del tanque (Gal)</span>
-              <input
-                type="number" step="0.001" min="0.1"
-                bind:value={newMoto.fuelTankCapacityGallons}
-                placeholder="Ej: 2.5"
+              <FuelConfigFields
+                bind:fuelTypeDefaultId={fuelConfigNew.fuelTypeDefaultId}
+                bind:consumoEstandar={fuelConfigNew.consumoEstandar}
+                bind:unidadConsumo={fuelConfigNew.unidadConsumo}
+                bind:tanqueCapacidadGal={fuelConfigNew.tanqueCapacidadGal}
+                {fuelTypes}
                 disabled={isSubmitting}
+                idPrefix="newMotoFuel"
               />
-            </label>
-            <label class="field">
-              <span class="field-lab">Eficiencia de fábrica</span>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-                <input
-                  type="number" step="0.01" min="0"
-                  bind:value={newMoto.factoryEfficiencyKmPerGallon}
-                  placeholder="Ej: 80.0"
-                  disabled={isSubmitting}
-                  style="padding:3px 4px;font-size:11px;min-height:26px"
-                />
-                <select bind:value={newMoto.factoryEfficiencyUnit} disabled={isSubmitting} style="padding:4px;font-size:12px;min-height:28px">
-                  <option value="KM_PER_GALLON">km/Gal</option>
-                  <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
-                </select>
-              </div>
-            </label>
             {/if}
           </div>
           <div class="create-docs-head">Documentación</div>
@@ -654,8 +677,8 @@
   submitDisabled={motoTipoId == null}
   belongsToRequired={true}
   locationTitle="Ej.: Unidad Pantano, Unidad Ayalas…"
-  capacityPlaceholder="Ej: 2.5"
-  efficiencyPlaceholder="Ej: 80.0"
+  fuelConfig={fuelConfigEdit}
+  {fuelTypes}
   on:close={closeEditModal}
   on:quickcatalog={(e) => openQuickCatalog(e.detail)}
   on:submit={handleUpdateMoto}

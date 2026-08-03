@@ -79,7 +79,7 @@
     padding: 0 2px;
   }
   .trend-latest {
-    font-size: 12px;
+    font-size: 14px;
     color: #0b0b0b;
   }
   .no-data {

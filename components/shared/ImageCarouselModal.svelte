@@ -20,7 +20,6 @@
 
   // Fetch images as blobs when imageUrls changes
   $: if (imageUrls.length > 0 && blobImages.length === 0) {
-    console.log('fetchBlobs called with imageUrls:', imageUrls);
     fetchBlobs();
   }
 

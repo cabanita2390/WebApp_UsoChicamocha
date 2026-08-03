@@ -22,15 +22,16 @@ vi.mock('../../stores/auth.js', () => ({
 
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
+import { fuelDateRange } from '../../stores/fuelFilters.js';
 
 const mockPerformance = [
   {
-    refuelingId: 1, vehicleId: 5, machineId: null, fechaRegistro: '2026-07-15T10:00:00',
+    refuelingId: 1, vehicleId: 5, machineId: null, fuelTypeId: 1, fechaRegistro: '2026-07-15T10:00:00',
     horometroAnterior: 100, horometroActual: 150, ejecutado: 50, consumoEstandar: 30,
     galonesProyectados: 1.67, galonesReal: 5, diferencia: 3.33, alerta: true,
   },
   {
-    refuelingId: 2, vehicleId: 6, machineId: null, fechaRegistro: '2026-07-16T10:00:00',
+    refuelingId: 2, vehicleId: 6, machineId: null, fuelTypeId: 1, fechaRegistro: '2026-07-16T10:00:00',
     horometroAnterior: 200, horometroActual: 230, ejecutado: 30, consumoEstandar: 30,
     galonesProyectados: 1, galonesReal: 1.1, diferencia: 0.1, alerta: false,
   },
@@ -39,6 +40,7 @@ const mockPerformance = [
 describe('FuelPerformance', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fuelDateRange.set({ fechaInicio: '', fechaFin: '' });
     data.subscribe.mockImplementation((callback) => {
       callback({
         fuelPerformance: mockPerformance,
@@ -57,15 +59,29 @@ describe('FuelPerformance', () => {
     expect(rows[1].classList.contains('anomaly-row')).toBe(false);
   });
 
+  it('muestra la columna Producto con el nombre del combustible del tanqueo', () => {
+    render(FuelPerformance);
+    expect(screen.getByText('Producto')).toBeTruthy();
+    expect(screen.getAllByText('ACPM / Diésel').length).toBeGreaterThan(0);
+  });
+
   it('vuelve a pedir el rendimiento con el tipo y fechas al filtrar', async () => {
     render(FuelPerformance);
 
-    await fireEvent.change(screen.getByLabelText(/tipo/i), { target: { value: 'VEHICULO' } });
+    await fireEvent.click(screen.getByRole('button', { name: /^vehículos/i }));
     await fireEvent.input(screen.getByLabelText(/fecha inicio/i), { target: { value: '2026-07-01' } });
     await fireEvent.input(screen.getByLabelText(/fecha fin/i), { target: { value: '2026-07-22' } });
     await fireEvent.click(screen.getByRole('button', { name: /filtrar/i }));
 
     expect(data.fetchFuelPerformance).toHaveBeenLastCalledWith('VEHICULO', '2026-07-01', '2026-07-22');
+  });
+
+  it('cambia de sub-pestaña (Maquinaria/Vehículos/Motocicletas) al hacer click', async () => {
+    render(FuelPerformance);
+
+    await fireEvent.click(screen.getByRole('button', { name: /^motocicletas/i }));
+
+    expect(data.fetchFuelPerformance).toHaveBeenLastCalledWith('MOTOCICLETA', undefined, undefined);
   });
 
   it('un ADMIN ve el botón de configurar consumo estándar, un SUPERVISOR_OPERATIVO no', () => {

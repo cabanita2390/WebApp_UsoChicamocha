@@ -1,4 +1,7 @@
 <script>
+  // Oculto del rediseño de Combustibles (ver comentario en FuelTabbed.svelte):
+  // "Suministro de Almacén" no se renderiza desde ninguna ruta, pero el
+  // componente y el endpoint de backend siguen intactos por si se retoma.
   import { onMount } from "svelte";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
