@@ -5,25 +5,17 @@
   import { getPageTitle } from "./config/page-titles.js";
   import MainLayout from "./components/layouts/MainLayout.svelte";
   import WorkOrderModal from "./components/shared/WorkOrderModal.svelte";
-  import VehicleWorkOrderModal from "./components/shared/VehicleWorkOrderModal.svelte";
   import Login from "./components/views/Login.svelte";
   import UserManagement from "./components/views/UserManagement.svelte";
-  import MachineManagement from "./components/views/MachineManagement.svelte";
-  import WorkOrderManagement from "./components/views/WorkOrderManagement.svelte";
-  import Consolidado from "./components/views/Consolidado.svelte";
   import Loader from "./components/shared/Loader.svelte";
-  import Dashboard from "./components/views/Dashboard.svelte";
   import DashboardTabbed from "./components/views/DashboardTabbed.svelte";
   import WorkOrdersTabbed from "./components/views/WorkOrdersTabbed.svelte";
   import ConsolidadoTabbed from "./components/views/ConsolidadoTabbed.svelte";
   import OilManagement from "./components/views/OilManagement.svelte";
-  import VehicleManagement from "./components/views/VehicleManagement.svelte";
-  import MotoManagement from "./components/views/MotoManagement.svelte";
   import VehicleOilHistory from "./components/views/VehicleOilHistory.svelte";
   import MotoCambioAceiteHistorial from "./components/views/MotoCambioAceiteHistorial.svelte";
   import MotoCambioAceiteForm from "./components/views/MotoCambioAceiteForm.svelte";
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
-  import MaintenanceTabbed from "./components/views/MaintenanceTabbed.svelte";
   import FuelTabbed from "./components/views/FuelTabbed.svelte";
   import DocumentErrorModal from "./components/shared/DocumentErrorModal.svelte";
   import { auth } from "./stores/auth.js";
@@ -61,16 +53,12 @@
     "/": DashboardTabbed,
     "/users": UserManagement,
     "/inventory": InventoryTabbed,
-    "/machines": MachineManagement,
     "/work-orders": WorkOrdersTabbed,
     "/consolidado": ConsolidadoTabbed,
     "/oil-management": OilManagement,
-    "/vehicles": VehicleManagement,
-    "/moto-inventory": MotoManagement,
     "/vehicle-oil-history/:placa": VehicleOilHistory,
     "/moto-oil-history/:placa": MotoCambioAceiteHistorial,
     "/moto-oil-change": MotoCambioAceiteForm,
-    "/maintenance": MaintenanceTabbed,
     "/fuel": FuelTabbed,
   };
 
@@ -228,9 +216,8 @@
     } else if (location.includes("/inventory")) {
       ui.setCurrentView("inventory");
       data.fetchMachines();
-    } else if (location.includes("/machines")) {
-      ui.setCurrentView("machines");
-      data.fetchMachines();
+      data.fetchVehicles();
+      data.fetchMotos();
     } else if (location.includes("/work-orders")) {
       ui.setCurrentView("work-orders");
       data.fetchWorkOrders();
@@ -241,12 +228,6 @@
     } else if (location.includes("/oil-management")) {
       ui.setCurrentView("oil-management");
       data.fetchOils();
-    } else if (location.includes("/moto-inventory")) {
-      ui.setCurrentView("moto-inventory");
-      data.fetchMotos();
-    } else if (location.includes("/vehicles")) {
-      ui.setCurrentView("vehicles");
-      data.fetchVehicles();
     } else if (location.includes("/vehicle-oil-history")) {
       ui.setCurrentView("vehicle-oil-history");
     } else if (location.includes("/moto-oil-history")) {
@@ -326,7 +307,8 @@
   {/if}
 
   {#if $ui.showVehicleWorkOrderModal}
-    <VehicleWorkOrderModal
+    <WorkOrderModal
+      assetType="vehicle"
       rowData={$ui.selectedVehicleRowData}
       columnDef={$ui.selectedVehicleColumnDef}
       currentUser={$auth.currentUser?.name}

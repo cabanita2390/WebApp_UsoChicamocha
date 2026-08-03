@@ -669,7 +669,7 @@ function handleDataUpdate(currentView, message) {
       }
       break;
     case 'machines-updated':
-      if (currentView === 'machines') {
+      if (currentView === 'inventory') {
         data.fetchMachines();
       }
       break;
@@ -699,7 +699,7 @@ function handleDataUpdate(currentView, message) {
       if (currentView === 'dashboard') {
         data.fetchVehicleInspections(dataState.vehicleInspections.currentPage, dataState.vehicleInspections.pageSize, { reload: true });
         data.fetchVehicles();
-      } else if (currentView === 'vehicles') {
+      } else if (currentView === 'inventory') {
         data.fetchVehicles();
       } else if (currentView === 'consolidado') {
         log('🔄 [CONSOLIDADO] Refrescando vehículos en consolidado...');
@@ -710,7 +710,7 @@ function handleDataUpdate(currentView, message) {
       if (currentView === 'dashboard') {
         data.fetchMotoInspections();
         data.fetchMotos();
-      } else if (currentView === 'moto-inventory') {
+      } else if (currentView === 'inventory') {
         data.fetchMotos();
       } else if (currentView === 'consolidado') {
         log('🔄 [CONSOLIDADO] Refrescando motos en consolidado...');
