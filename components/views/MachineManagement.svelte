@@ -8,7 +8,8 @@
     curriculumColumns,
     machineInspectionColumns,
   } from "../../config/table-definitions.js";
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import FuelConfigFields from "../shared/FuelConfigFields.svelte";
   import { addNotification } from '../../stores/ui.js';
   import { syncPreventiveAlertsFromServer } from '../../composables/useAlerts.js';
   import { download } from '../../stores/api.js';
@@ -34,9 +35,15 @@
     soat: "",
     runt: "",
     belongsTo: "Distrito",
-    fuelTankCapacityGallons: null,
   };
   let newMachine = { ...initialMachineState };
+
+  // Consumo estándar / capacidad de tanque — asset_fuel_config, entidad
+  // aparte de la máquina (mismo backend que "Configurar rendimiento del
+  // activo"). Opcional: si se deja sin combustible, no se guarda nada.
+  const initialFuelConfig = { fuelTypeDefaultId: "", consumoEstandar: "", unidadConsumo: "", tanqueCapacidadGal: "" };
+  let fuelConfigNew = { ...initialFuelConfig };
+  let fuelConfigEdit = { ...initialFuelConfig };
 
   let machineInEditor = null;
   let showEditModal = false;
@@ -47,6 +54,13 @@
 
   $: machines = $data.machines;
   $: isLoading = $data.isLoading;
+  $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
+  $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
+
+  onMount(() => {
+    if (!($data.fuelTypes ?? []).length) data.fetchFuelTypes();
+    if (!($data.fuelAssetConfig ?? []).length) data.fetchAssetFuelConfig();
+  });
 
   $: if (machines?.length > 0) {
     checkExpiringDocuments($data.vehicles || [], $data.motos || [], machines, addNotification);
@@ -72,15 +86,36 @@
     return 'Distrito';
   }
 
+  /** Opcional: si no eligieron combustible + consumo estándar, no se guarda nada. */
+  async function guardarFuelConfigMaquina(machineId, fuelConfig) {
+    if (!fuelConfig.fuelTypeDefaultId || !fuelConfig.consumoEstandar) return null;
+    return data.updateAssetFuelConfigMachine(machineId, {
+      fuelTypeDefaultId: Number(fuelConfig.fuelTypeDefaultId),
+      consumoEstandar: Number(fuelConfig.consumoEstandar),
+      unidadConsumo: fuelConfig.unidadConsumo,
+      tanqueCapacidadGal: fuelConfig.tanqueCapacidadGal ? Number(fuelConfig.tanqueCapacidadGal) : null,
+    });
+  }
+
   async function handleCreateMachine(event) {
     event.preventDefault();
     isSubmitting = true;
     errorMessage = "";
     try {
-      await data.createMachine(formatMachinePayload(newMachine));
+      const created = await data.createMachine(formatMachinePayload(newMachine));
+      let fuelExtra = "";
+      if (created?.id != null) {
+        try {
+          await guardarFuelConfigMaquina(created.id, fuelConfigNew);
+        } catch (fuelErr) {
+          fuelExtra = " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+        }
+      }
       newMachine = { ...initialMachineState };
+      fuelConfigNew = { ...initialFuelConfig };
       // El backend ya recalculó las alertas (SOAT/seguro todo riesgo) al guardar la máquina.
       syncPreventiveAlertsFromServer(false);
+      if (fuelExtra) addNotification({ id: Date.now(), text: "Máquina creada." + fuelExtra });
     } catch (e) {
       errorMessage = e.message || "Error al crear máquina.";
     } finally {
@@ -95,9 +130,16 @@
     errorMessage = "";
     try {
       await data.updateMachine({ id: machineInEditor.id, ...formatMachinePayload(machineInEditor) });
+      let fuelExtra = "";
+      try {
+        await guardarFuelConfigMaquina(machineInEditor.id, fuelConfigEdit);
+      } catch (fuelErr) {
+        fuelExtra = " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+      }
       closeEditModal();
       // El backend ya recalculó las alertas (SOAT/seguro todo riesgo) al guardar la máquina.
       syncPreventiveAlertsFromServer(false);
+      if (fuelExtra) addNotification({ id: Date.now(), text: "Máquina actualizada." + fuelExtra });
     } catch (e) {
       errorMessage = e.message || "Error al actualizar máquina.";
     } finally {
@@ -151,15 +193,19 @@
   async function openEditModal(machine) {
     try {
       const fullMachine = await data.getMachineById(machine.id);
-      console.log("🔍 fullMachine cargado:", fullMachine);
       machineInEditor = {
         ...fullMachine,
         belongsTo: normalizeBelongsTo(fullMachine.belongsTo),
-        fuelTankCapacityGallons: fullMachine.fuelTankCapacityGallons ?? null,
-        factoryEfficiencyGalPerHour: fullMachine.factoryEfficiencyGalPerHour ?? null,
-        factoryEfficiencyUnit: fullMachine.factoryEfficiencyUnit ?? 'GAL_PER_HOUR',
       };
-      console.log("✏️ machineInEditor.belongsTo asignado a:", machineInEditor.belongsTo);
+      const existingConfig = fuelAssetConfigs.find((c) => c.machineId === fullMachine.id);
+      fuelConfigEdit = existingConfig
+        ? {
+            fuelTypeDefaultId: String(existingConfig.fuelTypeDefaultId),
+            consumoEstandar: String(existingConfig.consumoEstandar),
+            unidadConsumo: existingConfig.unidadConsumo,
+            tanqueCapacidadGal: existingConfig.tanqueCapacidadGal != null ? String(existingConfig.tanqueCapacidadGal) : "",
+          }
+        : { ...initialFuelConfig };
       showEditModal = true;
     } catch (e) {
       errorMessage = 'No se pudo cargar la máquina para editar.';
@@ -170,6 +216,7 @@
   function closeEditModal() {
     showEditModal = false;
     machineInEditor = null;
+    fuelConfigEdit = { ...initialFuelConfig };
     errorMessage = "";
   }
 
@@ -258,20 +305,16 @@
             />
           </label>
           {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input type="number" step="0.001" min="0.1" bind:value={newMachine.fuelTankCapacityGallons} placeholder="Ej: 10.5" disabled={isSubmitting} />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input type="number" step="0.01" min="0" bind:value={newMachine.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" disabled={isSubmitting} style="padding:3px 4px;font-size:11px;min-height:26px" />
-              <select bind:value={newMachine.factoryEfficiencyUnit} disabled={isSubmitting} style="padding:3px 4px;font-size:11px;min-height:22px">
-                <option value="GAL_PER_HOUR">Gal/h</option>
-                <option value="M3_PER_HOUR">m³/h (gas)</option>
-              </select>
-            </div>
-          </label>
+            <FuelConfigFields
+              bind:fuelTypeDefaultId={fuelConfigNew.fuelTypeDefaultId}
+              bind:consumoEstandar={fuelConfigNew.consumoEstandar}
+              bind:unidadConsumo={fuelConfigNew.unidadConsumo}
+              bind:tanqueCapacidadGal={fuelConfigNew.tanqueCapacidadGal}
+              {fuelTypes}
+              disabled={isSubmitting}
+              preferPorHora={true}
+              idPrefix="newMachineFuel"
+            />
           {/if}
         </div>
         <div class="create-actions">
@@ -345,20 +388,16 @@
             />
           </label>
           {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input type="number" step="0.001" min="0.1" bind:value={machineInEditor.fuelTankCapacityGallons} placeholder="Ej: 10.5" />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input type="number" step="0.01" min="0" bind:value={machineInEditor.factoryEfficiencyGalPerHour} placeholder="Ej: 3.5" style="padding:3px 4px;font-size:11px;min-height:26px" />
-              <select bind:value={machineInEditor.factoryEfficiencyUnit} style="padding:3px 4px;font-size:11px;min-height:22px">
-                <option value="GAL_PER_HOUR">Gal/h</option>
-                <option value="M3_PER_HOUR">m³/h (gas)</option>
-              </select>
-            </div>
-          </label>
+            <FuelConfigFields
+              bind:fuelTypeDefaultId={fuelConfigEdit.fuelTypeDefaultId}
+              bind:consumoEstandar={fuelConfigEdit.consumoEstandar}
+              bind:unidadConsumo={fuelConfigEdit.unidadConsumo}
+              bind:tanqueCapacidadGal={fuelConfigEdit.tanqueCapacidadGal}
+              {fuelTypes}
+              disabled={isSubmitting}
+              preferPorHora={true}
+              idPrefix="editMachineFuel"
+            />
           {/if}
         </div>
         <div class="modal-actions">
