@@ -155,47 +155,58 @@ export const motoInventoryColumns = [
 ];
 
 
-/** Historial completo de cambios de aceite para un vehículo específico. */
-export const vehicleOilHistoryColumns = [
-    {
-        header: 'Fecha',
-        accessorFn: (row) => formatDateTime(row.dateStamp),
-        id: 'oil_h_fecha',
-        size: 140,
-    },
-    {
-        header: 'Km en cambio',
-        accessorFn: (row) => (row.kmAtChange != null ? formatKm(row.kmAtChange) : 'N/A'),
-        id: 'oil_h_km',
-        size: 110,
-    },
-    {
-        header: 'Próximo cambio (km)',
-        accessorFn: (row) =>
-            row.kmAtChange != null && row.intervalKm != null
-                ? formatKm(row.kmAtChange + row.intervalKm)
-                : 'N/A',
-        id: 'oil_h_proximo',
-        size: 130,
-    },
-    {
-        header: 'Intervalo (km)',
-        accessorFn: (row) => (row.intervalKm != null ? formatKm(row.intervalKm) : 'N/A'),
-        id: 'oil_h_intervalo',
-        size: 110,
-    },
-    { header: 'Marca', accessorKey: 'brandName', size: 120 },
-    {
-        header: 'Cantidad (L)',
-        accessorFn: (row) => (row.quantity != null ? row.quantity : 'N/A'),
-        id: 'oil_h_cantidad',
-        size: 90,
-    },
-    {
-        header: 'Filtro de aire',
-        accessorFn: (row) => (row.airFilterChanged ? 'Sí' : 'No'),
-        id: 'oil_h_filtro',
-        size: 90,
-    },
-];
+/**
+ * Historial completo de cambios de aceite para un vehículo específico.
+ * @param {boolean} showActions - agrega columna Editar/Eliminar (ADMIN, "en caso
+ *   de error") — false por defecto para no afectar consumidores que no la piden
+ *   (ej. MotoCambioAceiteHistorial.svelte, fuera de este alcance).
+ */
+export const createVehicleOilHistoryColumns = (showActions = false) => {
+    const columns = [
+        {
+            header: 'Fecha',
+            accessorFn: (row) => formatDateTime(row.dateStamp),
+            id: 'oil_h_fecha',
+            size: 140,
+        },
+        {
+            header: 'Km en cambio',
+            accessorFn: (row) => (row.kmAtChange != null ? formatKm(row.kmAtChange) : 'N/A'),
+            id: 'oil_h_km',
+            size: 110,
+        },
+        {
+            header: 'Próximo cambio (km)',
+            accessorFn: (row) =>
+                row.kmAtChange != null && row.intervalKm != null
+                    ? formatKm(row.kmAtChange + row.intervalKm)
+                    : 'N/A',
+            id: 'oil_h_proximo',
+            size: 130,
+        },
+        {
+            header: 'Intervalo (km)',
+            accessorFn: (row) => (row.intervalKm != null ? formatKm(row.intervalKm) : 'N/A'),
+            id: 'oil_h_intervalo',
+            size: 110,
+        },
+        { header: 'Marca', accessorKey: 'brandName', size: 120 },
+        {
+            header: 'Cantidad (L)',
+            accessorFn: (row) => (row.quantity != null ? row.quantity : 'N/A'),
+            id: 'oil_h_cantidad',
+            size: 90,
+        },
+        {
+            header: 'Filtro de aire',
+            accessorFn: (row) => (row.airFilterChanged ? 'Sí' : 'No'),
+            id: 'oil_h_filtro',
+            size: 90,
+        },
+    ];
+    if (showActions) {
+        columns.push({ id: 'oil_h_actions', header: 'Acciones', size: 140, meta: { isAction: true } });
+    }
+    return columns;
+};
 

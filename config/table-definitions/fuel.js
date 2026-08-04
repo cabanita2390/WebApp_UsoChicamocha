@@ -57,12 +57,14 @@ export const createRefuelingColumns = (fuelTypesById = {}, unidadMedidaById = {}
             size: 100,
         },
         {
-            // row.capacidadExcedida es opcional: solo lo trae el reporte de
-            // Tanqueo y Distribución (cruce con asset_fuel_config.tanqueCapacidadGal
-            // hecho en TanqueoDistribucion.svelte) — si no viene, se ignora y la
-            // columna se comporta como antes (solo discrepancia financiera).
+            // row.capacidadExcedida/cantidadFueraDeRango/precioFueraDeRango son
+            // opcionales: solo los trae el reporte de Tanqueo y Distribución (ver
+            // AssetFuelCapacityService/FuelPriceAnomalyService) — si no vienen, se
+            // ignoran y la columna se comporta como antes (solo discrepancia
+            // financiera).
             header: 'Discrepancia',
-            accessorFn: (row) => yn(row.discrepanciaValor || row.capacidadExcedida),
+            accessorFn: (row) => yn(row.discrepanciaValor || row.capacidadExcedida
+                || row.cantidadFueraDeRango || row.precioFueraDeRango),
             id: 'ref_discrepancia',
             size: 100,
         },

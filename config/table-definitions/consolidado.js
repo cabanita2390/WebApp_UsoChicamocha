@@ -36,6 +36,12 @@ export const createConsolidadoColumns = (owner) => [
                     }
                 }
             },
+            {
+                id: 'motor_historial',
+                header: '',
+                size: 90,
+                meta: { cellClass: 'motor-oil-cell', isViewMotorOilHistoryAction: true },
+            },
         ]
     },
     {
@@ -65,6 +71,12 @@ export const createConsolidadoColumns = (owner) => [
                     }
                 }
             },
+            {
+                id: 'hidraulico_historial',
+                header: '',
+                size: 90,
+                meta: { cellClass: 'hydraulic-oil-cell', isViewHydraulicOilHistoryAction: true },
+            },
         ]
     },
     {
@@ -75,6 +87,39 @@ export const createConsolidadoColumns = (owner) => [
     },
 ];
 
+/**
+ * Historial editable de cambios de aceite (motor u hidráulico) de una máquina —
+ * "Ver historial" en createConsolidadoColumns abre esto en un modal.
+ * @param {boolean} showActions - agrega columna Editar/Eliminar (ADMIN, "en caso de error").
+ */
+export const createMachineOilHistoryColumns = (showActions = false) => {
+    const columns = [
+        { header: 'Fecha', accessorFn: (row) => formatDateTime(row.dateStamp), id: 'moh_fecha', size: 140 },
+        { header: 'Marca', accessorKey: 'brandName', size: 120 },
+        {
+            header: 'Cantidad',
+            accessorFn: (row) => (row.quantity != null ? row.quantity : 'N/A'),
+            id: 'moh_cantidad',
+            size: 90,
+        },
+        {
+            header: 'Horómetro',
+            accessorFn: (row) => (row.hourMeter != null ? row.hourMeter : 'N/A'),
+            id: 'moh_horometro',
+            size: 100,
+        },
+        {
+            header: 'Prom. cambio (h)',
+            accessorFn: (row) => (row.averageHoursChange != null ? row.averageHoursChange : 'N/A'),
+            id: 'moh_promedio',
+            size: 110,
+        },
+    ];
+    if (showActions) {
+        columns.push({ id: 'moh_actions', header: 'Acciones', size: 140, meta: { isAction: true } });
+    }
+    return columns;
+};
 
 /** Consolidado vehículos (tab Consolidado → Vehículos). Mismo estilo que maquinaria: fondos por grupo. */
 export const consolidadoVehicleColumns = [

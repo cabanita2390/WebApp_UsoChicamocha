@@ -25,9 +25,11 @@ const ROUTE_TITLES = {
     "/consolidado": "Consolidado De Activos",
     "/oil-management": "Gestión De Aceites",
     "/vehicle-oil-history": "Historial De Cambios De Aceite",
+    "/machine-oil-history": "Historial De Cambios De Aceite",
     "/moto-oil-history": "Historial De Cambios De Aceite",
     "/moto-oil-change": "Registrar Cambio De Aceite",
     "/fuel": "Combustibles",
+    "/fuel-history": "Historial De Tanqueos",
 };
 
 /**
