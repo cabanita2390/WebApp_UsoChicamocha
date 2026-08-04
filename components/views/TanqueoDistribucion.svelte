@@ -1,5 +1,6 @@
 <script>
   import { onMount } from "svelte";
+  import { push } from "svelte-spa-router";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import { addNotification } from "../../stores/ui.js";
@@ -23,7 +24,10 @@
   const initialForm = {
     tipoElemento: "MAQUINARIA",
     elementoId: "",
-    lugar: "BOMBA",
+    // Coherente con la sugerencia de lugar por tipo de activo (ver el bloque
+    // reactivo más abajo): Máquina/Motocicleta sugieren ALMACEN, Vehículo sugiere
+    // BOMBA. Editable — no bloquea el caso real distinto.
+    lugar: "ALMACEN",
     areaCosto: "DISTRITO",
     fuelTypeId: "",
     cantidadGalones: "",
@@ -43,8 +47,9 @@
   // Buscador de elemento (Máquina/Vehículo/Motocicleta) — mismo patrón que el
   // modal "Configurar rendimiento del activo": un solo input, se despliega la
   // lista completa al enfocarlo, filtra al escribir por cualquier campo. La
-  // selección final se muestra como "Tipo #id", igual que la tabla de abajo
-  // (función elemento()), no como placa/marca (eso solo ayuda a buscar).
+  // selección final se muestra como placa/marca (o nombre/marca para
+  // máquinas), igual que en AssetFuelConfigManagement.svelte — más legible
+  // que el "Tipo #id" que se usaba antes.
   let elementoBusqueda = "";
   let elementoSeleccionado = null;
   let elementoDropdownOpen = false;
@@ -84,12 +89,6 @@
   let editTipoElementoAnterior = editForm.tipoElemento;
   let refuelingToDelete = null;
 
-  // Modal "Historial de <activo>" — todos los tanqueos de un activo específico en
-  // el rango filtrado, incluidos los que no se ven en la tabla resumen (que solo
-  // muestra el más reciente por activo).
-  let historialActivoKey = null;
-  let historialActivoLabel = "";
-
   $: editElementoLabel = editForm.tipoElemento === "MAQUINARIA" ? "Máquina" : editForm.tipoElemento === "MOTOCICLETA" ? "Motocicleta" : "Vehículo";
   $: editElementosDisponibles = editForm.tipoElemento === "MAQUINARIA" ? machines : editForm.tipoElemento === "MOTOCICLETA" ? motos : vehicles;
   $: editElementosFiltrados = editElementosDisponibles.filter((e) =>
@@ -98,11 +97,15 @@
   $: editUnidadCantidad = unidadMedidaById[Number(editForm.fuelTypeId)] === "M3" ? "m³" : "galones";
   // Solo hay factura obligatoria en la edición si el tanqueo no era BOMBA todavía
   // (ALMACEN nunca tiene url_factura real) y no se adjuntó una nueva en el form.
-  $: editNecesitaFacturaNueva = editForm.lugar === "BOMBA" && editOriginalUrlFactura == null;
 
   $: if (editForm.tipoElemento !== editTipoElementoAnterior) {
     editTipoElementoAnterior = editForm.tipoElemento;
     limpiarSeleccionElementoEdit();
+    // Misma sugerencia editable que en "Registrar tanqueo" — solo se aplica si el
+    // usuario cambia el tipo de elemento a mano; abrir el modal no la dispara
+    // (editTipoElementoAnterior ya queda igualado a editForm.tipoElemento en
+    // openEditModal, así que el lugar real del tanqueo no se pisa al precargar).
+    editForm.lugar = editForm.tipoElemento === "VEHICULO" ? "BOMBA" : "ALMACEN";
   }
 
   $: isLoading = $data.isLoading;
@@ -113,7 +116,6 @@
   $: vehiculosById = Object.fromEntries(($data.vehicles ?? []).map((v) => [v.id, v]));
   $: machinesById = Object.fromEntries(($data.machines ?? []).map((m) => [m.id, m]));
   $: resumenColumns = createRefuelingColumns(fuelTypesById, unidadMedidaById, vehiculosById, machinesById, isAdmin, true);
-  $: historialModalColumns = createRefuelingColumns(fuelTypesById, unidadMedidaById, vehiculosById, machinesById, isAdmin, false);
   // GET /vehicle no filtra por tipo — trae motos también (viven en la misma
   // tabla vehiculos). GET /moto sí filtra correctamente solo motos.
   $: vehicles = ($data.vehicles ?? []).filter((v) => (v.tipoVehiculo ?? "").toUpperCase() !== "MOTOCICLETA");
@@ -132,6 +134,11 @@
   $: if (form.tipoElemento !== tipoElementoAnterior) {
     tipoElementoAnterior = form.tipoElemento;
     limpiarSeleccionElemento();
+    // Sugerencia de lugar por tipo de activo (motos y máquinas generalmente se
+    // tanquean en almacén, vehículos en bomba) — editable, no bloquea al usuario
+    // si esta vez sí fue distinto (ver RefuelingReportService: el reporte agrupa
+    // por el lugar real, no por este tipo, así que la excepción queda reflejada).
+    form.lugar = form.tipoElemento === "VEHICULO" ? "BOMBA" : "ALMACEN";
   }
 
   function labelElementoLista(e, tipo) {
@@ -156,7 +163,7 @@
   function seleccionarElemento(e) {
     elementoSeleccionado = e;
     form.elementoId = String(e.id);
-    elementoBusqueda = `${elementoLabel} #${e.id}`;
+    elementoBusqueda = labelElementoLista(e, form.tipoElemento);
     elementoDropdownOpen = false;
   }
 
@@ -169,7 +176,7 @@
 
   function cerrarBuscadorElemento() {
     elementoDropdownOpen = false;
-    elementoBusqueda = elementoSeleccionado ? `${elementoLabel} #${elementoSeleccionado.id}` : "";
+    elementoBusqueda = elementoSeleccionado ? labelElementoLista(elementoSeleccionado, form.tipoElemento) : "";
   }
 
   function handleModalContentClick(event) {
@@ -179,12 +186,14 @@
   }
 
   // isAnomaly activa el resaltado de fila que DataGrid ya soporta (mismo patrón
-  // que FuelPerformance.svelte) — combina la discrepancia financiera con la de
-  // capacidad de tanque excedida, ambas ya calculadas por el backend
-  // (AssetFuelCapacityService, reutilizable para cualquier tipo de activo).
+  // que FuelPerformance.svelte) — combina las 4 discrepancias ya calculadas por el
+  // backend: financiera, capacidad de tanque excedida (AssetFuelCapacityService),
+  // cantidad fuera de rango típico para el tipo de activo (mismo servicio) y precio
+  // unitario fuera de rango vs el promedio reciente (FuelPriceAnomalyService).
   $: reporte = ($data.fuelRefuelingReport ?? []).map((row) => ({
     ...row,
-    isAnomaly: !!row.discrepanciaValor || !!row.capacidadExcedida,
+    isAnomaly: !!row.discrepanciaValor || !!row.capacidadExcedida
+      || !!row.cantidadFueraDeRango || !!row.precioFueraDeRango,
   }));
   // Colapsa a 1 fila por activo = su tanqueo más reciente dentro del rango
   // filtrado (si un activo no tanqueó en el rango, no aparece). La clave usa un
@@ -216,12 +225,6 @@
     resumenPageSize = event.detail;
     resumenPage = 0;
   }
-
-  $: historialActivoFilas = historialActivoKey
-    ? reporte
-        .filter((r) => (r.machineId != null ? `M-${r.machineId}` : `V-${r.vehicleId}`) === historialActivoKey)
-        .sort((a, b) => new Date(b.fechaRegistro) - new Date(a.fechaRegistro))
-    : [];
 
   function formatFecha(fechaIso) {
     if (!fechaIso) return "—";
@@ -264,15 +267,13 @@
   }
 
   function abrirHistorialActivo(row) {
-    historialActivoKey = row.machineId != null ? `M-${row.machineId}` : `V-${row.vehicleId}`;
-    const activo = row.machineId != null ? machinesById[row.machineId] : vehiculosById[row.vehicleId];
     const tipoActivo = row.machineId != null
       ? "MAQUINARIA"
       : motos.some((m) => m.id === row.vehicleId)
         ? "MOTOCICLETA"
         : "VEHICULO";
-    historialActivoLabel = labelElementoLista(activo, tipoActivo)
-      || (row.machineId != null ? `Máquina #${row.machineId}` : `Vehículo #${row.vehicleId}`);
+    const idActivo = row.machineId ?? row.vehicleId;
+    push(`/fuel-history/${tipoActivo}/${idActivo}`);
   }
 
   function abrirBuscadorElementoEdit() {
@@ -283,7 +284,7 @@
   function seleccionarElementoEdit(e) {
     editElementoSeleccionado = e;
     editForm.elementoId = String(e.id);
-    editElementoBusqueda = `${editElementoLabel} #${e.id}`;
+    editElementoBusqueda = labelElementoLista(e, editForm.tipoElemento);
     editElementoDropdownOpen = false;
   }
 
@@ -296,7 +297,7 @@
 
   function cerrarBuscadorElementoEdit() {
     editElementoDropdownOpen = false;
-    editElementoBusqueda = editElementoSeleccionado ? `${editElementoLabel} #${editElementoSeleccionado.id}` : "";
+    editElementoBusqueda = editElementoSeleccionado ? labelElementoLista(editElementoSeleccionado, editForm.tipoElemento) : "";
   }
 
   function handleEditModalContentClick(event) {
@@ -333,7 +334,7 @@
     const listaDisponible = tipoElemento === "MAQUINARIA" ? machines : tipoElemento === "MOTOCICLETA" ? motos : vehicles;
     editElementoSeleccionado = listaDisponible.find((e) => e.id === idActivo) ?? null;
     const label = tipoElemento === "MAQUINARIA" ? "Máquina" : tipoElemento === "MOTOCICLETA" ? "Motocicleta" : "Vehículo";
-    editElementoBusqueda = `${label} #${idActivo}`;
+    editElementoBusqueda = editElementoSeleccionado ? labelElementoLista(editElementoSeleccionado, tipoElemento) : `${label} #${idActivo}`;
     editElementoDropdownOpen = false;
     editFacturaFile = null;
     showEditModal = true;
@@ -351,10 +352,6 @@
     event.preventDefault();
     if (!editForm.elementoId) {
       editErrorMessage = `Seleccione ${editElementoLabel.toLowerCase()} de la lista.`;
-      return;
-    }
-    if (editNecesitaFacturaNueva && !editFacturaFile) {
-      editErrorMessage = "Se requiere factura al cambiar un tanqueo a Bomba.";
       return;
     }
     editIsSubmitting = true;
@@ -639,7 +636,7 @@
             </label>
           </div>
           <label class="field field--file" for="factura">
-            <span class="field-lab">Factura</span>
+            <span class="field-lab">Factura (opcional)</span>
             <div class="dropzone">
               <input id="factura" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" on:change={handleFileChange} disabled={isSubmitting} />
               <div class="dropzone-content">
@@ -795,7 +792,7 @@
             </label>
           </div>
           <label class="field field--file" for="editFactura">
-            <span class="field-lab">Factura{editNecesitaFacturaNueva ? " (requerida al pasar a Bomba)" : " (opcional, mantiene la actual si no se adjunta)"}</span>
+            <span class="field-lab">Factura{editOriginalUrlFactura ? " (opcional, mantiene la actual si no se adjunta)" : " (opcional)"}</span>
             <div class="dropzone">
               <input id="editFactura" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" on:change={handleEditFacturaChange} disabled={editIsSubmitting} />
               <div class="dropzone-content">
@@ -842,26 +839,6 @@
         <button type="button" class="btn-cancel" on:click={() => (refuelingToDelete = null)}>Cancelar</button>
         <button type="button" class="btn-create" on:click={confirmDeleteRefueling}>Eliminar</button>
       </div>
-    </div>
-  </div>
-{/if}
-
-{#if historialActivoKey}
-  <div class="modal-overlay" role="presentation" on:click={() => (historialActivoKey = null)}>
-    <div class="modal-content historial-modal" role="dialog" aria-modal="true" aria-label="Historial de {historialActivoLabel}" on:click|stopPropagation>
-      <div class="modal-header">
-        <h3>Historial de {historialActivoLabel}</h3>
-        <button type="button" class="close-btn" on:click={() => (historialActivoKey = null)}>×</button>
-      </div>
-      <DataGrid
-        columns={historialModalColumns}
-        data={historialActivoFilas}
-        totalElements={historialActivoFilas.length}
-        showPagination={false}
-        on:action={handleResumenAction}
-        showDeleteButton={isAdmin}
-        variant="modern"
-      />
     </div>
   </div>
 {/if}
@@ -1026,11 +1003,6 @@
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  .historial-modal {
-    width: 90vw;
-    max-width: 1100px;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   .modal-header {

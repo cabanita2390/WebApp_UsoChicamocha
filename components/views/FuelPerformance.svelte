@@ -33,23 +33,26 @@
   }
 
   $: columns = createFuelPerformanceColumns(fuelTypesById);
+  // Los 3 tipos se piden siempre juntos (fetchFuelPerformanceAllTipos) — cambiar
+  // de pill es solo una lectura local, sin fetch, así que ya no puede "no cargar"
+  // por una respuesta vieja que resuelve tarde.
+  $: rowsPorTipo = $data.fuelPerformance ?? { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] };
   // Filas con alerta=true reutilizan el resaltado de anomalía que el DataGrid ya
   // soporta (isAnomaly) — no hace falta tocar DataGrid.svelte para esto.
-  $: rows = ($data.fuelPerformance ?? []).map((row) => ({ ...row, isAnomaly: row.alerta, unidadLabel: unidadDe(row) }));
+  $: rows = (rowsPorTipo[tipo] ?? []).map((row) => ({ ...row, isAnomaly: row.alerta, unidadLabel: unidadDe(row) }));
 
   onMount(() => {
     data.fetchFuelTypes();
     data.fetchAssetFuelConfig();
-    data.fetchFuelPerformance(tipo, $fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
+    data.fetchFuelPerformanceAllTipos($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
   });
 
   function handleFiltrar() {
-    data.fetchFuelPerformance(tipo, $fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
+    data.fetchFuelPerformanceAllTipos($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
   }
 
   function seleccionarTipo(nuevoTipo) {
     tipo = nuevoTipo;
-    data.fetchFuelPerformance(tipo, $fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
   }
 </script>
 
@@ -70,13 +73,13 @@
     <div class="tipo-selector-center">
       <div class="tipo-selector">
         <button type="button" class="tipo-pill" class:tipo-pill--active={tipo === "MAQUINARIA"} on:click={() => seleccionarTipo("MAQUINARIA")}>
-          Maquinaria{tipo === "MAQUINARIA" ? ` (${rows.length})` : ""}
+          Maquinaria ({rowsPorTipo.MAQUINARIA?.length ?? 0})
         </button>
         <button type="button" class="tipo-pill" class:tipo-pill--active={tipo === "VEHICULO"} on:click={() => seleccionarTipo("VEHICULO")}>
-          Vehículos{tipo === "VEHICULO" ? ` (${rows.length})` : ""}
+          Vehículos ({rowsPorTipo.VEHICULO?.length ?? 0})
         </button>
         <button type="button" class="tipo-pill" class:tipo-pill--active={tipo === "MOTOCICLETA"} on:click={() => seleccionarTipo("MOTOCICLETA")}>
-          Motocicletas{tipo === "MOTOCICLETA" ? ` (${rows.length})` : ""}
+          Motocicletas ({rowsPorTipo.MOTOCICLETA?.length ?? 0})
         </button>
       </div>
     </div>

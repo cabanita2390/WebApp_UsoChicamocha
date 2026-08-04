@@ -1,4 +1,5 @@
 <script>
+  import { push } from 'svelte-spa-router';
   import { createConsolidadoColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
   import { auth } from '../../stores/auth.js';
@@ -59,6 +60,14 @@
   function handleGridAction(ev) {
     const { type, data: row } = ev.detail;
     if (type === 'edit_hourmeter') openHourmeterModal(row);
+    else if (type === 'viewMotorOilHistory') irAHistorialAceite(row, 'MOTOR');
+    else if (type === 'viewHydraulicOilHistory') irAHistorialAceite(row, 'HYDRAULIC');
+  }
+
+  // Historial editable de aceite (motor/hidráulico) vive en su propia página
+  // (mismo patrón "más cómodo" que /vehicle-oil-history/:placa para Vehículos/Motos).
+  function irAHistorialAceite(row, tipo) {
+    push(`/machine-oil-history/${row.machine.id}/${tipo}`);
   }
 
   async function handleExportConsolidated() {

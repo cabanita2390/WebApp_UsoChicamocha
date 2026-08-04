@@ -8,26 +8,26 @@
   import FuelFinancialDashboard from "./FuelFinancialDashboard.svelte";
   import FuelPerformance from "./FuelPerformance.svelte";
   import TanqueoDistribucion from "./TanqueoDistribucion.svelte";
+  import { fuelActiveTab } from "../../stores/fuelFilters.js";
 
   const tabs = [
     { id: "dashboard", label: "Dashboard Financiero" },
     { id: "rendimiento", label: "Rendimiento" },
     { id: "tanqueoDistribucion", label: "Tanqueo y Distribución" },
   ];
-  let activeTab = "dashboard";
 
   function handleTabChange(event) {
-    activeTab = event.detail;
+    $fuelActiveTab = event.detail;
   }
 </script>
 
 <div class="tabbed-wrap">
-  <TabPanel {tabs} {activeTab} on:tabChange={handleTabChange}>
-    {#if activeTab === "dashboard"}
+  <TabPanel {tabs} activeTab={$fuelActiveTab} on:tabChange={handleTabChange}>
+    {#if $fuelActiveTab === "dashboard"}
       <FuelFinancialDashboard />
-    {:else if activeTab === "rendimiento"}
+    {:else if $fuelActiveTab === "rendimiento"}
       <FuelPerformance />
-    {:else if activeTab === "tanqueoDistribucion"}
+    {:else if $fuelActiveTab === "tanqueoDistribucion"}
       <TanqueoDistribucion />
     {/if}
   </TabPanel>

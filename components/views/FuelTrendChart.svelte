@@ -26,18 +26,44 @@
     ? `${xs[0]},${PAD_Y + usableH} ${linePoints} ${xs[xs.length - 1]},${PAD_Y + usableH}`
     : "";
   $: lastIndex = values.length - 1;
+  // El marcador del último punto se dibuja como <div> con CSS (no <circle> de SVG):
+  // preserveAspectRatio="none" escala X e Y con factores distintos, así que un
+  // <circle> con relleno queda ovalado en un contenedor mucho más ancho que alto
+  // (vector-effect="non-scaling-stroke" arregla el trazo/borde, pero no la forma
+  // rellena). Un <div> posicionado en % con border-radius siempre es un círculo real.
+  $: markerLeftPct = lastIndex >= 0 ? (xs[lastIndex] / WIDTH) * 100 : 0;
+  $: markerTopPct = lastIndex >= 0 ? (ys[lastIndex] / HEIGHT) * 100 : 0;
 </script>
 
 <div class="trend-chart">
   <div class="trend-head">{label}</div>
   {#if values.length}
-    <svg viewBox="0 0 {WIDTH} {HEIGHT}" class="trend-svg" role="img" aria-label="{label}: tendencia mensual">
-      <polygon points={areaPoints} fill={color} opacity="0.1" />
-      <polyline points={linePoints} fill="none" stroke={color} stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    <div class="trend-svg-wrap">
+      <svg
+        viewBox="0 0 {WIDTH} {HEIGHT}"
+        preserveAspectRatio="none"
+        class="trend-svg"
+        role="img"
+        aria-label="{label}: tendencia mensual"
+      >
+        <polygon points={areaPoints} fill={color} opacity="0.1" />
+        <polyline
+          points={linePoints}
+          fill="none"
+          stroke={color}
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          vector-effect="non-scaling-stroke"
+        />
+      </svg>
       {#if lastIndex >= 0}
-        <circle cx={xs[lastIndex]} cy={ys[lastIndex]} r="4.5" fill={color} stroke="#ffffff" stroke-width="2" />
+        <div
+          class="trend-marker"
+          style="left: {markerLeftPct}%; top: {markerTopPct}%; background: {color};"
+        ></div>
       {/if}
-    </svg>
+    </div>
     <div class="trend-months">
       {#each months as m}
         <span class="trend-month">{m}</span>
@@ -66,10 +92,22 @@
     font-weight: 600;
     color: #52514e;
   }
+  .trend-svg-wrap {
+    position: relative;
+  }
   .trend-svg {
     width: 100%;
     height: 90px;
     display: block;
+  }
+  .trend-marker {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
   }
   .trend-months {
     display: flex;
