@@ -13,10 +13,12 @@
   import ConsolidadoTabbed from "./components/views/ConsolidadoTabbed.svelte";
   import OilManagement from "./components/views/OilManagement.svelte";
   import VehicleOilHistory from "./components/views/VehicleOilHistory.svelte";
+  import MachineOilHistory from "./components/views/MachineOilHistory.svelte";
   import MotoCambioAceiteHistorial from "./components/views/MotoCambioAceiteHistorial.svelte";
   import MotoCambioAceiteForm from "./components/views/MotoCambioAceiteForm.svelte";
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import FuelTabbed from "./components/views/FuelTabbed.svelte";
+  import FuelHistory from "./components/views/FuelHistory.svelte";
   import DocumentErrorModal from "./components/shared/DocumentErrorModal.svelte";
   import { auth } from "./stores/auth.js";
   import {
@@ -57,9 +59,11 @@
     "/consolidado": ConsolidadoTabbed,
     "/oil-management": OilManagement,
     "/vehicle-oil-history/:placa": VehicleOilHistory,
+    "/machine-oil-history/:machineId/:tipo": MachineOilHistory,
     "/moto-oil-history/:placa": MotoCambioAceiteHistorial,
     "/moto-oil-change": MotoCambioAceiteForm,
     "/fuel": FuelTabbed,
+    "/fuel-history/:tipoElemento/:id": FuelHistory,
   };
 
   function handleActivateSound() {
@@ -230,12 +234,16 @@
       data.fetchOils();
     } else if (location.includes("/vehicle-oil-history")) {
       ui.setCurrentView("vehicle-oil-history");
+    } else if (location.includes("/machine-oil-history")) {
+      ui.setCurrentView("machine-oil-history");
     } else if (location.includes("/moto-oil-history")) {
       ui.setCurrentView("moto-oil-history");
     } else if (location.includes("/moto-oil-change")) {
       ui.setCurrentView("moto-oil-change");
       data.fetchMotos();
       data.fetchOils();
+    } else if (location.includes("/fuel-history")) {
+      ui.setCurrentView("fuel-history");
     } else if (location.includes("/fuel")) {
       ui.setCurrentView("fuel");
       // Cada pestaña dispara su propio fetch de forma perezosa (patrón WorkOrdersTabbed),

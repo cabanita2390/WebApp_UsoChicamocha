@@ -419,6 +419,163 @@ Ver detalle completo de qué devuelve cada uno y sus roles en la conversación d
   rango de fechas. Test nuevo en `FuelTabbed.test.js` que filtra en una pestaña y
   verifica que las otras dos ya traen el mismo rango al cambiar de pestaña.
   Frontend 322/322 (cambio 100% frontend, sin tocar backend).
+- [x] **Bug de diseño: el campo del buscador mostraba "Tipo #id" en vez de
+  placa/marca tras seleccionar (03/08/2026)** — al elegir un elemento en
+  "Registrar tanqueo"/"Editar tanqueo" (`TanqueoDistribucion.svelte`), el
+  input colapsaba a texto genérico ("Vehículo #10", "Motocicleta #18"),
+  decisión documentada explícitamente el 29/07 ("no como placa/marca, eso
+  solo ayuda a buscar") pero inconsistente con el modal "Configurar
+  rendimiento" (`AssetFuelConfigManagement.svelte`), que ya usaba
+  `labelActivo()` con formato "placa — marca" / "nombre — marca" tanto para
+  buscar como para mostrar la selección. El usuario lo señaló como un
+  problema de diseño a corregir; se unificó `seleccionarElemento`/
+  `cerrarBuscadorElemento`/`openEditModal` (y sus equivalentes `*Edit`) para
+  reutilizar `labelElementoLista()` en vez del texto genérico. Test
+  `TanqueoDistribucion.test.js` actualizado (25/25 pasan, frontend 322/322).
+- [x] **Bug: cambiar de tipo rápido a veces "no cargaba" (03/08/2026)** —
+  `fetchFuelPerformance` (Rendimiento) y `fetchRefuelingReport` (Tanqueo y
+  Distribución) en `stores/data/fuel.js` no protegían contra respuestas fuera
+  de orden: al cambiar de pill de tipo, dos peticiones quedaban en vuelo a la
+  vez, y si la más vieja resolvía después de la más nueva (jitter de red), la
+  pisaba en el store — la pantalla parecía "no cargar" hasta volver a cambiar
+  de tipo (la última petición ganaba la carrera esa vez). Se agregó un
+  contador de petición por función (`fuelPerformanceRequestId`/
+  `refuelingReportRequestId`) que descarta cualquier respuesta que ya no sea
+  la más reciente. 2 tests nuevos en `data.test.js` (con promesas controladas
+  para forzar el orden de resolución, verificados con y sin el fix). Frontend
+  324/324.
+- [x] **Rendimiento: los 3 tipos se precargan juntos, cambiar de pill ya no
+  dispara fetch (03/08/2026)** — a pedido explícito del usuario, para eliminar
+  de raíz (no solo mitigar con guarda) el problema de "a veces no carga" al
+  cambiar de tipo rápido. `fetchFuelPerformance(tipo, ...)` en
+  `stores/data/fuel.js` se reemplazó por `fetchFuelPerformanceAllTipos(fechaInicio,
+  fechaFin)`, que pide los 3 (`Promise.all`) y guarda el resultado en
+  `fuelPerformance` como objeto `{ MAQUINARIA, VEHICULO, MOTOCICLETA }` (antes
+  array plano de un solo tipo). `FuelPerformance.svelte`: `onMount`/`handleFiltrar`
+  llaman a la nueva acción una sola vez; `seleccionarTipo` ya no hace fetch, solo
+  cambia la variable local `tipo` (lectura instantánea de `rowsPorTipo[tipo]`).
+  Como efecto secundario natural (los 3 tipos ya están cargados sin costo extra),
+  las 3 píldoras muestran su conteo `(N)` siempre, no solo la activa — cierra el
+  TODO de la sección 2 sobre "el conteo solo se muestra en la pestaña activa".
+  Conserva su propio contador de petición (mismo patrón que
+  `fetchRefuelingReport`) por si `fetchFuelPerformanceAllTipos` se dispara dos
+  veces seguidas (ej. doble click en "Filtrar"). Tests: reescritos en
+  `FuelPerformance.test.js`/`FuelTabbed.test.js`/`data.test.js` (con
+  resolvers controlados para forzar el orden de las 6 peticiones en vuelo —
+  3 de cada llamada). **Alcance:** solo Rendimiento (3 tipos); Tanqueo y
+  Distribución (2 tipos, ya cubierta por la guarda de orden del ítem anterior)
+  se dejó fuera a pedido explícito. Frontend 325/325.
+- [x] **Factura opcional en tanqueos BOMBA + mensaje de error corregido
+  (03/08/2026)** — a pedido explícito del usuario. Antes, un tanqueo en BOMBA
+  exigía precio unitario Y factura (CHECK de la V20), y el mensaje de error
+  ("Un tanqueo en BOMBA requiere precioUnitario y factura.") mencionaba ambos
+  campos aunque solo faltara la factura, lo que confundía cuando el usuario ya
+  había llenado el precio. Ahora solo el precio unitario es obligatorio:
+  - **Migración `V23__factura_opcional_en_bomba.sql`**: recrea el CHECK
+    `refueling_records_check1` sin exigir `url_factura IS NOT NULL`. Verificada
+    a mano contra Postgres real (`usochicamocha_test_real`) — H2 no valida
+    CHECK constraints, por eso Flyway no la hubiera detectado en los tests.
+  - **`RefuelingRecordService`**: `registrar()` y `actualizar()` ya no lanzan
+    400 por falta de factura, en ningún caso (incluido pasar de ALMACEN a
+    BOMBA). El placeholder `"pendiente"` (workaround del CHECK viejo) se quitó
+    — el primer `save()` ahora guarda `urlFactura=null` directamente si no se
+    adjunta factura; el segundo `save()` solo ocurre si sí se sube una.
+    Mensajes reescritos para nombrar un solo campo a la vez en vez del genérico
+    de dos campos.
+  - **`TanqueoDistribucion.svelte`**: se quitó el bloqueo cliente-side
+    `editNecesitaFacturaNueva` en "Editar tanqueo"; el label de Factura ahora
+    dice siempre "(opcional)" en ambos modales (antes decía "requerida al
+    pasar a Bomba" condicionalmente).
+  - Tests: backend — 2 reescritos + 1 nuevo en `RefuelingRecordServiceTest`
+    (318/318 total). Frontend — 3 nuevos en `TanqueoDistribucion.test.js`,
+    verificados con y sin el fix (328/328 total).
+- [x] **"Estación"/"Almacén" ahora agrupan por el `lugar` real, no por tipo de
+  activo fijo (03/08/2026)** — a pedido explícito del usuario. Antes,
+  `RefuelingReportService` agrupaba **siempre** Vehículos→Estación y
+  Maquinaria+Motos→Almacén, sin mirar el campo `lugar` real del tanqueo — una
+  moto tanqueada de verdad en una bomba/estación quedaba forzada a "Almacén" de
+  todos modos, lo que el usuario reportó como "no se actualiza automáticamente"
+  (en realidad sí se actualizaba, solo que en la pestaña que no esperaba).
+  Cambios:
+  - **Backend**: `RefuelingReportService.obtenerReporte` ahora traduce
+    `tipo=VEHICULO→lugar=BOMBA` / `tipo=MAQUINARIA_MOTO→lugar=ALMACEN` y filtra
+    con el nuevo `RefuelingRecordsRepository.findByLugarAndFechaRegistroBetween`
+    — se eliminó por completo `filtrarPorTipoVehiculo` (ya no hace falta cruzar
+    con `VehicleRepository` por cada fila para saber si es moto). El contrato
+    del endpoint (`GET /fuel/refueling/reporte?tipo=...`) no cambió, solo la
+    semántica interna de qué significa "tipo".
+  - **Frontend**: para que el caso común (moto/máquina en almacén, vehículo en
+    bomba) siga siendo el default sin que el usuario tenga que pensarlo, el
+    campo "Lugar" de "Registrar tanqueo"/"Editar tanqueo" ahora se
+    **auto-sugiere** según "Tipo de elemento" (Vehículo→BOMBA,
+    Motocicleta/Máquina→ALMACEN) cada vez que ese selector cambia — sigue
+    siendo editable, así que la excepción real (moto tanqueada en bomba) se
+    puede corregir a mano y el reporte la refleja correctamente. Al abrir
+    "Editar tanqueo" sobre un registro existente, el lugar real precargado no
+    se pisa (el auto-default solo se dispara si el usuario cambia el tipo de
+    elemento a mano, no al abrir el modal).
+  - Tests: backend — `RefuelingReportServiceTest` reescrito (2 tests viejos que
+    verificaban el filtro por tipo de vehículo, ahora 3 nuevos sobre `lugar`,
+    incluida la excepción de la moto en bomba). Frontend — 2 nuevos en
+    `TanqueoDistribucion.test.js`, verificados con y sin el fix. Backend
+    319/319, frontend 330/330.
+- [x] **2 validaciones nuevas de anomalías: precio unitario y cantidad fuera de
+  rango (03/08/2026)** — a pedido explícito del usuario, tras una sesión de
+  preguntas sobre por qué disparaba una alerta en Rendimiento (esa alerta
+  resultó correcta: proyectado=0 con tolerancia relativa también da 0, así que
+  cualquier `Real`>0 la dispara — se dejó así, sin tocar código). El usuario
+  pidió agregar 2 validaciones nuevas del listado de ideas propuesto:
+  1. **Precio unitario fuera de rango** — nuevo `FuelPriceAnomalyService`
+     compara el precio de un tanqueo BOMBA contra el promedio reciente (30
+     días, configurable) del mismo combustible; ±30% (configurable) de desvío
+     se marca. Nueva query `RefuelingRecordsRepository.avgPrecioUnitarioBombaRecienteByFuelType`
+     (excluye el propio id al editar). Sin historial reciente → no marca
+     (no hay línea base).
+  2. **Cantidad fuera de rango típico por tipo de activo** — nuevo método
+     `AssetFuelCapacityService.cantidadFueraDeRangoTipico` (complementa, no
+     reemplaza, `excedeCapacidad`): topes configurables por tipo — moto 15 gal,
+     vehículo 60 gal, maquinaria 500 gal — aplican siempre, incluso sin
+     `tanqueCapacidadGal` configurado en `asset_fuel_config` (a diferencia de
+     `excedeCapacidad`, que sin esa config no puede detectar nada).
+  - `RefuelingRecordResponse` ganó 2 campos (`cantidadFueraDeRango`,
+    `precioFueraDeRango`), calculados en `RefuelingRecordService.mapToResponse`
+    y `RefuelingReportService.obtenerReporte` (mismos 2 puntos donde ya se
+    calculaba `capacidadExcedida`).
+  - Frontend: la columna "Discrepancia" de Tanqueo y Distribución
+    (`config/table-definitions/fuel.js`) y el resaltado `isAnomaly` de fila
+    (`TanqueoDistribucion.svelte`) ahora combinan las 4 discrepancias con OR
+    (financiera, capacidad excedida, cantidad fuera de rango, precio fuera de
+    rango) — sin diferenciar cuál disparó, mismo patrón ya usado antes.
+  - Tests: backend — `FuelPriceAnomalyServiceTest` nuevo (6 casos),
+    `AssetFuelCapacityServiceTest` +5 casos, `RefuelingRecordServiceTest`/
+    `RefuelingReportServiceTest`/`RefuelingRecordControllerTest` actualizados
+    por el cambio de firma de `RefuelingRecordResponse.from(...)`. Frontend —
+    2 nuevos en `TanqueoDistribucion.test.js`, verificados con y sin el fix.
+    Backend 330/330, frontend 332/332.
+- [x] **Bug: gráfica de Tendencia (Dashboard Financiero) no se estiraba al ancho
+  del contenedor (03/08/2026)** — `FuelTrendChart.svelte` usa `<svg viewBox="0 0
+  320 110">` con `width:100%` pero sin `preserveAspectRatio`, así que el
+  navegador aplicaba el default (`xMidYMid meet`): escala manteniendo la
+  proporción 320:110 y **centra** el contenido en vez de estirarlo, dejando
+  espacio vacío a los lados. Los meses de abajo (`.trend-months`, flex
+  `space-between`) sí ocupan el 100% real del contenedor — por eso la línea
+  quedaba "pegada al centro" sin alinearse con los meses correspondientes. Fix:
+  se agregó `preserveAspectRatio="none"` al `<svg>`. Efecto secundario
+  encontrado justo después: ese estirado no uniforme (contenedor mucho más
+  ancho que alto) hacía que el `stroke-width` de la línea se viera **más
+  grueso en los tramos casi verticales** (subidas/bajadas pronunciadas) que en
+  los planos — el grosor del trazo se escala junto con la geometría a menos
+  que se marque `vector-effect="non-scaling-stroke"` (agregado a la `polyline`
+  y al `circle` del marcador). El usuario confirmó que el punto marcador del
+  último mes también se veía raro (ovalado) — mismo origen: `vector-effect`
+  corrige el trazo pero no la geometría de relleno de un `<circle>`. Se
+  reemplazó el `<circle>` de SVG por un `<div class="trend-marker">`
+  posicionado en % (`left`/`top` calculados igual que `xs`/`ys` pero como
+  porcentaje de `WIDTH`/`HEIGHT`) con `border-radius: 50%` — un `<div>` con
+  CSS siempre es un círculo real, sin importar cómo se estire el SVG que
+  tiene al lado. Tests nuevos en `FuelTrendChart.test.js` (4, verificados con
+  y sin cada fix, incluida la posición exacta del marcador). Frontend
+  336/336.
 - [ ] Definir si "Reintegros" necesita un botón/formulario en `TanqueoDistribucion`
   (hoy solo se puede crear vía API directa, no hay UI).
 - [ ] Revisar si `precioPromedioGalonComprado` (backend) debería quitarse del todo
