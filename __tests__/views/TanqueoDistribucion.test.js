@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/svelte';
 import TanqueoDistribucion from '../../components/views/TanqueoDistribucion.svelte';
 
+vi.mock('svelte-spa-router', () => ({
+  push: vi.fn(),
+}));
+
 vi.mock('../../stores/data.js', () => ({
   data: {
     subscribe: vi.fn(),
@@ -40,6 +44,7 @@ vi.mock('../shared/Loader.svelte', () => ({
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
 import { fuelDateRange } from '../../stores/fuelFilters.js';
+import { push } from 'svelte-spa-router';
 
 const VEHICLES = [
   { id: 5, placa: 'ABC123', marca: 'Toyota', tipoVehiculo: 'CAMPERO' },
@@ -142,6 +147,58 @@ describe('TanqueoDistribucion', () => {
     expect(fila.classList.contains('anomaly-row')).toBe(false);
   });
 
+  it('marca discrepancia y resalta la fila cuando la cantidad está fuera del rango típico para el tipo de activo', () => {
+    const filaLimpia = {
+      id: 200, vehicleId: null, machineId: 10, lugar: 'ALMACEN', areaCosto: 'DISTRITO', fuelTypeId: 1,
+      cantidadGalones: 300, horometroKm: 50, esFull: false, precioUnitario: null, descuento: null,
+      totalIngresado: null, totalCalculado: null, discrepanciaValor: false, capacidadExcedida: false,
+      cantidadFueraDeRango: true, precioFueraDeRango: false,
+      urlFactura: null, origen: null, responsableId: 1, fechaRegistro: '2026-07-12T09:00:00',
+    };
+    data.subscribe.mockImplementation((callback) => {
+      callback({
+        fuelRefuelingReport: [filaLimpia],
+        fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
+        vehicles: VEHICLES,
+        motos: MOTOS,
+        machines: MACHINES,
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    render(TanqueoDistribucion);
+    const fila = filaCon('Compactadora');
+
+    expect(fila.classList.contains('anomaly-row')).toBe(true);
+  });
+
+  it('marca discrepancia y resalta la fila cuando el precio unitario está fuera de rango vs el promedio reciente', () => {
+    const filaLimpia = {
+      id: 201, vehicleId: 5, machineId: null, lugar: 'BOMBA', areaCosto: 'DISTRITO', fuelTypeId: 1,
+      cantidadGalones: 20, horometroKm: 500, esFull: false, precioUnitario: 25000, descuento: null,
+      totalIngresado: 500000, totalCalculado: 500000, discrepanciaValor: false, capacidadExcedida: false,
+      cantidadFueraDeRango: false, precioFueraDeRango: true,
+      urlFactura: null, origen: null, responsableId: 1, fechaRegistro: '2026-07-12T09:00:00',
+    };
+    data.subscribe.mockImplementation((callback) => {
+      callback({
+        fuelRefuelingReport: [filaLimpia],
+        fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
+        vehicles: VEHICLES,
+        motos: MOTOS,
+        machines: MACHINES,
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    render(TanqueoDistribucion);
+    const fila = filaCon('ABC123');
+
+    expect(fila.classList.contains('anomaly-row')).toBe(true);
+  });
+
   it('cambiar de píldora de tipo pide el reporte con el nuevo tipo', async () => {
     render(TanqueoDistribucion);
     await fireEvent.click(screen.getByRole('button', { name: /^almacén/i }));
@@ -159,16 +216,22 @@ describe('TanqueoDistribucion', () => {
     expect(data.fetchRefuelingReport).toHaveBeenLastCalledWith('VEHICULO', 'ASOCIACION', '2026-06-01', '2026-06-30');
   });
 
-  it('click en "Ver historial" abre el modal con todos los tanqueos del activo en el rango, incluida la fila más antigua', async () => {
+  it('click en "Ver historial" navega a la pantalla completa de historial del activo (Fase 6: ya no es un modal)', async () => {
     render(TanqueoDistribucion);
     const fila = filaCon('ABC123');
 
     await fireEvent.click(within(fila).getByRole('button', { name: /ver historial/i }));
 
-    const dialog = screen.getByRole('dialog', { name: /historial de/i });
-    const filasDelModal = within(dialog).getAllByRole('row');
-    expect(filasDelModal.some((r) => r.textContent.includes('25'))).toBe(true);
-    expect(filasDelModal.some((r) => r.textContent.includes('30'))).toBe(true);
+    expect(push).toHaveBeenCalledWith('/fuel-history/VEHICULO/5');
+  });
+
+  it('click en "Ver historial" de una máquina navega con tipoElemento=MAQUINARIA', async () => {
+    render(TanqueoDistribucion);
+    const fila = filaCon('Excavadora');
+
+    await fireEvent.click(within(fila).getByRole('button', { name: /ver historial/i }));
+
+    expect(push).toHaveBeenCalledWith('/fuel-history/MAQUINARIA/8');
   });
 
   it('"Ver historial" es visible para cualquier rol, a diferencia de Editar/Eliminar que son solo ADMIN', () => {
@@ -238,18 +301,6 @@ describe('TanqueoDistribucion', () => {
     expect(data.deleteRefueling).toHaveBeenCalledWith(101);
   });
 
-  it('Editar dentro del modal de historial permite corregir un tanqueo antiguo que no aparece en el resumen', async () => {
-    render(TanqueoDistribucion);
-    const fila = filaCon('ABC123');
-    await fireEvent.click(within(fila).getByRole('button', { name: /ver historial/i }));
-
-    const dialog = screen.getByRole('dialog', { name: /historial de/i });
-    const filaVieja = within(dialog).getAllByRole('row').find((r) => r.textContent.includes('25'));
-    await fireEvent.click(within(filaVieja).getByRole('button', { name: /^editar$/i }));
-
-    expect(screen.getByLabelText(/cantidad/i).value).toBe('25');
-  });
-
   it('el formulario de registro está detrás de un modal, oculto hasta que se pide registrar', () => {
     render(TanqueoDistribucion);
     expect(screen.queryByLabelText(/^lugar$/i)).toBeNull();
@@ -309,14 +360,39 @@ describe('TanqueoDistribucion', () => {
     expect(screen.getByText('MOT001 — Yamaha')).toBeTruthy();
   });
 
-  it('al seleccionar un elemento de la lista, el input queda con "Tipo #id" (misma convención que la tabla de abajo)', async () => {
+  it('al seleccionar un elemento de la lista, el input queda con "nombre — marca" (misma convención que Configurar rendimiento)', async () => {
     render(TanqueoDistribucion);
     await fireEvent.click(screen.getByRole('button', { name: /\+ registrar tanqueo/i }));
     await fireEvent.focus(screen.getByLabelText(/buscar máquina/i));
 
     await fireEvent.click(within(screen.getByRole('dialog')).getByText('Excavadora — CAT'));
 
-    expect(screen.getByLabelText(/buscar máquina/i).value).toBe('Máquina #8');
+    expect(screen.getByLabelText(/buscar máquina/i).value).toBe('Excavadora — CAT');
+  });
+
+  it('al elegir "Vehículo" en Tipo de elemento, sugiere Lugar = Bomba', async () => {
+    render(TanqueoDistribucion);
+    await fireEvent.click(screen.getByRole('button', { name: /\+ registrar tanqueo/i }));
+
+    await fireEvent.change(screen.getByLabelText(/tipo de elemento/i), { target: { value: 'VEHICULO' } });
+
+    expect(screen.getByLabelText(/^lugar$/i).value).toBe('BOMBA');
+  });
+
+  it('al elegir "Motocicleta" o "Máquina" en Tipo de elemento, sugiere Lugar = Almacén, pero sigue siendo editable', async () => {
+    render(TanqueoDistribucion);
+    await fireEvent.click(screen.getByRole('button', { name: /\+ registrar tanqueo/i }));
+
+    await fireEvent.change(screen.getByLabelText(/tipo de elemento/i), { target: { value: 'VEHICULO' } });
+    expect(screen.getByLabelText(/^lugar$/i).value).toBe('BOMBA');
+
+    await fireEvent.change(screen.getByLabelText(/tipo de elemento/i), { target: { value: 'MOTOCICLETA' } });
+    expect(screen.getByLabelText(/^lugar$/i).value).toBe('ALMACEN');
+
+    // Sigue siendo editable: si esta moto sí se tanqueó en una bomba real, el
+    // usuario puede corregirlo a mano sin que quede bloqueado.
+    await fireEvent.change(screen.getByLabelText(/^lugar$/i), { target: { value: 'BOMBA' } });
+    expect(screen.getByLabelText(/^lugar$/i).value).toBe('BOMBA');
   });
 
   it('no deja registrar el tanqueo sin elegir un elemento de la lista', async () => {
@@ -358,6 +434,52 @@ describe('TanqueoDistribucion', () => {
     expect(formData.get('horometroKm')).toBe('500');
     expect(formData.get('machineId')).toBe('8');
     expect(formData.has('precioUnitario')).toBe(false);
+  });
+
+  it('registra un tanqueo BOMBA sin adjuntar factura — la factura es opcional', async () => {
+    render(TanqueoDistribucion);
+    await fireEvent.click(screen.getByRole('button', { name: /\+ registrar tanqueo/i }));
+
+    await fireEvent.change(screen.getByLabelText(/lugar/i), { target: { value: 'BOMBA' } });
+    await fireEvent.change(screen.getByLabelText(/área de costo/i), { target: { value: 'DISTRITO' } });
+    await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
+    await fireEvent.input(screen.getByLabelText(/cantidad/i), { target: { value: '30' } });
+    await fireEvent.input(screen.getByLabelText(/horómetro/i), { target: { value: '500' } });
+    await fireEvent.input(screen.getByLabelText(/precio unitario/i), { target: { value: '10000' } });
+    await fireEvent.input(screen.getByLabelText(/total pagado/i), { target: { value: '300000' } });
+    await fireEvent.focus(screen.getByLabelText(/buscar máquina/i));
+    await fireEvent.click(within(screen.getByRole('dialog')).getByText('Excavadora — CAT'));
+
+    await fireEvent.submit(screen.getByRole('form'));
+
+    expect(data.createRefueling).toHaveBeenCalledTimes(1);
+    const formData = data.createRefueling.mock.calls[0][0];
+    expect(formData.get('lugar')).toBe('BOMBA');
+    expect(formData.get('precioUnitario')).toBe('10000');
+    expect(formData.has('factura')).toBe(false);
+  });
+
+  it('el label de Factura dice "opcional" en el formulario de registro', async () => {
+    render(TanqueoDistribucion);
+    await fireEvent.click(screen.getByRole('button', { name: /\+ registrar tanqueo/i }));
+    await fireEvent.change(screen.getByLabelText(/lugar/i), { target: { value: 'BOMBA' } });
+
+    expect(screen.getByText(/^factura \(opcional\)$/i)).toBeTruthy();
+  });
+
+  it('edita un tanqueo de ALMACEN a BOMBA sin adjuntar factura — ya no bloquea el guardado', async () => {
+    render(TanqueoDistribucion);
+    const fila = filaCon('Excavadora');
+    await fireEvent.click(within(fila).getByRole('button', { name: /^editar$/i }));
+
+    await fireEvent.change(screen.getByLabelText(/^lugar$/i), { target: { value: 'BOMBA' } });
+    await fireEvent.input(screen.getByLabelText(/precio unitario/i), { target: { value: '10000' } });
+    await fireEvent.input(screen.getByLabelText(/total pagado/i), { target: { value: '300000' } });
+
+    await fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    expect(data.updateRefueling).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/se requiere factura/i)).toBeNull();
   });
 
   it('el campo Origen sugiere orígenes ya usados pero permite escribir uno nuevo', async () => {

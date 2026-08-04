@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import FuelTabbed from '../../components/views/FuelTabbed.svelte';
-import { fuelDateRange } from '../../stores/fuelFilters.js';
+import { fuelDateRange, fuelActiveTab } from '../../stores/fuelFilters.js';
 
 vi.mock('../../stores/data.js', () => ({
   data: {
@@ -11,7 +11,7 @@ vi.mock('../../stores/data.js', () => ({
         fuelTrend: [],
         fuelWarehouseBalance: [],
         fuelWarehouseMovements: null,
-        fuelPerformance: [],
+        fuelPerformance: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
         fuelAssetConfig: [],
         fuelDistribution: null,
         fuelTypes: [],
@@ -29,7 +29,7 @@ vi.mock('../../stores/data.js', () => ({
     fetchFuelWarehouseBalance: vi.fn(),
     fetchFuelWarehouseMovements: vi.fn(),
     fetchAssetFuelConfig: vi.fn(),
-    fetchFuelPerformance: vi.fn(),
+    fetchFuelPerformanceAllTipos: vi.fn(),
     fetchFuelDistribution: vi.fn(),
     createRefueling: vi.fn().mockResolvedValue({ id: 1 }),
   },
@@ -48,6 +48,7 @@ describe('FuelTabbed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fuelDateRange.set({ fechaInicio: '', fechaFin: '' });
+    fuelActiveTab.set('dashboard');
   });
 
   it('muestra el Dashboard Financiero por defecto', () => {
@@ -92,5 +93,14 @@ describe('FuelTabbed', () => {
     await fireEvent.click(screen.getByRole('tab', { name: 'Dashboard Financiero' }));
     expect(container.querySelector('#dashFechaInicio').value).toBe('2026-07-01');
     expect(container.querySelector('#dashFechaFin').value).toBe('2026-07-31');
+  });
+
+  it('la pestaña activa sobrevive a que el componente se desmonte y se vuelva a montar (volver desde Historial de tanqueos)', async () => {
+    const { unmount } = render(FuelTabbed);
+    await fireEvent.click(screen.getByRole('tab', { name: 'Tanqueo y Distribución' }));
+    unmount();
+
+    render(FuelTabbed);
+    expect(screen.getByRole('button', { name: /\+ registrar tanqueo/i })).toBeTruthy();
   });
 });
