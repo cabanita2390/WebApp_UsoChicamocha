@@ -353,7 +353,9 @@
                   cell.column.columnDef.meta?.isConsolidadoMaqActions ||
                   cell.column.columnDef.meta?.isDocHistoryAction ||
                   cell.column.columnDef.meta?.isLicenseDocAction ||
-                  cell.column.columnDef.meta?.isViewHistoryAction}
+                  cell.column.columnDef.meta?.isViewHistoryAction ||
+                  cell.column.columnDef.meta?.isViewMotorOilHistoryAction ||
+                  cell.column.columnDef.meta?.isViewHydraulicOilHistoryAction}
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
@@ -410,6 +412,24 @@
                       Ver historial
                     </button>
                   </div>
+                {:else if cell.column.columnDef.meta?.isViewMotorOilHistoryAction}
+                  <div class="actions-cell">
+                    <button
+                      class="btn-action btn-view-history"
+                      on:click={() => handleAction("viewMotorOilHistory", row.original)}
+                    >
+                      Ver historial motor
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isViewHydraulicOilHistoryAction}
+                  <div class="actions-cell">
+                    <button
+                      class="btn-action btn-view-history"
+                      on:click={() => handleAction("viewHydraulicOilHistory", row.original)}
+                    >
+                      Ver historial hidráulico
+                    </button>
+                  </div>
                 {:else if cell.column.columnDef.meta?.isLicenseDocAction}
                   <div class="license-doc-cell">
                     {#if row.original.licenseDocumentUrl}
@@ -433,7 +453,15 @@
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isConsolidadoVehicleActions}
-                  <div class="actions-cell">
+                  <div class="actions-cell actions-cell-stack">
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact"
+                      title="Corregir el kilometraje actual"
+                      on:click={() => handleAction("edit_km", row.original)}
+                    >
+                      Corregir Km
+                    </button>
                     <button
                       type="button"
                       class="mon-action-text mon-action-text--compact mon-action-text--hist"
@@ -455,7 +483,15 @@
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isConsolidadoMotoActions}
-                  <div class="actions-cell">
+                  <div class="actions-cell actions-cell-stack">
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact"
+                      title="Corregir el kilometraje actual"
+                      on:click={() => handleAction("edit_km", row.original)}
+                    >
+                      Corregir Km
+                    </button>
                     <button
                       type="button"
                       class="mon-action-text mon-action-text--compact mon-action-text--hist"
