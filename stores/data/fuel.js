@@ -1,4 +1,15 @@
+const FUEL_PERFORMANCE_TIPOS = ['MAQUINARIA', 'VEHICULO', 'MOTOCICLETA'];
+
 export function createFuelActions({ update, setLoading, setError, fetchAll, fetchPaginated, fetchWithAuth }) {
+    // Contador de petición para fetchRefuelingReport — al cambiar de "tipo" rápido
+    // (pills de Tanqueo y Distribución), dos peticiones quedan en vuelo a la vez;
+    // sin esto, si la más vieja resuelve después de la más nueva, pisa el store con
+    // datos del tipo anterior y la pantalla parece "no cargar" hasta volver a
+    // cambiar de tipo. fetchFuelPerformanceAllTipos resuelve el mismo problema de
+    // raíz (carga los 3 tipos de una vez), pero conserva su propio contador por si
+    // se dispara más de una vez seguida (ej. Filtrar con doble click).
+    let fuelPerformanceRequestId = 0;
+    let refuelingReportRequestId = 0;
     return {
         // Combustibles — Tanqueo (Fase 4, Task 18)
         fetchFuelTypes: () => fetchAll('fuelTypes', 'fuel/types'),
@@ -114,18 +125,34 @@ export function createFuelActions({ update, setLoading, setError, fetchAll, fetc
             }));
             return updated;
         },
-        fetchFuelPerformance: async (tipo, fechaInicio, fechaFin) => {
+        // Pide los 3 tipos en paralelo (en vez de uno por pill activada) para que
+        // cambiar de tipo en Rendimiento sea instantáneo y no dependa de una
+        // petición nueva — antes, cambiar de tipo rápido podía dejar dos peticiones
+        // en vuelo y, si la vieja resolvía después de la nueva, "no cargaba" hasta
+        // volver a cambiar de tipo (mismo problema de fondo que fetchRefuelingReport,
+        // aquí resuelto de raíz cargando todo de una vez en vez de solo con guardas).
+        fetchFuelPerformanceAllTipos: async (fechaInicio, fechaFin) => {
+            const requestId = ++fuelPerformanceRequestId;
             setLoading(true);
             try {
                 const params = new URLSearchParams();
-                params.set('tipo', tipo);
                 if (fechaInicio) params.set('fechaInicio', fechaInicio);
                 if (fechaFin) params.set('fechaFin', fechaFin);
-                const result = await fetchWithAuth(`fuel/rendimiento?${params.toString()}`);
-                update(s => ({ ...s, fuelPerformance: result ?? [], isLoading: false, error: null }));
-                return result;
+                const entries = await Promise.all(
+                    FUEL_PERFORMANCE_TIPOS.map(async (tipo) => {
+                        const tipoParams = new URLSearchParams(params);
+                        tipoParams.set('tipo', tipo);
+                        const result = await fetchWithAuth(`fuel/rendimiento?${tipoParams.toString()}`);
+                        return [tipo, result ?? []];
+                    })
+                );
+                const byTipo = Object.fromEntries(entries);
+                if (requestId === fuelPerformanceRequestId) {
+                    update(s => ({ ...s, fuelPerformance: byTipo, isLoading: false, error: null }));
+                }
+                return byTipo;
             } catch (err) {
-                setError(err.message);
+                if (requestId === fuelPerformanceRequestId) setError(err.message);
                 throw err;
             }
         },
@@ -150,6 +177,7 @@ export function createFuelActions({ update, setLoading, setError, fetchAll, fetc
         // Almacén=Maquinaria+Motocicletas siempre, así que agrupar por tipo de
         // activo es la misma partición con mejor lectura).
         fetchRefuelingReport: async (tipo, area, fechaInicio, fechaFin) => {
+            const requestId = ++refuelingReportRequestId;
             setLoading(true);
             try {
                 const params = new URLSearchParams({ tipo });
@@ -157,10 +185,14 @@ export function createFuelActions({ update, setLoading, setError, fetchAll, fetc
                 if (fechaInicio) params.set('fechaInicio', fechaInicio);
                 if (fechaFin) params.set('fechaFin', fechaFin);
                 const result = await fetchWithAuth(`fuel/refueling/reporte?${params.toString()}`);
-                update(s => ({ ...s, fuelRefuelingReport: result ?? [], isLoading: false, error: null }));
+                // Descarta la respuesta si ya se disparó una petición más nueva
+                // (cambio de tipo mientras esta seguía en vuelo).
+                if (requestId === refuelingReportRequestId) {
+                    update(s => ({ ...s, fuelRefuelingReport: result ?? [], isLoading: false, error: null }));
+                }
                 return result;
             } catch (err) {
-                setError(err.message);
+                if (requestId === refuelingReportRequestId) setError(err.message);
                 throw err;
             }
         },

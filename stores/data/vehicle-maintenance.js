@@ -21,6 +21,19 @@ export function createVehicleMaintenanceActions({ fetchWithAuth }) {
                 throw err;
             }
         },
+        // Editar/eliminar un cambio de aceite ya registrado ("en caso de error") —
+        // cubre tanto vehículos como motos, mismo endpoint (viven en vehiculos).
+        updateVehicleOilChange: async (id, oilData) => {
+            const body = {
+                ...oilData,
+                placa: normalizePlaca(oilData.placa),
+                oilType: normalizeFreeTextPreserveCase(oilData.oilType) ?? oilData.oilType,
+            };
+            await fetchWithAuth(`vehicle/oil-change/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+        },
+        deleteVehicleOilChange: async (id) => {
+            await fetchWithAuth(`vehicle/oil-change/${id}`, { method: 'DELETE' });
+        },
         // Las motos viven en la misma tabla `vehiculos` que los carros — no existe
         // una ruta separada en el backend para su historial de aceite, se reutiliza
         // el mismo endpoint de vehículo con la placa de la moto.

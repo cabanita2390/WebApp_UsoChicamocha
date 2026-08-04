@@ -44,5 +44,18 @@ export function createMachineActions({ update, setLoading, setError, fetchAll, f
                 body: JSON.stringify(newHourMeter),
             });
         },
+        // Editar/eliminar un cambio de aceite de maquinaria ya registrado ("en
+        // caso de error") — cubre motor e hidráulico, mismas 3 rutas, tipo va en
+        // el query param del historial (el registro en sí no cambia de tipo).
+        fetchMachineOilHistory: async (machineId, tipo) => {
+            const result = await fetchWithAuth(`oil-changes/machine/${machineId}/history?tipo=${encodeURIComponent(tipo)}`);
+            return Array.isArray(result) ? result : [];
+        },
+        updateMachineOilChange: async (id, payload) => {
+            await fetchWithAuth(`oil-changes/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        },
+        deleteMachineOilChange: async (id) => {
+            await fetchWithAuth(`oil-changes/${id}`, { method: 'DELETE' });
+        },
     };
 }

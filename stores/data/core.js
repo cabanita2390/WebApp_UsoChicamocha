@@ -33,7 +33,10 @@ export const initialState = {
     fuelTrend: [],
     fuelWarehouseBalance: [],
     fuelWarehouseMovements: null,
-    fuelPerformance: [],
+    // Los 3 tipos (Maquinaria/Vehículo/Motocicleta) se cargan siempre juntos —
+    // ver fetchFuelPerformanceAllTipos — para que cambiar de pill en Rendimiento
+    // sea instantáneo y no dependa de una petición nueva por tipo.
+    fuelPerformance: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
     fuelDistribution: null,
     fuelAssetConfig: [],
     isLoading: false,
