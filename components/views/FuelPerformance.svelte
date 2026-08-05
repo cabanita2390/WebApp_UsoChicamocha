@@ -2,9 +2,11 @@
   import { onMount } from "svelte";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
+  import { addNotification } from "../../stores/ui.js";
   import { fuelDateRange } from "../../stores/fuelFilters.js";
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
+  import RefuelingFormModal from "../shared/RefuelingFormModal.svelte";
   import AssetFuelConfigManagement from "./AssetFuelConfigManagement.svelte";
   import { createFuelPerformanceColumns } from "../../config/table-definitions.js";
 
@@ -32,7 +34,7 @@
     return unidad === "M3" ? "m³" : "gal";
   }
 
-  $: columns = createFuelPerformanceColumns(fuelTypesById);
+  $: columns = createFuelPerformanceColumns(fuelTypesById, isAdmin);
   // Los 3 tipos se piden siempre juntos (fetchFuelPerformanceAllTipos) — cambiar
   // de pill es solo una lectura local, sin fetch, así que ya no puede "no cargar"
   // por una respuesta vieja que resuelve tarde.
@@ -53,6 +55,35 @@
 
   function seleccionarTipo(nuevoTipo) {
     tipo = nuevoTipo;
+  }
+
+  // ---- Editar un tanqueo desde Rendimiento (Fase 6) ----
+  // La fila de Rendimiento no trae lugar/areaCosto (obligatorios para
+  // PUT /fuel/refueling) — al abrir el modal se pide el tanqueo completo del
+  // reporte de Tanqueo y Distribución (mismo id = refuelingId) y se edita in
+  // situ (RefuelingFormModal con assetEditable=false, igual que en Historial
+  // de tanqueos), para poder corregir un horómetro o cantidad mal cargados
+  // sin salir de Rendimiento.
+  let editingRow = null;
+  let showEditModal = false;
+
+  async function openEditModal(row) {
+    // MAQUINARIA y MOTOCICLETA comparten el mismo reporte agrupado
+    // (Almacén) que usa Tanqueo y Distribución.
+    const reportTipo = tipo === "VEHICULO" ? "VEHICULO" : "MAQUINARIA_MOTO";
+    await data.fetchRefuelingReport(reportTipo, "TODAS");
+    const full = ($data.fuelRefuelingReport ?? []).find((r) => r.id === row.refuelingId);
+    if (!full) {
+      addNotification({ id: Date.now(), text: "No se encontró el tanqueo completo para editar." });
+      return;
+    }
+    editingRow = full;
+    showEditModal = true;
+  }
+
+  function handleGridAction(event) {
+    const { type, data: row } = event.detail;
+    if (type === "edit") openEditModal(row);
   }
 </script>
 
@@ -154,7 +185,7 @@
       <div class="fuel-chart-head">Rendimiento Operativo</div>
       {#if rows.length}
         <div class="fuel-table-wrap">
-          <DataGrid {columns} data={rows} showDeleteButton={false} variant="modern" />
+          <DataGrid {columns} data={rows} showDeleteButton={false} variant="modern" on:action={handleGridAction} />
         </div>
       {:else}
         <p class="no-data">Sin activos con línea base y consumo configurado en el rango seleccionado.</p>
@@ -162,6 +193,22 @@
     </div>
   {/if}
 </div>
+
+{#if showEditModal}
+  <RefuelingFormModal
+    initialRow={editingRow}
+    assetEditable={false}
+    {fuelTypes}
+    onSubmit={(fd) => data.updateRefueling(editingRow.id, fd)}
+    on:success={() => {
+      showEditModal = false;
+      addNotification({ id: Date.now(), text: "Tanqueo actualizado con éxito." });
+      // Recalcula Ejecutado/Proyectado/Real/Diferencia con el valor corregido.
+      data.fetchFuelPerformanceAllTipos($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
+    }}
+    on:close={() => (showEditModal = false)}
+  />
+{/if}
 
 <style>
   .fuel-dashboard {
@@ -181,12 +228,6 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-  }
-  .fuel-filtros {
-    display: flex;
-    gap: 12px;
-    align-items: end;
-    flex-wrap: wrap;
   }
   .field {
     display: flex;
