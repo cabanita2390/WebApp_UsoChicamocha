@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { render, screen, fireEvent, within } from '@testing-library/svelte';
 import FuelPerformance from '../../components/views/FuelPerformance.svelte';
 
 vi.mock('../../stores/data.js', () => ({
@@ -8,6 +8,8 @@ vi.mock('../../stores/data.js', () => ({
     fetchFuelTypes: vi.fn(),
     fetchAssetFuelConfig: vi.fn(),
     fetchFuelPerformanceAllTipos: vi.fn(),
+    fetchRefuelingReport: vi.fn().mockResolvedValue(undefined),
+    updateRefueling: vi.fn().mockResolvedValue({ id: 1 }),
   },
 }));
 
@@ -20,9 +22,23 @@ vi.mock('../../stores/auth.js', () => ({
   },
 }));
 
+vi.mock('../../stores/ui.js', () => ({
+  addNotification: vi.fn(),
+}));
+
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
 import { fuelDateRange } from '../../stores/fuelFilters.js';
+
+// Fila completa del reporte de Tanqueo y Distribución para refuelingId=1 — es lo
+// que openEditModal busca en $data.fuelRefuelingReport (por id) porque la fila de
+// Rendimiento no trae lugar/areaCosto, obligatorios para PUT /fuel/refueling.
+const mockFullRefueling = {
+  id: 1, vehicleId: 5, machineId: null, lugar: 'BOMBA', areaCosto: 'DISTRITO', fuelTypeId: 1,
+  cantidadGalones: 5, horometroKm: 150, esFull: false, precioUnitario: 9500, descuento: null,
+  totalIngresado: 47500, totalCalculado: 47500, urlFactura: null, origen: 'Estación Norte',
+  responsableId: 1, fechaRegistro: '2026-07-15T10:00:00',
+};
 
 // Los 3 tipos se piden y se guardan siempre juntos (fetchFuelPerformanceAllTipos) —
 // MAQUINARIA es el tipo inicial de la vista, por eso sus filas son las que se ven
@@ -54,11 +70,16 @@ describe('FuelPerformance', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fuelDateRange.set({ fechaInicio: '', fechaFin: '' });
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Test User', role: 'ADMIN' }, isRefreshing: false });
+      return () => {};
+    });
     data.subscribe.mockImplementation((callback) => {
       callback({
         fuelPerformance: mockPerformance,
         fuelAssetConfig: [],
         fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
+        fuelRefuelingReport: [mockFullRefueling],
         isLoading: false,
       });
       return () => {};
@@ -119,5 +140,37 @@ describe('FuelPerformance', () => {
     });
     render(FuelPerformance);
     expect(screen.queryByRole('button', { name: /configurar consumo estándar/i })).toBeNull();
+  });
+
+  it('un ADMIN puede editar un tanqueo directamente desde Rendimiento sin salir de la vista', async () => {
+    render(FuelPerformance);
+    const filas = screen.getAllByRole('row').filter((r) => r.textContent.includes('2026'));
+    const fila = filas[0];
+
+    await fireEvent.click(within(fila).getByRole('button', { name: /^editar$/i }));
+
+    // Pide el tanqueo completo (lugar/areaCosto no vienen en la fila de Rendimiento).
+    expect(data.fetchRefuelingReport).toHaveBeenCalledWith('MAQUINARIA_MOTO', 'TODAS');
+    expect(await screen.findByLabelText(/cantidad/i)).toHaveValue(5);
+
+    await fireEvent.input(screen.getByLabelText(/horómetro/i), { target: { value: '160' } });
+    await fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    expect(data.updateRefueling).toHaveBeenCalledTimes(1);
+    const [id, formData] = data.updateRefueling.mock.calls[0];
+    expect(id).toBe(1);
+    expect(formData.get('vehicleId')).toBe('5');
+    expect(formData.get('horometroKm')).toBe('160');
+    // Recalcula Ejecutado/Proyectado/Real/Diferencia con el valor corregido.
+    expect(data.fetchFuelPerformanceAllTipos).toHaveBeenCalled();
+  });
+
+  it('un SUPERVISOR_OPERATIVO no ve el botón Editar en Rendimiento', () => {
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Sup', role: 'SUPERVISOR_OPERATIVO' }, isRefreshing: false });
+      return () => {};
+    });
+    render(FuelPerformance);
+    expect(screen.queryByRole('button', { name: /^editar$/i })).toBeNull();
   });
 });

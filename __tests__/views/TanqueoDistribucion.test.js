@@ -17,6 +17,7 @@ vi.mock('../../stores/data.js', () => ({
     createRefueling: vi.fn().mockResolvedValue({ id: 1 }),
     updateRefueling: vi.fn().mockResolvedValue({ id: 101 }),
     deleteRefueling: vi.fn().mockResolvedValue(undefined),
+    createFuelReintegration: vi.fn().mockResolvedValue({ id: 1 }),
   },
 }));
 
@@ -33,6 +34,11 @@ vi.mock('../../stores/ui.js', () => ({
   addNotification: vi.fn(),
 }));
 
+vi.mock('../../stores/api.js', () => ({
+  getFileUrl: vi.fn((path) => (path ? `https://api.test${path}` : null)),
+  openDocumentSafely: vi.fn(),
+}));
+
 vi.mock('../shared/Loader.svelte', () => ({
   default: vi.fn().mockImplementation(() => ({
     $$: { on_mount: [], on_destroy: [] },
@@ -45,6 +51,7 @@ import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
 import { fuelDateRange } from '../../stores/fuelFilters.js';
 import { push } from 'svelte-spa-router';
+import { getFileUrl, openDocumentSafely } from '../../stores/api.js';
 
 const VEHICLES = [
   { id: 5, placa: 'ABC123', marca: 'Toyota', tipoVehiculo: 'CAMPERO' },
@@ -299,6 +306,72 @@ describe('TanqueoDistribucion', () => {
     await fireEvent.click(within(dialog).getByRole('button', { name: /^eliminar$/i }));
 
     expect(data.deleteRefueling).toHaveBeenCalledWith(101);
+  });
+
+  it('click en "Factura" abre el documento subido del tanqueo', async () => {
+    render(TanqueoDistribucion);
+    const fila = filaCon('ABC123');
+
+    await fireEvent.click(within(fila).getByRole('button', { name: /^factura$/i }));
+
+    expect(getFileUrl).toHaveBeenCalledWith('/uploads/documents/fuel/refueling/101/f.pdf');
+    expect(openDocumentSafely).toHaveBeenCalledWith('https://api.test/uploads/documents/fuel/refueling/101/f.pdf');
+  });
+
+  it('sin factura subida, la celda muestra "—" en vez de un botón', () => {
+    render(TanqueoDistribucion);
+    const fila = filaCon('Excavadora');
+
+    expect(within(fila).queryByRole('button', { name: /^factura$/i })).toBeNull();
+    expect(fila.querySelector('.license-doc-cell__empty')).toBeTruthy();
+  });
+
+  it('el modal de edición tiene un enlace "Ver factura actual" cuando el tanqueo ya tiene una', async () => {
+    render(TanqueoDistribucion);
+    const fila = filaCon('ABC123');
+    await fireEvent.click(within(fila).getByRole('button', { name: /^editar$/i }));
+
+    await fireEvent.click(screen.getByRole('link', { name: /ver factura actual/i }));
+
+    expect(openDocumentSafely).toHaveBeenCalledWith('https://api.test/uploads/documents/fuel/refueling/101/f.pdf');
+  });
+
+  it('un ADMIN y un SUPERVISOR_OPERATIVO ven "Reintegrar", un OPERARIO no (el backend exige uno de los dos primeros)', () => {
+    const { unmount: unmountAdmin } = render(TanqueoDistribucion);
+    expect(within(filaCon('ABC123')).getByRole('button', { name: /^reintegrar$/i })).toBeTruthy();
+    unmountAdmin();
+
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Sup', role: 'SUPERVISOR_OPERATIVO' }, isRefreshing: false });
+      return () => {};
+    });
+    const { unmount } = render(TanqueoDistribucion);
+    expect(within(filaCon('ABC123')).getByRole('button', { name: /^reintegrar$/i })).toBeTruthy();
+    unmount();
+
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Op', role: 'OPERARIO' }, isRefreshing: false });
+      return () => {};
+    });
+    render(TanqueoDistribucion);
+    expect(within(filaCon('ABC123')).queryByRole('button', { name: /^reintegrar$/i })).toBeNull();
+  });
+
+  it('click en "Reintegrar" abre el modal con el saldo disponible, y guardar llama a createFuelReintegration con el payload correcto', async () => {
+    render(TanqueoDistribucion);
+    const fila = filaCon('ABC123');
+
+    await fireEvent.click(within(fila).getByRole('button', { name: /^reintegrar$/i }));
+
+    const dialog = screen.getByRole('dialog', { name: /reintegrar tanqueo/i });
+    expect(within(dialog).getAllByText('30').length).toBe(2); // Cantidad tanqueada y Saldo disponible (nada reintegrado aún)
+
+    await fireEvent.input(within(dialog).getByLabelText(/cantidad a reintegrar/i), { target: { value: '5' } });
+    await fireEvent.input(within(dialog).getByLabelText(/motivo/i), { target: { value: 'Sobró combustible' } });
+    await fireEvent.click(within(dialog).getByRole('button', { name: /^reintegrar$/i }));
+
+    expect(data.createFuelReintegration).toHaveBeenCalledWith({ refuelingId: 101, cantidadReintegrada: 5, motivo: 'Sobró combustible' });
+    expect(data.fetchRefuelingReport).toHaveBeenCalled();
   });
 
   it('el formulario de registro está detrás de un modal, oculto hasta que se pide registrar', () => {

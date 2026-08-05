@@ -16,6 +16,7 @@ vi.mock('../../stores/data.js', () => ({
     fetchMachines: vi.fn(),
     updateRefueling: vi.fn().mockResolvedValue({ id: 101 }),
     deleteRefueling: vi.fn().mockResolvedValue(undefined),
+    createFuelReintegration: vi.fn().mockResolvedValue({ id: 1 }),
   },
 }));
 
@@ -32,6 +33,11 @@ vi.mock('../../stores/ui.js', () => ({
   addNotification: vi.fn(),
 }));
 
+vi.mock('../../stores/api.js', () => ({
+  getFileUrl: vi.fn((path) => (path ? `https://api.test${path}` : null)),
+  openDocumentSafely: vi.fn(),
+}));
+
 vi.mock('../shared/Loader.svelte', () => ({
   default: vi.fn().mockImplementation(() => ({
     $$: { on_mount: [], on_destroy: [] },
@@ -43,6 +49,7 @@ vi.mock('../shared/Loader.svelte', () => ({
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
 import { pop } from 'svelte-spa-router';
+import { getFileUrl, openDocumentSafely } from '../../stores/api.js';
 
 const VEHICLES = [
   { id: 5, placa: 'ABC123', marca: 'Toyota', tipoVehiculo: 'CAMPERO' },
@@ -165,5 +172,66 @@ describe('FuelHistory', () => {
 
     expect(screen.queryByRole('button', { name: /^editar$/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /^eliminar$/i })).toBeNull();
+  });
+
+  it('click en "Factura" abre el documento subido de ese tanqueo (visible para cualquier rol)', async () => {
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Sup', role: 'SUPERVISOR_OPERATIVO' }, isRefreshing: false });
+      return () => {};
+    });
+    render(FuelHistory, { props: { params: { tipoElemento: 'VEHICULO', id: '5' } } });
+    const filaVieja = screen.getAllByRole('row').find((r) => r.textContent.includes('25'));
+
+    await fireEvent.click(within(filaVieja).getByRole('button', { name: /^factura$/i }));
+
+    expect(getFileUrl).toHaveBeenCalledWith('/uploads/documents/fuel/refueling/100/f.pdf');
+    expect(openDocumentSafely).toHaveBeenCalledWith('https://api.test/uploads/documents/fuel/refueling/100/f.pdf');
+  });
+
+  it('sin factura subida (tanqueo de máquina en ALMACEN), la celda muestra "—"', () => {
+    render(FuelHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
+    const fila = screen.getAllByRole('row').find((r) => r.textContent.includes('50'));
+
+    expect(within(fila).queryByRole('button', { name: /^factura$/i })).toBeNull();
+    expect(fila.querySelector('.license-doc-cell__empty')).toBeTruthy();
+  });
+
+  it('el modal de edición tiene un enlace "Ver factura actual" cuando el tanqueo ya tiene una', async () => {
+    render(FuelHistory, { props: { params: { tipoElemento: 'VEHICULO', id: '5' } } });
+    const filaVieja = screen.getAllByRole('row').find((r) => r.textContent.includes('25'));
+    await fireEvent.click(within(filaVieja).getByRole('button', { name: /^editar$/i }));
+
+    await fireEvent.click(screen.getByRole('link', { name: /ver factura actual/i }));
+
+    expect(openDocumentSafely).toHaveBeenCalledWith('https://api.test/uploads/documents/fuel/refueling/100/f.pdf');
+  });
+
+  it('un ADMIN ve "Reintegrar", un OPERARIO no (el backend exige SUPERVISOR_OPERATIVO o ADMIN)', () => {
+    const { unmount } = render(FuelHistory, { props: { params: { tipoElemento: 'VEHICULO', id: '5' } } });
+    const filaVieja = screen.getAllByRole('row').find((r) => r.textContent.includes('25'));
+    expect(within(filaVieja).getByRole('button', { name: /^reintegrar$/i })).toBeTruthy();
+    unmount();
+
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Op', role: 'OPERARIO' }, isRefreshing: false });
+      return () => {};
+    });
+    render(FuelHistory, { props: { params: { tipoElemento: 'VEHICULO', id: '5' } } });
+    const filas = screen.getAllByRole('row').filter((r) => r.textContent.includes('25'));
+    filas.forEach((f) => expect(within(f).queryByRole('button', { name: /^reintegrar$/i })).toBeNull());
+  });
+
+  it('click en "Reintegrar" y guardar llama a createFuelReintegration con el payload correcto', async () => {
+    render(FuelHistory, { props: { params: { tipoElemento: 'VEHICULO', id: '5' } } });
+    const filaVieja = screen.getAllByRole('row').find((r) => r.textContent.includes('25'));
+
+    await fireEvent.click(within(filaVieja).getByRole('button', { name: /^reintegrar$/i }));
+    const dialog = screen.getByRole('dialog', { name: /reintegrar tanqueo/i });
+    await fireEvent.input(within(dialog).getByLabelText(/cantidad a reintegrar/i), { target: { value: '10' } });
+    await fireEvent.click(within(dialog).getByRole('button', { name: /^reintegrar$/i }));
+
+    // Motivo sin llenar (opcional) — debe viajar como null, no como cadena vacía.
+    expect(data.createFuelReintegration).toHaveBeenCalledWith({ refuelingId: 100, cantidadReintegrada: 10, motivo: null });
+    expect(data.fetchRefuelingReport).toHaveBeenCalled();
   });
 });
