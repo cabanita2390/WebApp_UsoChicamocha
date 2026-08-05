@@ -52,6 +52,7 @@ import { auth } from '../../stores/auth.js';
 import { fuelDateRange } from '../../stores/fuelFilters.js';
 import { push } from 'svelte-spa-router';
 import { getFileUrl, openDocumentSafely } from '../../stores/api.js';
+import { formatCurrency } from '../../config/table-definitions/helpers.js';
 
 const VEHICLES = [
   { id: 5, placa: 'ABC123', marca: 'Toyota', tipoVehiculo: 'CAMPERO' },
@@ -81,6 +82,7 @@ const mockRefuelingReport = [
     id: 101, vehicleId: 5, machineId: null, lugar: 'BOMBA', areaCosto: 'DISTRITO', fuelTypeId: 1,
     cantidadGalones: 30, horometroKm: 500, esFull: true, precioUnitario: 10000, descuento: null,
     totalIngresado: 300000, totalCalculado: 300000, discrepanciaValor: false, capacidadExcedida: true,
+    capacidadConfiguradaGal: 28,
     urlFactura: '/uploads/documents/fuel/refueling/101/f.pdf', origen: 'Estación Norte',
     responsableId: 1, fechaRegistro: '2026-07-10T09:00:00',
   },
@@ -142,9 +144,11 @@ describe('TanqueoDistribucion', () => {
   it('marca como discrepancia y resalta la fila cuando la cantidad tanqueada excede la capacidad configurada del tanque', () => {
     render(TanqueoDistribucion);
     const fila = filaCon('ABC123');
-    // "Full" ya es SÍ en esta fila (id 101) — con la discrepancia por capacidad
-    // agregada debe haber un segundo "SÍ" (columna Discrepancia).
-    expect(within(fila).getAllByText('SÍ').length).toBe(2);
+    // "Full" sigue siendo SÍ (columna Full) — la columna Discrepancia ahora
+    // lista el motivo puntual, con el valor de referencia contra el que se
+    // comparó, en vez de un SÍ genérico.
+    expect(within(fila).getAllByText('SÍ').length).toBe(1);
+    expect(fila.textContent).toContain('Capacidad excedida (máx. configurado: 28 gal)');
     expect(fila.classList.contains('anomaly-row')).toBe(true);
   });
 
@@ -159,7 +163,7 @@ describe('TanqueoDistribucion', () => {
       id: 200, vehicleId: null, machineId: 10, lugar: 'ALMACEN', areaCosto: 'DISTRITO', fuelTypeId: 1,
       cantidadGalones: 300, horometroKm: 50, esFull: false, precioUnitario: null, descuento: null,
       totalIngresado: null, totalCalculado: null, discrepanciaValor: false, capacidadExcedida: false,
-      cantidadFueraDeRango: true, precioFueraDeRango: false,
+      cantidadFueraDeRango: true, cantidadMaximaTipica: 200, precioFueraDeRango: false,
       urlFactura: null, origen: null, responsableId: 1, fechaRegistro: '2026-07-12T09:00:00',
     };
     data.subscribe.mockImplementation((callback) => {
@@ -178,6 +182,7 @@ describe('TanqueoDistribucion', () => {
     const fila = filaCon('Compactadora');
 
     expect(fila.classList.contains('anomaly-row')).toBe(true);
+    expect(fila.textContent).toContain('Cantidad fuera de rango (máx. típico: 200 gal)');
   });
 
   it('marca discrepancia y resalta la fila cuando el precio unitario está fuera de rango vs el promedio reciente', () => {
@@ -185,7 +190,7 @@ describe('TanqueoDistribucion', () => {
       id: 201, vehicleId: 5, machineId: null, lugar: 'BOMBA', areaCosto: 'DISTRITO', fuelTypeId: 1,
       cantidadGalones: 20, horometroKm: 500, esFull: false, precioUnitario: 25000, descuento: null,
       totalIngresado: 500000, totalCalculado: 500000, discrepanciaValor: false, capacidadExcedida: false,
-      cantidadFueraDeRango: false, precioFueraDeRango: true,
+      cantidadFueraDeRango: false, precioFueraDeRango: true, precioPromedioReciente: 10000,
       urlFactura: null, origen: null, responsableId: 1, fechaRegistro: '2026-07-12T09:00:00',
     };
     data.subscribe.mockImplementation((callback) => {
@@ -204,6 +209,35 @@ describe('TanqueoDistribucion', () => {
     const fila = filaCon('ABC123');
 
     expect(fila.classList.contains('anomaly-row')).toBe(true);
+    expect(fila.textContent).toContain(`Precio fuera de rango (promedio reciente: ${formatCurrency(10000)})`);
+  });
+
+  it('marca discrepancia y resalta la fila cuando "Full" está declarado pero la cantidad no alcanza para llenar el tanque', () => {
+    const filaLimpia = {
+      id: 202, vehicleId: null, machineId: 8, lugar: 'ALMACEN', areaCosto: 'DISTRITO', fuelTypeId: 1,
+      cantidadGalones: 5, horometroKm: 150, esFull: true, precioUnitario: null, descuento: null,
+      totalIngresado: null, totalCalculado: null, discrepanciaValor: false, capacidadExcedida: false,
+      cantidadFueraDeRango: false, precioFueraDeRango: false,
+      fullInconsistente: true, cantidadEsperadaLlenoGal: 16.5,
+      urlFactura: null, origen: null, responsableId: 1, fechaRegistro: '2026-07-12T09:00:00',
+    };
+    data.subscribe.mockImplementation((callback) => {
+      callback({
+        fuelRefuelingReport: [filaLimpia],
+        fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
+        vehicles: VEHICLES,
+        motos: MOTOS,
+        machines: MACHINES,
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    render(TanqueoDistribucion);
+    const fila = filaCon('Excavadora');
+
+    expect(fila.classList.contains('anomaly-row')).toBe(true);
+    expect(fila.textContent).toContain('Full declarado pero cantidad insuficiente (se esperaban ~16.5 gal)');
   });
 
   it('cambiar de píldora de tipo pide el reporte con el nuevo tipo', async () => {
