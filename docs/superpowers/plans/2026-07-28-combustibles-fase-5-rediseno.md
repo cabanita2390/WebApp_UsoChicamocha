@@ -576,14 +576,104 @@ Ver detalle completo de qué devuelve cada uno y sus roles en la conversación d
   tiene al lado. Tests nuevos en `FuelTrendChart.test.js` (4, verificados con
   y sin cada fix, incluida la posición exacta del marcador). Frontend
   336/336.
-- [ ] Definir si "Reintegros" necesita un botón/formulario en `TanqueoDistribucion`
-  (hoy solo se puede crear vía API directa, no hay UI).
+- [x] **UI de Reintegros: botón + modal en Tanqueo y Distribución e Historial de
+  tanqueos (04/08/2026)** — hasta ahora el backend de reintegros (Fase 4) solo se
+  podía usar vía API directa. Cambios:
+  - **Visibilidad nueva**: `RefuelingRecordResponse` ganó `cantidadReintegrada`
+    (suma de `fuel_reintegrations` para ese tanqueo, `ZERO` si no hay ninguno),
+    calculada igual que ya hacía el endpoint viejo y oculto `GET /fuel/distribucion`
+    (`FuelDistributionService.mapFila`) pero ahora también en
+    `RefuelingRecordService.mapToResponse` y `RefuelingReportService` — las dos
+    fuentes que sí alimentan pantallas activas (Tanqueo y Distribución + Historial
+    de tanqueos). Antes de este cambio, registrar un reintegro no producía ningún
+    cambio visible en ninguna pantalla.
+  - **Bug real corregido de paso**: `FuelReintegrationService.registrar` validaba
+    la cantidad contra `cantidadGalones` original, no contra el saldo restante tras
+    reintegros previos — una segunda llamada podía sobre-reintegrar (tanqueo de 10
+    gal, reintegrar 6 y luego 6 más, 12/10 aceptado). Nunca se notó porque nunca
+    hubo UI que invitara a reintegrar dos veces el mismo tanqueo; ahora que la hay,
+    se corrigió sumando los reintegros previos antes de validar.
+  - **Frontend**: `createRefuelingColumns` (`config/table-definitions/fuel.js`)
+    gana un parámetro `showReintegroAction` que agrega una columna "Reintegro"
+    (botón "Reintegrar" si queda saldo, texto "Reintegrado" si no) — nuevo meta
+    `isReintegroAction` en `DataGrid.svelte` (aditivo, mismo patrón que
+    `isFacturaAction`/`isViewHistoryAction`). Nuevo `components/shared/
+    ReintegroModal.svelte` (mismo patrón que `RefuelingFormModal.svelte`: props in,
+    `onSubmit` async inyectado, eventos `success`/`close`), usado desde
+    `TanqueoDistribucion.svelte` y `FuelHistory.svelte`. Visible para
+    SUPERVISOR_OPERATIVO o ADMIN (`canReintegrar`), no solo ADMIN como
+    Editar/Eliminar — mismo criterio que exige `FuelReintegrationController`.
+  - **Motivo del reintegro (mismo día, a pedido explícito)**: `fuel_reintegrations`
+    gana columna `motivo` (`V25__motivo_reintegro_y_valor_nulo_en_almacen.sql`),
+    opcional, expuesta en `FuelReintegrationRequest`/`Response` y en un textarea
+    nuevo de `ReintegroModal.svelte`. La misma migración corrige otro bug real
+    encontrado de paso: `valor_reintegro` quedó `NOT NULL` desde la V20, pero el
+    servicio ya guardaba `null` ahí para reintegros de tanqueos ALMACEN (no se
+    valorizan) — un INSERT real contra Postgres habría fallado (H2 no aplica NOT
+    NULL, mismo patrón por el que la V23 tampoco se detectó en tests). Se relaja
+    la columna para que coincida con el comportamiento real del servicio.
+  - Tests: backend — `RefuelingRecordServiceTest`/`RefuelingReportServiceTest`
+    (mock nuevo de `FuelReintegrationsRepository`), 2 nuevos en
+    `FuelReintegrationServiceTest` para el fix de sobre-reintegro. Frontend — 2
+    nuevos en `TanqueoDistribucion.test.js` y 2 en `FuelHistory.test.js`
+    (visibilidad por rol, submit arma el payload correcto y refresca). Backend
+    388/388, frontend 366/366.
 - [ ] Revisar si `precioPromedioGalonComprado` (backend) debería quitarse del todo
   o dejarse calculando en silencio por si se reactiva Suministro.
-- [ ] Pulir estilo de las píldoras/filtros restantes en Tanqueo y Distribución
-  (comparar contra el mockup con más detalle visual).
-- [ ] Revisar accesibilidad (warnings de a11y en modales — `on:click` en `div`s sin
-  handler de teclado, ya presente antes de este rediseño, no introducido ahora).
+- [x] **Layout de píldoras de Tanqueo y Distribución igualado al de Rendimiento
+  (04/08/2026)** — el botón/píldora en sí (`.tipo-pill`/`.tipo-pill--active`) ya
+  tenía el mismo CSS en ambas pantallas; lo que difería era el layout del
+  renglón de filtros: Tanqueo y Distribución metía área+fechas+píldoras+botón
+  en un solo `flex-wrap` sin jerarquía visual, mientras Rendimiento
+  (`FuelPerformance.svelte`) usa una grilla de 3 columnas
+  (`grid-template-columns: 1fr auto 1fr`) que dedica la columna central solo a
+  las píldoras, centradas, separadas del resto. Se replicó esa misma grilla en
+  `TanqueoDistribucion.svelte` (`.fuel-filtros-grid`/`.filtros-fechas`/
+  `.tipo-selector-center`/`.accion-btn-wrap`, con el mismo colapso a 1 columna
+  en `max-width: 700px`) — ahora las píldoras se ven en el mismo lugar/orden
+  visual en ambas pantallas. Sin tests nuevos (cambio puramente de layout, sin
+  lógica); verificado que los 37 tests existentes de
+  `TanqueoDistribucion.test.js` siguen pasando sin tocarlos. Pendiente
+  aparte, sin resolver: comparar contra el mockup original de Claude Design con
+  más detalle visual — sigue esperando que el usuario comparta una captura, no
+  hay acceso directo al proyecto de Design.
+- [x] **Accesibilidad: cero warnings de a11y en modales de toda la app
+  (04/08/2026)** — el patrón heredado (`<div class="modal-overlay" on:click=...>`
+  sin equivalente de teclado) existía en ~20 archivos de toda la app, no solo
+  Combustibles (Fase 5 lo había heredado sin corregirlo). Dos partes:
+  1. **Mejora real de accesibilidad**: cada modal gana un `<svelte:window
+     on:keydown={...}>` que cierra el modal con `Escape` — antes no existía
+     ninguna forma de cerrar un modal por teclado en toda la app (solo mouse en
+     el backdrop, o el botón visible de cerrar/cancelar, que tampoco garantiza
+     alcance por teclado sin foco atrapado). `<svelte:window>` tuvo que ir
+     siempre a nivel raíz del componente (Svelte no permite `<svelte:window>`
+     dentro de un `{#if}`/bloque) — el propio handler revisa qué modal está
+     abierto antes de cerrarlo.
+  2. **Comentarios `<!-- svelte-ignore -->`** en el backdrop y el contenido de
+     cada modal, justificados porque el backdrop es decorativo
+     (`role="presentation"` donde no lo tenía) y el equivalente de teclado real
+     ya existe (Escape + botón de cerrar visible) — no se trata de silenciar sin
+     resolver, se resolvió el problema de fondo (poder cerrar por teclado) y
+     luego se calló la advertencia sobre el backdrop en sí, que nunca fue
+     pensado para recibir foco (mismo criterio que usa el patrón WAI-ARIA
+     Dialog: el backdrop no necesita ser operable por teclado si ya hay Escape
+     + un control de cierre real).
+  - Archivos tocados: `MainLayout.svelte`, `DocumentErrorModal.svelte`,
+    `CurriculumModal.svelte`, `DocHistoryModal.svelte`, `EditAssetModal.svelte`,
+    `ExecuteOrderModal.svelte`, `ImageCarouselModal.svelte`,
+    `DocumentUpdateModal.svelte`, `QuickCatalogModal.svelte`,
+    `WorkOrderModal.svelte` (ya tenía un intento de Escape por `on:keydown` en
+    el propio div, sin rol — se reemplazó por el mismo patrón `svelte:window`),
+    `RefuelingFormModal.svelte`, `ReintegroModal.svelte`,
+    `TanqueoDistribucion.svelte`, `FuelHistory.svelte`,
+    `AssetFuelConfigManagement.svelte`, `Consolidado.svelte`,
+    `ConsolidadoTabbed.svelte`, `MachineOilHistory.svelte`,
+    `VehicleOilHistory.svelte`, `MachineManagement.svelte`,
+    `MotoManagement.svelte`, `OilManagement.svelte`, `UserManagement.svelte`,
+    `VehicleManagement.svelte`.
+  - Sin tests nuevos (cambio de accesibilidad puro, sin lógica de negocio;
+    verificado con build limpio — cero warnings A11y — y la suite completa en
+    verde). Frontend 366/366 sin cambios (mismos tests, ninguno tocado).
 - [ ] Retomar la prueba visual en navegador cuando el sandbox lo permita.
 
 ---
