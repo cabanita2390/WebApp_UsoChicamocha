@@ -353,6 +353,8 @@
                   cell.column.columnDef.meta?.isConsolidadoMaqActions ||
                   cell.column.columnDef.meta?.isDocHistoryAction ||
                   cell.column.columnDef.meta?.isLicenseDocAction ||
+                  cell.column.columnDef.meta?.isFacturaAction ||
+                  cell.column.columnDef.meta?.isReintegroAction ||
                   cell.column.columnDef.meta?.isViewHistoryAction ||
                   cell.column.columnDef.meta?.isViewMotorOilHistoryAction ||
                   cell.column.columnDef.meta?.isViewHydraulicOilHistoryAction}
@@ -441,6 +443,32 @@
                       </button>
                     {:else}
                       <span class="license-doc-cell__empty">—</span>
+                    {/if}
+                  </div>
+                {:else if cell.column.columnDef.meta?.isFacturaAction}
+                  <div class="license-doc-cell">
+                    {#if row.original.urlFactura}
+                      <button
+                        class="btn-action btn-view-images btn-license-doc"
+                        on:click={() => handleAction("view_factura", row.original)}
+                      >
+                        Factura
+                      </button>
+                    {:else}
+                      <span class="license-doc-cell__empty">—</span>
+                    {/if}
+                  </div>
+                {:else if cell.column.columnDef.meta?.isReintegroAction}
+                  <div class="license-doc-cell">
+                    {#if Number(row.original.cantidadGalones) - Number(row.original.cantidadReintegrada ?? 0) > 0.0001}
+                      <button
+                        class="btn-action btn-view-images btn-license-doc"
+                        on:click={() => handleAction("reintegro", row.original)}
+                      >
+                        Reintegrar
+                      </button>
+                    {:else}
+                      <span class="license-doc-cell__empty">Reintegrado</span>
                     {/if}
                   </div>
                 {:else if cell.column.columnDef.meta?.isImageAction}

@@ -11,8 +11,12 @@ import { formatDateTimeLocal, yn } from './helpers.js';
  *   omite del todo (no solo se oculta el botón Eliminar) cuando el usuario no es ADMIN.
  * @param {boolean} showHistorialAction - agrega la columna "Ver historial" (de solo lectura,
  *   visible sin importar el rol) — se omite dentro del propio modal de historial de un activo.
+ * @param {boolean} showReintegroAction - agrega la columna "Reintegro" (Fase 6): botón
+ *   "Reintegrar" si queda saldo (cantidadGalones - cantidadReintegrada > 0), o "Reintegrado"
+ *   si ya no queda. Se omite del todo para roles sin permiso de reintegrar (mismo criterio
+ *   que showActions, pero el backend exige SUPERVISOR_OPERATIVO o ADMIN, no solo ADMIN).
  */
-export const createRefuelingColumns = (fuelTypesById = {}, unidadMedidaById = {}, vehiculosById = {}, machinesById = {}, showActions = false, showHistorialAction = false) => {
+export const createRefuelingColumns = (fuelTypesById = {}, unidadMedidaById = {}, vehiculosById = {}, machinesById = {}, showActions = false, showHistorialAction = false, showReintegroAction = false) => {
     const columns = [
         { header: 'Fecha', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'ref_fecha', size: 140 },
         {
@@ -69,9 +73,16 @@ export const createRefuelingColumns = (fuelTypesById = {}, unidadMedidaById = {}
             size: 100,
         },
         { header: 'Origen', accessorKey: 'origen', size: 130 },
+        // Visible siempre (no solo BOMBA/ADMIN) — un tanqueo de ALMACEN no tiene
+        // urlFactura real y la celda simplemente muestra "—" (mismo patrón que
+        // isLicenseDocAction).
+        { header: 'Factura', id: 'ref_factura', meta: { isFacturaAction: true }, size: 90 },
     ];
     if (showHistorialAction) {
         columns.push({ header: '', id: 'ref_ver_historial', meta: { isViewHistoryAction: true } });
+    }
+    if (showReintegroAction) {
+        columns.push({ header: 'Reintegro', id: 'ref_reintegro', meta: { isReintegroAction: true } });
     }
     if (showActions) {
         columns.push({ header: 'Acciones', id: 'ref_actions', meta: { isAction: true } });
@@ -147,59 +158,69 @@ export const createAssetFuelConfigColumns = (fuelTypesById = {}) => [
  * Columnas del reporte de Rendimiento Operativo (combustibles, Fase 4 Task 22).
  * Espera filas ya enriquecidas con `unidadLabel` ('gal'|'m³'), calculado en el
  * componente cruzando con la configuración de consumo estándar del activo.
+ * @param {Record<number, string>} fuelTypesById - mapa id -> nombre, ya cargado en $data.fuelTypes.
+ * @param {boolean} showActions - agrega la columna "Editar" (Fase 6): el reporte de
+ *   rendimiento no trae lugar/areaCosto (obligatorios para PUT /fuel/refueling), así
+ *   que el componente pide el tanqueo completo al abrir el modal en vez de armarlo
+ *   con lo que ya tiene la fila.
  */
-export const createFuelPerformanceColumns = (fuelTypesById = {}) => [
-
-    {
-        header: 'Activo',
-        accessorFn: (row) => row.identificacionActivo ?? '—',
-        id: 'perf_activo',
-        size: 150,
-    },
-    {
-        header: 'Producto',
-        accessorFn: (row) => fuelTypesById[row.fuelTypeId] ?? '—',
-        id: 'perf_producto',
-        size: 130,
-    },
-    { header: 'Fecha', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'perf_fecha', size: 140 },
-    {
-        header: 'Estándar (A)',
-        accessorFn: (row) => `${row.consumoEstandar} ${row.unidadLabel}`,
-        id: 'perf_consumo_estandar',
-        size: 130,
-    },
-    { header: 'Último (B)', accessorKey: 'horometroAnterior', size: 100 },
-    { header: 'Actual (C)', accessorKey: 'horometroActual', size: 100 },
-    { header: 'Ejecutado (C−B)', accessorKey: 'ejecutado', size: 130 },
-    {
-        header: 'Proyectado',
-        accessorFn: (row) => `${row.galonesProyectados} ${row.unidadLabel}`,
-        id: 'perf_proyectado',
-        size: 110,
-    },
-    {
-        header: 'Real',
-        accessorFn: (row) => `${row.galonesReal} ${row.unidadLabel}`,
-        id: 'perf_real',
-        size: 100,
-    },
-    {
-        header: 'Diferencia',
-        accessorFn: (row) => `${row.diferencia} ${row.unidadLabel}`,
-        id: 'perf_diferencia',
-        size: 110,
-    },
-    {
-        header: 'Full',
-        accessorFn: (row) => yn(row.esFull),
-        id: 'perf_full',
-        size: 80,
-    },
-    {
-        header: 'Alerta',
-        accessorFn: (row) => yn(row.alerta),
-        id: 'perf_alerta',
-        size: 80,
-    },
-];
+export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = false) => {
+    const columns = [
+        {
+            header: 'Activo',
+            accessorFn: (row) => row.identificacionActivo ?? '—',
+            id: 'perf_activo',
+            size: 150,
+        },
+        {
+            header: 'Producto',
+            accessorFn: (row) => fuelTypesById[row.fuelTypeId] ?? '—',
+            id: 'perf_producto',
+            size: 130,
+        },
+        { header: 'Fecha', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'perf_fecha', size: 140 },
+        {
+            header: 'Estándar (A)',
+            accessorFn: (row) => `${row.consumoEstandar} ${row.unidadLabel}`,
+            id: 'perf_consumo_estandar',
+            size: 130,
+        },
+        { header: 'Último (B)', accessorKey: 'horometroAnterior', size: 100 },
+        { header: 'Actual (C)', accessorKey: 'horometroActual', size: 100 },
+        { header: 'Ejecutado (C−B)', accessorKey: 'ejecutado', size: 130 },
+        {
+            header: 'Proyectado',
+            accessorFn: (row) => `${row.galonesProyectados} ${row.unidadLabel}`,
+            id: 'perf_proyectado',
+            size: 110,
+        },
+        {
+            header: 'Real',
+            accessorFn: (row) => `${row.galonesReal} ${row.unidadLabel}`,
+            id: 'perf_real',
+            size: 100,
+        },
+        {
+            header: 'Diferencia',
+            accessorFn: (row) => `${row.diferencia} ${row.unidadLabel}`,
+            id: 'perf_diferencia',
+            size: 110,
+        },
+        {
+            header: 'Full',
+            accessorFn: (row) => yn(row.esFull),
+            id: 'perf_full',
+            size: 80,
+        },
+        {
+            header: 'Alerta',
+            accessorFn: (row) => yn(row.alerta),
+            id: 'perf_alerta',
+            size: 80,
+        },
+    ];
+    if (showActions) {
+        columns.push({ header: 'Acciones', id: 'perf_actions', meta: { isAction: true } });
+    }
+    return columns;
+};
