@@ -225,6 +225,13 @@
     clearTimeout(deleteMachineTimer);
   }
 
+  function handleKeydown(event) {
+    if (event.key !== "Escape") return;
+    if (showEditModal) closeEditModal();
+    else if (machineToDelete) closeDeleteMachineModal();
+    else if (showCvModal) closeCurriculumModal();
+  }
+
   async function handleExportCurriculum() {
     isExporting = true;
     try {
@@ -238,6 +245,8 @@
   }
 
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 <div class="vehicle-module">
   <div class="vehicle-module-inner">
@@ -339,6 +348,8 @@
 {#if isAdmin || isSupervisorOperativo}
 {#if showEditModal}
   <div class="modal-overlay">
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
         <h3>Editar Máquina</h3>
@@ -417,7 +428,11 @@
 
 {#if isAdmin}
 {#if machineToDelete}
-  <div class="modal-overlay" on:click={closeDeleteMachineModal}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="modal-overlay" role="presentation" on:click={closeDeleteMachineModal}>
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content confirmation" on:click|stopPropagation>
       <h3>Confirmar Eliminación</h3>
       <p>
@@ -445,6 +460,8 @@
 
 {#if showCvModal}
   <div class="modal-overlay">
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content large" on:click|stopPropagation>
       <div class="modal-header">
         <h3>Hoja de Vida de: {curriculumData?.machine.name || 'Cargando...'}</h3>

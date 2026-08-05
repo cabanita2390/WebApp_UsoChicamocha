@@ -40,6 +40,10 @@
     kmSubmitting = false;
   }
 
+  function handleKeydown(event) {
+    if (event.key === 'Escape' && kmModalOpen) closeKmModal();
+  }
+
   async function submitKm() {
     const val = parseInt(kmValue, 10);
     if (isNaN(val) || val < 0) {
@@ -200,8 +204,14 @@
   </TabPanel>
 </div>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if kmModalOpen && kmRow && (isAdmin || isSupervisorOperativo)}
+  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="km-overlay" role="presentation" on:click|self={closeKmModal}>
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="km-dialog" role="dialog" aria-modal="true" aria-labelledby="km-title" on:click|stopPropagation>
       <div class="km-dialog-head">
         <span id="km-title">Corregir Km — {kmRow.placa ?? ''}</span>

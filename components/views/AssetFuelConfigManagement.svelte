@@ -192,6 +192,10 @@
     dispatch("close");
   }
 
+  function handleKeydown(event) {
+    if (event.key === "Escape" && showModal) closeModal();
+  }
+
   onMount(() => {
     data.fetchFuelTypes();
     // Reutiliza lo que ya haya cargado otra vista (ej. Inventario de
@@ -252,7 +256,11 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if showModal}
+  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="modal-overlay" role="presentation" on:click={closeModal}>
     <div
       class="modal-content"

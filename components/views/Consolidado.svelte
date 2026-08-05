@@ -39,6 +39,10 @@
     hourmeterSubmitting = false;
   }
 
+  function handleKeydown(event) {
+    if (event.key === 'Escape' && hourmeterModalOpen) closeHourmeterModal();
+  }
+
   async function submitHourmeter() {
     const val = parseFloat(hourmeterValue);
     if (isNaN(val) || val < 0) {
@@ -124,8 +128,14 @@
   </div>
 </div>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if hourmeterModalOpen && hourmeterRow && (isAdmin || isSupervisorOperativo)}
+  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="hm-overlay" role="presentation" on:click|self={closeHourmeterModal}>
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div
       class="vehicle-form-section hm-dialog"
       role="dialog"

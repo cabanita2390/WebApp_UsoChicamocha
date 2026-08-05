@@ -15,10 +15,18 @@
   function close() {
     dispatch('close');
   }
+
+  function handleKeydown(event) {
+    if (event.key === 'Escape' && open) close();
+  }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 {#if open}
   <div class="modal-overlay">
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content large" on:click|stopPropagation>
       <div class="modal-header">
         <h3>Hoja de Vida: {plate ?? 'Cargando...'}</h3>

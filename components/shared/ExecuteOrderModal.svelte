@@ -137,6 +137,10 @@
     dispatch("cancel");
   }
 
+  function handleKeydown(event) {
+    if (event.key === "Escape") onCancel();
+  }
+
   $: orderParsed = workOrder
     ? parseWorkOrderDescription(workOrder.order?.description)
     : {
@@ -154,7 +158,11 @@
   $: asignadoA = orderParsed.tareaAsignada;
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 <div class="modal-overlay">
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="modal-content" on:click|stopPropagation>
     <div class="modal-header">
       <h2>Ejecutar Orden de Trabajo</h2>

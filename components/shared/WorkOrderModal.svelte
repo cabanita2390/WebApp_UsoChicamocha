@@ -182,9 +182,21 @@
   function onCancel() {
       dispatch('cancel');
   }
+
+  // Escape cierra el diálogo de confirmación si está abierto, si no, cancela
+  // todo el formulario — mismo orden de prioridad que "click fuera".
+  function handleKeydown(event) {
+    if (event.key !== 'Escape') return;
+    if (showConfirmation) cancelCreate();
+    else onCancel();
+  }
 </script>
 
-<div class="modal-overlay" on:keydown={(e) => e.key === 'Escape' && onCancel()}>
+<svelte:window on:keydown={handleKeydown} />
+
+<div class="modal-overlay">
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="modal-content" on:click|stopPropagation>
     <div class="modal-header">
       <h2>{modalTitle}</h2>
@@ -246,7 +258,11 @@
 </div>
 
 {#if showConfirmation}
-  <div class="confirmation-overlay" on:click={cancelCreate}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="confirmation-overlay" role="presentation" on:click={cancelCreate}>
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="confirmation-modal" on:click|stopPropagation>
       <h3>Confirmar Creación</h3>
       <p>¿Está seguro que desea crear esta orden de trabajo?</p>

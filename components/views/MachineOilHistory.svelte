@@ -107,6 +107,12 @@
     editSubmitting = false;
   }
 
+  function handleKeydown(event) {
+    if (event.key !== 'Escape') return;
+    if (editModalOpen) closeEditModal();
+    else if (deleteRow) deleteRow = null;
+  }
+
   async function submitEdit() {
     editError = '';
     const hourMeter = parseFloat(editForm.currentHourMeter);
@@ -218,8 +224,14 @@
   {/if}
 </div>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if editModalOpen && editRow}
+  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="oh-overlay" role="presentation" on:click|self={closeEditModal}>
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="oh-dialog" role="dialog" aria-modal="true" aria-labelledby="oh-edit-title" on:click|stopPropagation>
       <div class="oh-dialog-head">
         <span id="oh-edit-title">Corregir cambio de aceite — {formatDate(editRow.dateStamp)}</span>
@@ -264,6 +276,8 @@
 {/if}
 
 {#if deleteRow}
+  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="oh-overlay" role="presentation" on:click|self={() => (deleteRow = null)}>
     <div class="oh-dialog oh-dialog--small" role="dialog" aria-modal="true" aria-labelledby="oh-delete-title" on:click|stopPropagation>
       <div class="oh-dialog-head">

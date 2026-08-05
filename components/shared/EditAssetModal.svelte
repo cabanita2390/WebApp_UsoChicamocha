@@ -30,10 +30,18 @@
     event.preventDefault();
     dispatch('submit', event);
   }
+
+  function handleKeydown(event) {
+    if (event.key === 'Escape' && open) close();
+  }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 {#if open && asset}
   <div class="modal-overlay">
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
         <h3>{title}</h3>

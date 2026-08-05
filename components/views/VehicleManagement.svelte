@@ -552,7 +552,15 @@
       isExporting = false;
     }
   }
+
+  function handleKeydown(event) {
+    if (event.key !== "Escape") return;
+    if (vehicleToDelete) vehicleToDelete = null;
+    else if (showSoftDeletedModal) showSoftDeletedModal = false;
+  }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 {#if isLoading && vehicles.length === 0}
   <div class="vehicle-module">
@@ -802,7 +810,11 @@
 
 {#if isAdmin}
 {#if vehicleToDelete}
-  <div class="modal-overlay" on:click={() => vehicleToDelete = null}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="modal-overlay" role="presentation" on:click={() => vehicleToDelete = null}>
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content confirmation" on:click|stopPropagation>
       <h3>Confirmar Eliminación</h3>
       <p>¿Está seguro que desea eliminar el vehículo con placa <b>{vehicleToDelete.placa}</b>?</p>
@@ -859,7 +871,11 @@
 {/if}
 
 {#if showSoftDeletedModal && softDeletedVehicleToRestore}
-  <div class="modal-overlay" on:click={() => (showSoftDeletedModal = false)}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="modal-overlay" role="presentation" on:click={() => (showSoftDeletedModal = false)}>
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
       <h3 style="margin-top: 0; color: #d9534f;">Vehículo Eliminado</h3>
       <p>{errorMessage}</p>

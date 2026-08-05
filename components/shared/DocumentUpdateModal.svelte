@@ -127,6 +127,10 @@
     dispatch('cancel');
   }
 
+  function handleKeydown(event) {
+    if (event.key === 'Escape') handleCancel();
+  }
+
   function onTipoChange() {
     archivo = null;
     error = '';
@@ -138,6 +142,10 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
+<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<!-- svelte-ignore a11y-click-events-have-key-events -->
 <div class="modal-overlay" role="presentation" on:click={handleCancel}>
   <div class="modal-box" role="dialog" aria-modal="true" on:click|stopPropagation>
     <div class="modal-head">

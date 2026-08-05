@@ -71,9 +71,19 @@
   function handleImageError() {
     imageHasError = true;
   }
+
+  function handleKeydown(event) {
+    if (event.key === 'Escape') closeModal();
+  }
 </script>
 
-<div class="modal-overlay" on:click={closeModal}>
+<svelte:window on:keydown={handleKeydown} />
+
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<!-- svelte-ignore a11y-click-events-have-key-events -->
+<div class="modal-overlay" role="presentation" on:click={closeModal}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="modal-content" on:click|stopPropagation>
     <div class="modal-header">
       <h3>Imágenes de la Inspección</h3>

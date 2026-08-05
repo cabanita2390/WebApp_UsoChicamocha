@@ -68,7 +68,11 @@
     selectedOil = null;
   }
 
-  
+  function handleKeydown(event) {
+    if (event.key === 'Escape' && (showEditModal || showDeleteModal)) closeModals();
+  }
+
+
   function handleGridAction(event) {
     const { type, data } = event.detail;
     if (type === 'edit') {
@@ -149,6 +153,8 @@
   }
 </style>
 
+<svelte:window on:keydown={handleKeydown} />
+
 <!-- Refresh Button -->
 <div class="refresh-container">
   <button class="btn-refresh" on:click={() => dataStore.fetchOils()}>
@@ -210,6 +216,8 @@
 <!-- Modal para Editar -->
 {#if showEditModal}
   <div class="modal-overlay">
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
         <h3>Editar Aceite</h3>
@@ -237,6 +245,8 @@
 <!-- Modal para Eliminar -->
 {#if showDeleteModal}
   <div class="modal-overlay">
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content confirmation" on:click|stopPropagation>
       <h3>Confirmar Eliminación</h3>
       <p>¿Está seguro que desea eliminar el registro "<strong>{selectedOil?.name}</strong>"?</p>
