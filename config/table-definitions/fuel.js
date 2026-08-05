@@ -1,4 +1,4 @@
-import { formatDateTimeLocal, yn } from './helpers.js';
+import { formatDateTimeLocal, formatCurrency, yn } from './helpers.js';
 
 /**
  * Columnas del historial de Tanqueo (combustibles, Fase 4 Task 18; reutilizada en
@@ -61,16 +61,39 @@ export const createRefuelingColumns = (fuelTypesById = {}, unidadMedidaById = {}
             size: 100,
         },
         {
-            // row.capacidadExcedida/cantidadFueraDeRango/precioFueraDeRango son
-            // opcionales: solo los trae el reporte de Tanqueo y Distribución (ver
-            // AssetFuelCapacityService/FuelPriceAnomalyService) — si no vienen, se
-            // ignoran y la columna se comporta como antes (solo discrepancia
-            // financiera).
+            // row.capacidadExcedida/cantidadFueraDeRango/precioFueraDeRango/
+            // fullInconsistente (+ sus valores de referencia capacidadConfiguradaGal/
+            // cantidadMaximaTipica/precioPromedioReciente/cantidadEsperadaLlenoGal)
+            // son opcionales: solo los trae el reporte de Tanqueo y Distribución (ver
+            // AssetFuelCapacityService/FuelPriceAnomalyService/
+            // FuelFullConsistencyService) — si no vienen, se ignoran y la columna se
+            // comporta como antes (solo discrepancia financiera). Se lista cada
+            // motivo junto al valor contra el que se comparó (en vez de un SÍ/NO
+            // genérico) para poder verificar la alerta sin adivinar el umbral.
             header: 'Discrepancia',
-            accessorFn: (row) => yn(row.discrepanciaValor || row.capacidadExcedida
-                || row.cantidadFueraDeRango || row.precioFueraDeRango),
+            accessorFn: (row) => {
+                const unidad = unidadMedidaById[row.fuelTypeId] === 'M3' ? 'm³' : 'gal';
+                const motivos = [];
+                if (row.discrepanciaValor) {
+                    motivos.push(`Financiera (calc. ${formatCurrency(row.totalCalculado)} vs ingresado ${formatCurrency(row.totalIngresado)})`);
+                }
+                if (row.capacidadExcedida) {
+                    motivos.push(`Capacidad excedida (máx. configurado: ${row.capacidadConfiguradaGal} ${unidad})`);
+                }
+                if (row.cantidadFueraDeRango) {
+                    motivos.push(`Cantidad fuera de rango (máx. típico: ${row.cantidadMaximaTipica} ${unidad})`);
+                }
+                if (row.precioFueraDeRango) {
+                    motivos.push(`Precio fuera de rango (promedio reciente: ${formatCurrency(row.precioPromedioReciente)})`);
+                }
+                if (row.fullInconsistente) {
+                    motivos.push(`Full declarado pero cantidad insuficiente (se esperaban ~${row.cantidadEsperadaLlenoGal} ${unidad})`);
+                }
+                return motivos.length ? motivos.join(' · ') : 'NO';
+            },
             id: 'ref_discrepancia',
-            size: 100,
+            size: 260,
+            meta: { isMultiline: true },
         },
         { header: 'Origen', accessorKey: 'origen', size: 130 },
         // Visible siempre (no solo BOMBA/ADMIN) — un tanqueo de ALMACEN no tiene

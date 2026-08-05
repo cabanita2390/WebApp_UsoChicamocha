@@ -55,14 +55,16 @@
   $: origenesConocidos = [...new Set(reporte.map((r) => r.origen).filter(Boolean))];
 
   // isAnomaly activa el resaltado de fila que DataGrid ya soporta (mismo patrón
-  // que FuelPerformance.svelte) — combina las 4 discrepancias ya calculadas por el
+  // que FuelPerformance.svelte) — combina las 5 discrepancias ya calculadas por el
   // backend: financiera, capacidad de tanque excedida (AssetFuelCapacityService),
-  // cantidad fuera de rango típico para el tipo de activo (mismo servicio) y precio
-  // unitario fuera de rango vs el promedio reciente (FuelPriceAnomalyService).
+  // cantidad fuera de rango típico para el tipo de activo (mismo servicio), precio
+  // unitario fuera de rango vs el promedio reciente (FuelPriceAnomalyService) y
+  // "Full" declarado pero cantidad insuficiente para llenar el tanque
+  // (FuelFullConsistencyService).
   $: reporte = ($data.fuelRefuelingReport ?? []).map((row) => ({
     ...row,
     isAnomaly: !!row.discrepanciaValor || !!row.capacidadExcedida
-      || !!row.cantidadFueraDeRango || !!row.precioFueraDeRango,
+      || !!row.cantidadFueraDeRango || !!row.precioFueraDeRango || !!row.fullInconsistente,
   }));
   // Colapsa a 1 fila por activo = su tanqueo más reciente dentro del rango
   // filtrado (si un activo no tanqueó en el rango, no aparece). La clave usa un
