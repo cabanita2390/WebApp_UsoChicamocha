@@ -172,4 +172,17 @@ describe('FuelFinancialDashboard', () => {
 
     expect(data.fetchFuelTrend).toHaveBeenLastCalledWith(6, '2024-03-15');
   });
+
+  it('pasa timestamps reales (derivados de t.mes) al gráfico de tendencia, sin producir posiciones inválidas', () => {
+    // t.mes ya viene como fecha completa ("2026-06-01", LocalDate serializado por
+    // el backend) — un bug real habría sido tratarlo como "YYYY-MM" y concatenar
+    // "-01" de más, produciendo "2026-06-01-01" (fecha inválida -> NaN).
+    const { container } = render(FuelFinancialDashboard);
+
+    const marcador = container.querySelector('.trend-marker');
+    expect(marcador).toBeTruthy();
+    expect(marcador.style.left).not.toBe('');
+    expect(marcador.style.left.includes('NaN')).toBe(false);
+    expect(marcador.style.top.includes('NaN')).toBe(false);
+  });
 });
