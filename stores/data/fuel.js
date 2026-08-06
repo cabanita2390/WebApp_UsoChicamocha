@@ -1,6 +1,6 @@
 const FUEL_PERFORMANCE_TIPOS = ['MAQUINARIA', 'VEHICULO', 'MOTOCICLETA'];
 
-export function createFuelActions({ update, setLoading, setError, fetchAll, fetchPaginated, fetchWithAuth }) {
+export function createFuelActions({ update, get, subscribe, setLoading, setError, fetchAll, fetchPaginated, fetchWithAuth, self }) {
     // Contador de petición para fetchRefuelingReport — al cambiar de "tipo" rápido
     // (pills de Tanqueo y Distribución), dos peticiones quedan en vuelo a la vez;
     // sin esto, si la más vieja resuelve después de la más nueva, pisa el store con
@@ -10,6 +10,31 @@ export function createFuelActions({ update, setLoading, setError, fetchAll, fetc
     // se dispara más de una vez seguida (ej. Filtrar con doble click).
     let fuelPerformanceRequestId = 0;
     let refuelingReportRequestId = 0;
+
+    // El backend ya actualiza vehicle.kilometrajeActual / machine.horometroActual al
+    // registrar un tanqueo (RefuelingRecordService.actualizarLecturaActual), pero esa
+    // lectura vive replicada en varios caches del store (Vehículos/Máquinas/Motos,
+    // Consolidado) que no se invalidan solos — sin este refresco el nuevo
+    // kilometraje/horómetro no aparecía ahí hasta recargar la página, aunque el dato
+    // en BD ya estuviera correcto. Solo refresca lo que ya estaba cargado (evita
+    // pedir de más listas que la pantalla actual nunca mostró).
+    async function refrescarActivoAfectado(record) {
+        const state = get({ subscribe });
+        const tareas = [];
+        if (record.vehicleId != null) {
+            if (state.vehicles?.length) tareas.push(self.fetchVehicles());
+            if (state.motos?.length) tareas.push(self.fetchMotos());
+            if (state.vehicleMonitoring?.length) tareas.push(self.fetchVehicleMonitoring());
+            if (state.motoMonitoring?.length) tareas.push(self.fetchMotoMonitoring());
+        } else if (record.machineId != null) {
+            if (state.machines?.length) tareas.push(self.fetchMachines());
+            if (state.consolidated?.distrito?.length || state.consolidated?.asociacion?.length) {
+                tareas.push(self.fetchConsolidadoData());
+            }
+        }
+        if (tareas.length) await Promise.allSettled(tareas);
+    }
+
     return {
         // Combustibles — Tanqueo (Fase 4, Task 18)
         fetchFuelTypes: () => fetchAll('fuelTypes', 'fuel/types'),
@@ -20,6 +45,7 @@ export function createFuelActions({ update, setLoading, setError, fetchAll, fetc
                 ...s,
                 fuelRefueling: { ...s.fuelRefueling, data: [created, ...s.fuelRefueling.data] },
             }));
+            await refrescarActivoAfectado(created);
             return created;
         },
         updateRefueling: async (id, formData) => {
@@ -28,6 +54,7 @@ export function createFuelActions({ update, setLoading, setError, fetchAll, fetc
                 ...s,
                 fuelRefueling: { ...s.fuelRefueling, data: s.fuelRefueling.data.map(r => r.id === id ? updated : r) },
             }));
+            await refrescarActivoAfectado(updated);
             return updated;
         },
         deleteRefueling: async (id) => {
