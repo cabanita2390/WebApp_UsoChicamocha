@@ -1,5 +1,6 @@
 <script>
   import { onMount } from "svelte";
+  import { push } from "svelte-spa-router";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import { addNotification } from "../../stores/ui.js";
@@ -34,7 +35,7 @@
     return unidad === "M3" ? "m³" : "gal";
   }
 
-  $: columns = createFuelPerformanceColumns(fuelTypesById, isAdmin);
+  $: columns = createFuelPerformanceColumns(fuelTypesById, isAdmin, true);
   // Los 3 tipos se piden siempre juntos (fetchFuelPerformanceAllTipos) — cambiar
   // de pill es solo una lectura local, sin fetch, así que ya no puede "no cargar"
   // por una respuesta vieja que resuelve tarde.
@@ -42,6 +43,20 @@
   // Filas con alerta=true reutilizan el resaltado de anomalía que el DataGrid ya
   // soporta (isAnomaly) — no hace falta tocar DataGrid.svelte para esto.
   $: rows = (rowsPorTipo[tipo] ?? []).map((row) => ({ ...row, isAnomaly: row.alerta, unidadLabel: unidadDe(row) }));
+  // La tabla colapsa a 1 fila por activo = su tanqueo más reciente en el rango
+  // filtrado (mismo patrón que la tabla resumen de Tanqueo y Distribución) — antes
+  // se veían todas las filas de todos los tanqueos mezcladas, sin poder distinguir
+  // "el rendimiento actual de este activo" de su historial completo. "Ver
+  // historial" (por activo) abre la evolución completa en una pantalla aparte.
+  $: resumenPorActivo = Object.values(
+    rows.reduce((acc, row) => {
+      const key = row.machineId != null ? `M-${row.machineId}` : `V-${row.vehicleId}`;
+      if (!acc[key] || new Date(row.fechaRegistro) > new Date(acc[key].fechaRegistro)) {
+        acc[key] = row;
+      }
+      return acc;
+    }, {})
+  ).sort((a, b) => new Date(b.fechaRegistro) - new Date(a.fechaRegistro));
 
   onMount(() => {
     data.fetchFuelTypes();
@@ -81,9 +96,17 @@
     showEditModal = true;
   }
 
+  // "Ver historial" — la evolución completa del activo (todas sus fechas, no solo
+  // el rango filtrado acá), con tabla + gráfico real vs. proyectado.
+  function abrirHistorialRendimiento(row) {
+    const idActivo = row.machineId ?? row.vehicleId;
+    push(`/fuel-performance-history/${tipo}/${idActivo}`);
+  }
+
   function handleGridAction(event) {
     const { type, data: row } = event.detail;
     if (type === "edit") openEditModal(row);
+    else if (type === "viewHistory") abrirHistorialRendimiento(row);
   }
 </script>
 
@@ -183,9 +206,9 @@
   {:else}
     <div class="fuel-chart">
       <div class="fuel-chart-head">Rendimiento Operativo</div>
-      {#if rows.length}
+      {#if resumenPorActivo.length}
         <div class="fuel-table-wrap">
-          <DataGrid {columns} data={rows} showDeleteButton={false} variant="modern" on:action={handleGridAction} />
+          <DataGrid {columns} data={resumenPorActivo} showDeleteButton={false} variant="modern" on:action={handleGridAction} />
         </div>
       {:else}
         <p class="no-data">Sin activos con línea base y consumo configurado en el rango seleccionado.</p>

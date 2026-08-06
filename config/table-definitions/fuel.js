@@ -186,8 +186,11 @@ export const createAssetFuelConfigColumns = (fuelTypesById = {}) => [
  *   rendimiento no trae lugar/areaCosto (obligatorios para PUT /fuel/refueling), así
  *   que el componente pide el tanqueo completo al abrir el modal en vez de armarlo
  *   con lo que ya tiene la fila.
+ * @param {boolean} showHistorialAction - agrega la columna "Ver historial" (de solo
+ *   lectura, visible sin importar el rol) — mismo patrón que createRefuelingColumns.
+ *   Se omite dentro de la propia pantalla de historial de un activo.
  */
-export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = false) => {
+export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = false, showHistorialAction = false) => {
     const columns = [
         {
             header: 'Activo',
@@ -242,6 +245,9 @@ export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = f
             size: 80,
         },
     ];
+    if (showHistorialAction) {
+        columns.push({ header: '', id: 'perf_ver_historial', meta: { isViewHistoryAction: true } });
+    }
     if (showActions) {
         columns.push({ header: 'Acciones', id: 'perf_actions', meta: { isAction: true } });
     }
