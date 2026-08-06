@@ -145,6 +145,12 @@
     form.elementoId = String(e.id);
     elementoBusqueda = labelElementoLista(e, form.tipoElemento);
     elementoDropdownOpen = false;
+    // Precarga el horómetro/km con la última lectura reportada del activo — así
+    // solo hace falta aumentarlo, sin tener que ir a buscar cuánto tenía.
+    // Máquinas usan horometroActual; vehículos y motos (misma tabla) usan
+    // kilometrajeActual. Editable después: no bloquea si el valor real difiere.
+    const ultimaLectura = form.tipoElemento === "MAQUINARIA" ? e.horometroActual : e.kilometrajeActual;
+    if (ultimaLectura != null) form.horometroKm = String(ultimaLectura);
   }
 
   function limpiarSeleccionElemento() {
