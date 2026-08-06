@@ -46,7 +46,7 @@ function createDataStore() {
         createVehicleActions(core),
         createMotoActions(core),
         createCatalogActions(core),
-        createFuelActions(core),
+        createFuelActions({ ...core, self }),
     );
 
     return {
