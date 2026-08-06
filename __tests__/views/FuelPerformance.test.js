@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/svelte';
 import FuelPerformance from '../../components/views/FuelPerformance.svelte';
 
+vi.mock('svelte-spa-router', () => ({
+  push: vi.fn(),
+}));
+
 vi.mock('../../stores/data.js', () => ({
   data: {
     subscribe: vi.fn(),
@@ -29,6 +33,7 @@ vi.mock('../../stores/ui.js', () => ({
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
 import { fuelDateRange } from '../../stores/fuelFilters.js';
+import { push } from 'svelte-spa-router';
 
 // Fila completa del reporte de Tanqueo y Distribución para refuelingId=1 — es lo
 // que openEditModal busca en $data.fuelRefuelingReport (por id) porque la fila de
@@ -44,14 +49,20 @@ const mockFullRefueling = {
 // MAQUINARIA es el tipo inicial de la vista, por eso sus filas son las que se ven
 // sin necesidad de hacer click en ninguna pill.
 const mockPerformance = {
+  // La tabla colapsa a 1 fila por activo = la más reciente, ordenada desc por
+  // fecha (mismo patrón que la tabla resumen de Tanqueo y Distribución) — como
+  // vehicleId 5 y 6 son activos distintos, ninguno se colapsa entre sí, pero el
+  // orden de renderizado sí cambia a más-reciente-primero. refuelingId=1 lleva la
+  // fecha más nueva para que siga siendo la primera fila (igual que antes del
+  // colapso), sin tener que reescribir todas las aserciones de las demás pruebas.
   MAQUINARIA: [
     {
-      refuelingId: 1, vehicleId: 5, machineId: null, fuelTypeId: 1, fechaRegistro: '2026-07-15T10:00:00',
+      refuelingId: 1, vehicleId: 5, machineId: null, fuelTypeId: 1, fechaRegistro: '2026-07-16T10:00:00',
       horometroAnterior: 100, horometroActual: 150, ejecutado: 50, consumoEstandar: 30,
       galonesProyectados: 1.67, galonesReal: 5, diferencia: 3.33, alerta: true,
     },
     {
-      refuelingId: 2, vehicleId: 6, machineId: null, fuelTypeId: 1, fechaRegistro: '2026-07-16T10:00:00',
+      refuelingId: 2, vehicleId: 6, machineId: null, fuelTypeId: 1, fechaRegistro: '2026-07-15T10:00:00',
       horometroAnterior: 200, horometroActual: 230, ejecutado: 30, consumoEstandar: 30,
       galonesProyectados: 1, galonesReal: 1.1, diferencia: 0.1, alerta: false,
     },
@@ -172,5 +183,51 @@ describe('FuelPerformance', () => {
     });
     render(FuelPerformance);
     expect(screen.queryByRole('button', { name: /^editar$/i })).toBeNull();
+  });
+
+  it('colapsa a una sola fila por activo: la más reciente dentro del rango filtrado', () => {
+    // Dos filas del mismo vehicleId=5: la tabla debe mostrar solo la más nueva
+    // (07-20, diferencia=9), no las dos mezcladas.
+    data.subscribe.mockImplementation((callback) => {
+      callback({
+        fuelPerformance: {
+          MAQUINARIA: [
+            {
+              refuelingId: 10, vehicleId: 5, machineId: null, fuelTypeId: 1, fechaRegistro: '2026-07-10T10:00:00',
+              horometroAnterior: 50, horometroActual: 80, ejecutado: 30, consumoEstandar: 30,
+              galonesProyectados: 1, galonesReal: 1, diferencia: 0, alerta: false,
+            },
+            {
+              refuelingId: 11, vehicleId: 5, machineId: null, fuelTypeId: 1, fechaRegistro: '2026-07-20T10:00:00',
+              horometroAnterior: 80, horometroActual: 120, ejecutado: 40, consumoEstandar: 30,
+              galonesProyectados: 1.33, galonesReal: 9, diferencia: 7.67, alerta: true,
+            },
+          ],
+          VEHICULO: [],
+          MOTOCICLETA: [],
+        },
+        fuelAssetConfig: [],
+        fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
+        fuelRefuelingReport: [],
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    const { container } = render(FuelPerformance);
+    const rows = container.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(1);
+    // 7.67 (diferencia de la fila más nueva, refuelingId=11) identifica cuál quedó.
+    expect(rows[0].textContent).toContain('7.67');
+  });
+
+  it('click en "Ver historial" navega a /fuel-performance-history/:tipo/:id', async () => {
+    render(FuelPerformance);
+    const filas = screen.getAllByRole('row').filter((r) => r.textContent.includes('2026'));
+
+    await fireEvent.click(within(filas[0]).getByRole('button', { name: /ver historial/i }));
+
+    // Tipo MAQUINARIA es la pestaña activa por defecto; vehicleId=5 es el activo de la primera fila.
+    expect(push).toHaveBeenCalledWith('/fuel-performance-history/MAQUINARIA/5');
   });
 });
