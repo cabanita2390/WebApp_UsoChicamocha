@@ -53,6 +53,14 @@
   $: trendMonthLabels = trend.map((t) => formatMesCorto(t.mes));
   $: trendGalones = trend.map((t) => Number(t.galonesTotal) || 0);
   $: trendGastoNeto = trend.map((t) => Number(t.gastoNeto) || 0);
+  // t.mes es un LocalDate serializado (backend: "YYYY-MM-DD", día 1 de cada
+  // mes) — se usa directo para que el eje X de FuelTrendChart quede proporcional
+  // al tiempo real (mismo mecanismo que Historial de Rendimiento) en vez de
+  // repartir los puntos por índice. Con meses consecutivos normalmente no se
+  // nota, pero si el backend alguna vez devuelve un mes salteado (sin datos ese
+  // mes), el hueco real queda reflejado en el gráfico en vez de verse desfasado
+  // como si fuera continuo.
+  $: trendTimestamps = trend.map((t) => new Date(t.mes).getTime());
 
   // Delta vs. periodo anterior (misma duración que el rango filtrado, no "mes
   // anterior" fijo — el backend ya lo resuelve así). up = subir es malo para
@@ -256,6 +264,7 @@
           label="Consumo mensual (galones)"
           months={trendMonthLabels}
           values={trendGalones}
+          timestamps={trendTimestamps}
           color={ACCENT_BLUE}
           formatValue={formatCantidad}
         />
@@ -263,6 +272,7 @@
           label="Gasto neto mensual"
           months={trendMonthLabels}
           values={trendGastoNeto}
+          timestamps={trendTimestamps}
           color={GOOD_GREEN}
           formatValue={formatCOP}
         />
