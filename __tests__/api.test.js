@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import fetchWithAuth from '../stores/api.js';
+import fetchWithAuth, { getFileUrl } from '../stores/api.js';
 
 /**
  * @fileoverview Suite de tests para la función fetchWithAuth.
@@ -223,5 +223,44 @@ describe('fetchWithAuth', () => {
         'Custom-Header': 'value', // El header personalizado está presente
       },
     });
+  });
+});
+
+describe('getFileUrl', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('returns null for a falsy path', () => {
+    expect(getFileUrl(null)).toBe(null);
+    expect(getFileUrl('')).toBe(null);
+  });
+
+  it('returns the path as-is when it is already an absolute URL', () => {
+    expect(getFileUrl('https://cdn.test/file.pdf')).toBe('https://cdn.test/file.pdf');
+  });
+
+  it('joins BASE_URL and a leading-slash relative path without a double slash', () => {
+    // Regresión: FuelDocumentStorageService/VehicleDocumentStorageService devuelven
+    // rutas con "/" inicial (ej. "/uploads/documents/fuel/refueling/18/current.jpeg").
+    // Concatenar sin normalizar producía "http://localhost:8080//uploads/...", que
+    // Spring Security no matchea contra "/uploads/**" (permitAll) y devolvía 403.
+    expect(getFileUrl('/uploads/documents/fuel/refueling/18/current.jpeg'))
+      .toBe('http://localhost:8080/uploads/documents/fuel/refueling/18/current.jpeg');
+  });
+
+  it('joins BASE_URL and a relative path without a leading slash', () => {
+    expect(getFileUrl('uploads/documents/fuel/refueling/18/current.jpeg'))
+      .toBe('http://localhost:8080/uploads/documents/fuel/refueling/18/current.jpeg');
+  });
+
+  it('does not produce a double slash even if BASE_URL has a trailing slash', () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080/');
+    expect(getFileUrl('/uploads/documents/fuel/refueling/18/current.jpeg'))
+      .toBe('http://localhost:8080/uploads/documents/fuel/refueling/18/current.jpeg');
   });
 });
