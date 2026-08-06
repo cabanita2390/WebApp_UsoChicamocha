@@ -19,6 +19,7 @@
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import FuelTabbed from "./components/views/FuelTabbed.svelte";
   import FuelHistory from "./components/views/FuelHistory.svelte";
+  import FuelPerformanceHistory from "./components/views/FuelPerformanceHistory.svelte";
   import DocumentErrorModal from "./components/shared/DocumentErrorModal.svelte";
   import { auth } from "./stores/auth.js";
   import {
@@ -64,6 +65,7 @@
     "/moto-oil-change": MotoCambioAceiteForm,
     "/fuel": FuelTabbed,
     "/fuel-history/:tipoElemento/:id": FuelHistory,
+    "/fuel-performance-history/:tipoElemento/:id": FuelPerformanceHistory,
   };
 
   function handleActivateSound() {
@@ -242,6 +244,8 @@
       ui.setCurrentView("moto-oil-change");
       data.fetchMotos();
       data.fetchOils();
+    } else if (location.includes("/fuel-performance-history")) {
+      ui.setCurrentView("fuel-performance-history");
     } else if (location.includes("/fuel-history")) {
       ui.setCurrentView("fuel-history");
     } else if (location.includes("/fuel")) {

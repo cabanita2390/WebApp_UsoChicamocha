@@ -30,6 +30,7 @@ const ROUTE_TITLES = {
     "/moto-oil-change": "Registrar Cambio De Aceite",
     "/fuel": "Combustibles",
     "/fuel-history": "Historial De Tanqueos",
+    "/fuel-performance-history": "Historial De Rendimiento",
 };
 
 /**
