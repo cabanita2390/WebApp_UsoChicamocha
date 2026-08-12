@@ -209,7 +209,7 @@ describe('MachineManagement', () => {
     expect(data.updateAssetFuelConfigMachine).toHaveBeenCalledWith(5, {
       fuelTypeDefaultId: 1,
       consumoEstandar: 3.5,
-      unidadConsumo: 'GAL_POR_HORA',
+      unidadConsumo: 'HORA_POR_GALON',
       tanqueCapacidadGal: null,
     });
   });

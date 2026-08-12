@@ -97,13 +97,18 @@ describe('FuelPerformanceHistory', () => {
   it('muestra todos los tanqueos del activo, no solo el más reciente', () => {
     render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
     const filas = screen.getAllByRole('row');
-    // 3 registros del activo + 1 fila de encabezado.
-    expect(filas.some((r) => r.textContent.includes('0.05'))).toBe(true);
-    expect(filas.some((r) => r.textContent.includes('38.67'))).toBe(true);
+    // 3 registros del activo + 1 fila de encabezado (valores formateados es-CO: coma decimal).
+    expect(filas.some((r) => r.textContent.includes('0,05'))).toBe(true);
+    expect(filas.some((r) => r.textContent.includes('38,67'))).toBe(true);
   });
 
-  it('el resumen muestra el total de registros y cuántos tienen alerta', () => {
+  it('el resumen muestra el total de registros y cuántos tienen alerta', async () => {
+    // Default es "1M" (último mes) — se pasa a "Todo" para contar los 3
+    // registros del mock sin depender de qué tan lejos esté "ahora" real de
+    // las fechas fijas de julio 2026 del fixture.
     const { container } = render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Todo' }));
+
     const valores = [...container.querySelectorAll('.summary-value')].map((el) => el.textContent.trim());
     expect(valores[0]).toBe('3'); // Total registros
     expect(valores[2]).toBe('1 / 3'); // Con alerta
@@ -117,16 +122,18 @@ describe('FuelPerformanceHistory', () => {
     expect(chart.querySelectorAll('polyline').length).toBe(2);
   });
 
-  it('con un rango de hasta un año, la etiqueta muestra día arriba y mes abreviado abajo', () => {
+  it('con un rango de hasta un año, la etiqueta muestra día arriba y mes abreviado abajo', async () => {
     // Los 3 registros del mock caen en julio de 2026 (rango de 10 días) — bien
-    // por debajo del año, así que el día es el dato útil.
+    // por debajo del año, así que el día es el dato útil. Se pasa a "Todo"
+    // (default es "1M") para verlos los 3 sin depender de la fecha real de hoy.
     const { container } = render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Todo' }));
 
     const etiquetas = [...container.querySelectorAll('.trend-month')].map((el) => el.textContent);
     expect(etiquetas).toEqual(['10\njul', '15\njul', '20\njul']);
   });
 
-  it('con un rango mayor a un año (histórico que ya creció varios años), la etiqueta cambia a mes abreviado arriba y año abajo', () => {
+  it('con un rango mayor a un año (histórico que ya creció varios años), la etiqueta cambia a mes abreviado arriba y año abajo', async () => {
     // Mismo activo, pero ahora con tanqueos en 2024, 2025 y 2026 — a esa escala
     // el día exacto ya no aporta, el año sí.
     const variosAniosMock = [
@@ -145,7 +152,9 @@ describe('FuelPerformanceHistory', () => {
       return () => {};
     });
 
+    // Default es "1M" — se pasa a "Todo" para ver los 3 años completos.
     const { container } = render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Todo' }));
 
     const etiquetas = [...container.querySelectorAll('.trend-month')].map((el) => el.textContent);
     expect(etiquetas).toEqual(['ene\n2024', 'jun\n2025', 'jul\n2026']);
@@ -172,14 +181,14 @@ describe('FuelPerformanceHistory', () => {
 
     const { container } = render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
 
-    // "Todo" (default): se ven los 2 registros.
-    expect(container.querySelector('.summary-value').textContent.trim()).toBe('2');
+    // "1M" (default): solo "reciente" (hace 5 días) cae dentro del rango; "viejo" (hace ~6.5 meses) queda fuera.
+    expect(container.querySelector('.summary-value').textContent.trim()).toBe('1');
 
-    await fireEvent.click(screen.getByRole('button', { name: '1M' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Todo' }));
 
     // Filtrado 100% client-side: no dispara un fetch nuevo al backend.
     expect(data.fetchFuelPerformanceAllTipos).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('.summary-value').textContent.trim()).toBe('1');
+    expect(container.querySelector('.summary-value').textContent.trim()).toBe('2');
   });
 
   it('si el rango elegido no tiene tanqueos, muestra el mensaje específico (no el de "sin historial" general)', async () => {
@@ -211,7 +220,7 @@ describe('FuelPerformanceHistory', () => {
 
   it('click en Editar precarga el tanqueo completo (sin buscador de activo, fijo por la ruta)', async () => {
     render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
-    const filaMasReciente = screen.getAllByRole('row').find((r) => r.textContent.includes('38.67'));
+    const filaMasReciente = screen.getAllByRole('row').find((r) => r.textContent.includes('38,67'));
 
     await fireEvent.click(within(filaMasReciente).getByRole('button', { name: /^editar$/i }));
 

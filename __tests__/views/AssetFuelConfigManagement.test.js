@@ -209,7 +209,7 @@ describe('AssetFuelConfigManagement', () => {
       render(AssetFuelConfigManagement);
       await elegirTipo('MAQUINA');
       await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
-      expect(screen.getByLabelText(/unidad de consumo/i).value).toBe('GAL_POR_HORA');
+      expect(screen.getByLabelText(/unidad de consumo/i).value).toBe('HORA_POR_GALON');
 
       await fireEvent.change(screen.getByLabelText(/unidad de consumo/i), { target: { value: 'KM_POR_GALON' } });
 
@@ -222,20 +222,20 @@ describe('AssetFuelConfigManagement', () => {
       await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } }); // ACPM = GALON
 
       const opciones = Array.from(screen.getByLabelText(/unidad de consumo/i).options).map((o) => o.value);
-      expect(opciones.sort()).toEqual(['GAL_POR_HORA', 'KM_POR_GALON']);
+      expect(opciones.sort()).toEqual(['HORA_POR_GALON', 'KM_POR_GALON']);
     });
 
     it('la unidad elegida a mano no se pierde al interactuar con otros campos del formulario (ej. vehículo diésel por horómetro)', async () => {
       render(AssetFuelConfigManagement);
       await elegirTipo('VEHICULO');
       await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
-      await fireEvent.change(screen.getByLabelText(/unidad de consumo/i), { target: { value: 'GAL_POR_HORA' } });
+      await fireEvent.change(screen.getByLabelText(/unidad de consumo/i), { target: { value: 'HORA_POR_GALON' } });
 
       await abrirBuscador(/buscar vehículo/i);
       await fireEvent.click(screen.getByText('ABC123 — Toyota'));
       await fireEvent.input(screen.getByLabelText(/consumo estándar/i), { target: { value: '30' } });
 
-      expect(screen.getByLabelText(/unidad de consumo/i).value).toBe('GAL_POR_HORA');
+      expect(screen.getByLabelText(/unidad de consumo/i).value).toBe('HORA_POR_GALON');
     });
 
     it('el envío usa la unidad elegida a mano, no la sugerida automáticamente', async () => {
@@ -244,7 +244,7 @@ describe('AssetFuelConfigManagement', () => {
       await abrirBuscador(/buscar vehículo/i);
       await fireEvent.click(screen.getByText('ABC123 — Toyota'));
       await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
-      await fireEvent.change(screen.getByLabelText(/unidad de consumo/i), { target: { value: 'GAL_POR_HORA' } });
+      await fireEvent.change(screen.getByLabelText(/unidad de consumo/i), { target: { value: 'HORA_POR_GALON' } });
       await fireEvent.input(screen.getByLabelText(/consumo estándar/i), { target: { value: '30' } });
 
       await fireEvent.submit(screen.getByRole('form'));
@@ -252,7 +252,7 @@ describe('AssetFuelConfigManagement', () => {
       expect(data.updateAssetFuelConfigVehicle).toHaveBeenCalledWith(5, {
         fuelTypeDefaultId: 1,
         consumoEstandar: 30,
-        unidadConsumo: 'GAL_POR_HORA',
+        unidadConsumo: 'HORA_POR_GALON',
         tanqueCapacidadGal: null,
       });
     });
@@ -261,7 +261,7 @@ describe('AssetFuelConfigManagement', () => {
       render(AssetFuelConfigManagement);
       await elegirTipo('VEHICULO');
       await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
-      await fireEvent.change(screen.getByLabelText(/unidad de consumo/i), { target: { value: 'GAL_POR_HORA' } });
+      await fireEvent.change(screen.getByLabelText(/unidad de consumo/i), { target: { value: 'HORA_POR_GALON' } });
 
       await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '4' } });
 
@@ -285,12 +285,12 @@ describe('AssetFuelConfigManagement', () => {
     expect(screen.getByLabelText(/unidad de consumo/i).value).toBe('KM_POR_M3');
   });
 
-  it('calcula la unidad de consumo automáticamente (máquina + gasolina = GAL_POR_HORA)', async () => {
+  it('calcula la unidad de consumo automáticamente (máquina + gasolina = HORA_POR_GALON)', async () => {
     render(AssetFuelConfigManagement);
     await elegirTipo('MAQUINA');
     await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
 
-    expect(screen.getByLabelText(/unidad de consumo/i).value).toBe('GAL_POR_HORA');
+    expect(screen.getByLabelText(/unidad de consumo/i).value).toBe('HORA_POR_GALON');
   });
 
   it('envía la configuración de vehículo seleccionado con la unidad calculada', async () => {
@@ -343,7 +343,7 @@ describe('AssetFuelConfigManagement', () => {
     expect(data.updateAssetFuelConfigMachine).toHaveBeenCalledWith(8, {
       fuelTypeDefaultId: 1,
       consumoEstandar: 4.5,
-      unidadConsumo: 'GAL_POR_HORA',
+      unidadConsumo: 'HORA_POR_GALON',
       tanqueCapacidadGal: null,
     });
   });

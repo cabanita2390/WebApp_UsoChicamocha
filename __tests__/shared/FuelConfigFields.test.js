@@ -15,39 +15,39 @@ describe('FuelConfigFields', () => {
     expect(screen.getByLabelText(/consumo estándar/i)).toBeDisabled();
   });
 
-  it('al elegir un combustible de galón, ofrece Km/Gl y Gl/Hr, y sugiere Km/Gl por defecto', async () => {
+  it('al elegir un combustible de galón, ofrece Km/Gl y H/Gl, y sugiere Km/Gl por defecto', async () => {
     render(FuelConfigFields, { props: { fuelTypes: FUEL_TYPES, idPrefix: 'new' } });
 
     await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
 
     const opciones = Array.from(screen.getByLabelText(/^unidad$/i).options).map((o) => o.value);
-    expect(opciones.sort()).toEqual(['GAL_POR_HORA', 'KM_POR_GALON']);
+    expect(opciones.sort()).toEqual(['HORA_POR_GALON', 'KM_POR_GALON']);
     expect(screen.getByLabelText(/^unidad$/i).value).toBe('KM_POR_GALON');
     expect(screen.getByLabelText(/consumo estándar/i)).not.toBeDisabled();
   });
 
-  it('al elegir un combustible de gas (m³), ofrece Km/M3 y M3/Hr', async () => {
+  it('al elegir un combustible de gas (m³), ofrece Km/M3 y H/M3', async () => {
     render(FuelConfigFields, { props: { fuelTypes: FUEL_TYPES, idPrefix: 'new' } });
 
     await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '4' } });
 
     const opciones = Array.from(screen.getByLabelText(/^unidad$/i).options).map((o) => o.value);
-    expect(opciones.sort()).toEqual(['KM_POR_M3', 'M3_POR_HORA']);
+    expect(opciones.sort()).toEqual(['HORA_POR_M3', 'KM_POR_M3']);
   });
 
-  it('permite elegir manualmente la otra unidad válida (ej. Gl/Hr para un vehículo diésel por horómetro)', async () => {
+  it('permite elegir manualmente la otra unidad válida (ej. H/Gl para un vehículo diésel por horómetro)', async () => {
     render(FuelConfigFields, { props: { fuelTypes: FUEL_TYPES, idPrefix: 'new' } });
     await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
 
-    await fireEvent.change(screen.getByLabelText(/^unidad$/i), { target: { value: 'GAL_POR_HORA' } });
+    await fireEvent.change(screen.getByLabelText(/^unidad$/i), { target: { value: 'HORA_POR_GALON' } });
 
-    expect(screen.getByLabelText(/^unidad$/i).value).toBe('GAL_POR_HORA');
+    expect(screen.getByLabelText(/^unidad$/i).value).toBe('HORA_POR_GALON');
   });
 
   it('al cambiar a un combustible de otra familia física, resetea la unidad a una válida para la nueva', async () => {
     render(FuelConfigFields, { props: { fuelTypes: FUEL_TYPES, idPrefix: 'new' } });
     await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
-    await fireEvent.change(screen.getByLabelText(/^unidad$/i), { target: { value: 'GAL_POR_HORA' } });
+    await fireEvent.change(screen.getByLabelText(/^unidad$/i), { target: { value: 'HORA_POR_GALON' } });
 
     await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '4' } });
 
@@ -84,7 +84,7 @@ describe('FuelConfigFields', () => {
 
     await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
 
-    expect(screen.getByLabelText(/^unidad$/i).value).toBe('GAL_POR_HORA');
+    expect(screen.getByLabelText(/^unidad$/i).value).toBe('HORA_POR_GALON');
   });
 
   it('sugiere la unidad "por distancia" primero cuando preferPorHora=false (vehículo/moto, default)', async () => {

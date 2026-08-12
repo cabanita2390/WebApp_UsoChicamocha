@@ -104,6 +104,31 @@ describe('FuelPerformance', () => {
     expect(rows[1].classList.contains('anomaly-row')).toBe(false);
   });
 
+  it('marca con un asterisco la Alerta de un activo sin suficiente historial propio (tolerancia general, no aprendida)', () => {
+    data.subscribe.mockImplementation((callback) => {
+      callback({
+        fuelPerformance: {
+          MAQUINARIA: [
+            { ...mockPerformance.MAQUINARIA[0], usaRangoAprendido: false },
+            { ...mockPerformance.MAQUINARIA[1], usaRangoAprendido: true },
+          ],
+          VEHICULO: [],
+          MOTOCICLETA: [],
+        },
+        fuelAssetConfig: [],
+        fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
+        fuelRefuelingReport: [],
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    render(FuelPerformance);
+
+    expect(screen.getByText('SÍ *')).toBeTruthy();
+    expect(screen.getByText('NO')).toBeTruthy();
+  });
+
   it('muestra la columna Producto con el nombre del combustible del tanqueo', () => {
     render(FuelPerformance);
     expect(screen.getByText('Producto')).toBeTruthy();
@@ -230,8 +255,8 @@ describe('FuelPerformance', () => {
     const { container } = render(FuelPerformance);
     const rows = container.querySelectorAll('tbody tr');
     expect(rows.length).toBe(1);
-    // 7.67 (diferencia de la fila más nueva, refuelingId=11) identifica cuál quedó.
-    expect(rows[0].textContent).toContain('7.67');
+    // 7,67 (diferencia de la fila más nueva, refuelingId=11, formateada es-CO) identifica cuál quedó.
+    expect(rows[0].textContent).toContain('7,67');
   });
 
   it('click en "Ver historial" navega a /fuel-performance-history/:tipo/:id', async () => {
