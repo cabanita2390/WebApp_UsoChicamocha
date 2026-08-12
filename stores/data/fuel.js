@@ -104,6 +104,25 @@ export function createFuelActions({ update, get, subscribe, setLoading, setError
                 throw err;
             }
         },
+        // Descuento mensual global (a pedido del usuario): el proveedor no informa el
+        // descuento por cada tanqueo/compra individual, solo un total consolidado a
+        // fin de mes/periodo — se registra aparte desde el Dashboard Financiero.
+        createMonthlyDiscount: async (payload) => {
+            return await fetchWithAuth('fuel/monthly-discount', { method: 'POST', body: JSON.stringify(payload) });
+        },
+        fetchFuelBudgetProjection: async (fechaFin) => {
+            try {
+                const params = new URLSearchParams();
+                if (fechaFin) params.set('fechaFin', fechaFin);
+                const qs = params.toString();
+                const result = await fetchWithAuth(`fuel/dashboard/proyeccion${qs ? `?${qs}` : ''}`);
+                update(s => ({ ...s, fuelBudgetProjection: result ?? [] }));
+                return result;
+            } catch (err) {
+                setError(err.message);
+                throw err;
+            }
+        },
         // Combustibles — Control de Almacén (Fase 4, Task 21)
         fetchFuelWarehouseBalance: async () => {
             setLoading(true);

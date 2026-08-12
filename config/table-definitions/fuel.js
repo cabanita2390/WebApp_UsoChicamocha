@@ -32,7 +32,12 @@ export const createRefuelingColumns = (fuelTypesById = {}, unidadMedidaById = {}
             id: 'ref_elemento',
             size: 170,
         },
-        { header: 'Lugar', accessorKey: 'lugar', size: 90 },
+        {
+            header: 'Lugar',
+            accessorFn: (row) => (row.lugar === 'BOMBA' ? 'Estación de Servicio' : row.lugar === 'ALMACEN' ? 'Almacén General' : row.lugar),
+            id: 'ref_lugar',
+            size: 140,
+        },
         { header: 'Área de costo', accessorKey: 'areaCosto', size: 100 },
         {
             header: 'Combustible',

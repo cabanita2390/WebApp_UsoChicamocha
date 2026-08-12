@@ -31,6 +31,7 @@ export const initialState = {
     fuelRefueling: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
     fuelDashboard: null,
     fuelTrend: [],
+    fuelBudgetProjection: [],
     fuelWarehouseBalance: [],
     fuelWarehouseMovements: null,
     // Los 3 tipos (Maquinaria/Vehículo/Motocicleta) se cargan siempre juntos —
