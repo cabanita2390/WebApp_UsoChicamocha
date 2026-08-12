@@ -1,4 +1,4 @@
-import { formatLocalDate } from './helpers.js';
+import { formatLocalDate, formatHoras } from './helpers.js';
 
 export const machineColumns = [
     { accessorKey: "name", header: "Nombre", size: 150 },
@@ -57,7 +57,7 @@ export const machineInspectionColumns = [
     },
     {
         header: 'Horas',
-        accessorFn: (row) => (row.hourMeter != null ? row.hourMeter.toFixed(2) : 'N/A'),
+        accessorFn: (row) => (row.hourMeter != null ? formatHoras(row.hourMeter) : 'N/A'),
         id: 'insp_horas',
         size: 80,
     },

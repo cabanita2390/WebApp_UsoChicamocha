@@ -25,11 +25,11 @@
   const UNIDADES_POR_MEDIDA = {
     GALON: [
       { value: "KM_POR_GALON", label: "Km/Gl" },
-      { value: "GAL_POR_HORA", label: "Gl/Hr" },
+      { value: "HORA_POR_GALON", label: "H/Gl" },
     ],
     M3: [
       { value: "KM_POR_M3", label: "Km/M3" },
-      { value: "M3_POR_HORA", label: "M3/Hr" },
+      { value: "HORA_POR_M3", label: "H/M3" },
     ],
   };
 
@@ -44,7 +44,7 @@
   $: if (unidadMedidaActual !== unidadMedidaAnterior) {
     unidadMedidaAnterior = unidadMedidaActual;
     const preferida = preferPorHora
-      ? unidadesDisponibles.find((u) => u.value.endsWith("_POR_HORA"))
+      ? unidadesDisponibles.find((u) => u.value.startsWith("HORA_POR_"))
       : unidadesDisponibles.find((u) => u.value.startsWith("KM_"));
     unidadConsumo = (preferida ?? unidadesDisponibles[0])?.value ?? "";
   }

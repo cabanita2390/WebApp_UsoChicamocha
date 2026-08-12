@@ -48,6 +48,20 @@ export function formatDateTimeLocal(value) {
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 }
 
+// Etiqueta corta y legible para el código de unidad de consumo estándar de
+// Rendimiento (mismo texto que ya usa el selector de AssetFuelConfigManagement) —
+// para que la columna "Consumo estándar" no muestre el número solo, sin decir si
+// es km por galón, galones por hora, etc.
+export function unidadConsumoLabel(codigo) {
+    const labels = {
+        KM_POR_GALON: 'Km/Gl',
+        HORA_POR_GALON: 'H/Gl',
+        KM_POR_M3: 'Km/M3',
+        HORA_POR_M3: 'H/M3',
+    };
+    return labels[codigo] ?? codigo ?? '—';
+}
+
 export function yn(v) {
     if (v === true) return 'SÍ';
     if (v === false) return 'NO';
@@ -98,7 +112,13 @@ export const formatCurrency = (value) => new Intl.NumberFormat('es-CO', {
     minimumFractionDigits: 0
 }).format(value || 0);
 
-export const formatKm = (value) => new Intl.NumberFormat('es-CO').format(value || 0);
+export const formatKm = (value) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(value || 0);
+
+/** Horómetro de maquinaria: a diferencia del kilometraje de vehículos, se reporta con un decimal (fracción de hora). */
+export const formatHoras = (value) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value || 0);
+
+/** Cantidad de combustible (galones/m³): hasta 3 decimales (mismo step del formulario de tanqueo), con puntos de miles. */
+export const formatCantidad = (value) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 3 }).format(value || 0);
 
 // Helper para obtener color/semáforo basado en porcentaje de uso
 export function getStatusColor(percentageUsed) {

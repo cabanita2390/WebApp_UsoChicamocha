@@ -1,4 +1,4 @@
-import { formatDateTimeLocal, formatCurrency, yn } from './helpers.js';
+import { formatDateTimeLocal, formatCurrency, formatKm, formatHoras, formatCantidad, yn, unidadConsumoLabel } from './helpers.js';
 
 /**
  * Columnas del historial de Tanqueo (combustibles, Fase 4 Task 18; reutilizada en
@@ -47,21 +47,26 @@ export const createRefuelingColumns = (fuelTypesById = {}, unidadMedidaById = {}
         },
         {
             header: 'Cantidad',
-            accessorFn: (row) => `${row.cantidadGalones} ${unidadMedidaById[row.fuelTypeId] === 'M3' ? 'm³' : 'gal'}`,
+            accessorFn: (row) => `${formatCantidad(row.cantidadGalones)} ${unidadMedidaById[row.fuelTypeId] === 'M3' ? 'm³' : 'gal'}`,
             id: 'ref_cantidad',
             size: 100,
         },
-        { header: 'Horómetro/Km', accessorKey: 'horometroKm', size: 110 },
+        {
+            header: 'Horómetro/Km',
+            accessorFn: (row) => (row.machineId != null ? formatHoras(row.horometroKm) : formatKm(row.horometroKm)),
+            id: 'ref_horometro',
+            size: 110,
+        },
         { header: 'Full', accessorFn: (row) => yn(row.esFull), id: 'ref_full', size: 60 },
         {
             header: 'Precio unit.',
-            accessorFn: (row) => (row.precioUnitario != null ? row.precioUnitario : '—'),
+            accessorFn: (row) => (row.precioUnitario != null ? formatCurrency(row.precioUnitario) : '—'),
             id: 'ref_precio',
             size: 100,
         },
         {
             header: 'Total',
-            accessorFn: (row) => (row.totalCalculado != null ? row.totalCalculado : '—'),
+            accessorFn: (row) => (row.totalCalculado != null ? formatCurrency(row.totalCalculado) : '—'),
             id: 'ref_total',
             size: 100,
         },
@@ -134,19 +139,19 @@ export const createFuelPurchaseColumns = (fuelTypesById = {}, unidadMedidaById =
     },
     {
         header: 'Cantidad',
-        accessorFn: (row) => `${row.cantidad} ${unidadMedidaById[row.fuelTypeId] === 'M3' ? 'm³' : 'gal'}`,
+        accessorFn: (row) => `${formatCantidad(row.cantidad)} ${unidadMedidaById[row.fuelTypeId] === 'M3' ? 'm³' : 'gal'}`,
         id: 'compra_cantidad',
         size: 100,
     },
-    { header: 'Precio unit.', accessorKey: 'precioUnitario', size: 100 },
+    { header: 'Precio unit.', accessorFn: (row) => formatCurrency(row.precioUnitario), id: 'compra_precio', size: 100 },
     {
         header: 'Descuento',
-        accessorFn: (row) => (row.descuento != null ? row.descuento : '—'),
+        accessorFn: (row) => (row.descuento != null ? formatCurrency(row.descuento) : '—'),
         id: 'compra_descuento',
         size: 100,
     },
-    { header: 'Total ingresado', accessorKey: 'totalIngresado', size: 110 },
-    { header: 'Total calculado', accessorKey: 'totalCalculado', size: 110 },
+    { header: 'Total ingresado', accessorFn: (row) => formatCurrency(row.totalIngresado), id: 'compra_total_ingresado', size: 110 },
+    { header: 'Total calculado', accessorFn: (row) => formatCurrency(row.totalCalculado), id: 'compra_total_calculado', size: 110 },
     {
         header: 'Discrepancia',
         accessorFn: (row) => yn(row.discrepanciaValor),
@@ -173,7 +178,12 @@ export const createAssetFuelConfigColumns = (fuelTypesById = {}) => [
         size: 130,
     },
     { header: 'Consumo estándar', accessorKey: 'consumoEstandar', size: 110 },
-    { header: 'Unidad', accessorKey: 'unidadConsumo', size: 110 },
+    {
+        header: 'Unidad',
+        accessorFn: (row) => unidadConsumoLabel(row.unidadConsumo),
+        id: 'cfg_unidad',
+        size: 90,
+    },
     {
         header: 'Capacidad tanque (gal)',
         accessorFn: (row) => (row.tanqueCapacidadGal != null ? row.tanqueCapacidadGal : '—'),
@@ -197,6 +207,7 @@ export const createAssetFuelConfigColumns = (fuelTypesById = {}) => [
  */
 export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = false, showHistorialAction = false) => {
     const columns = [
+        { header: 'Fecha', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'perf_fecha', size: 140 },
         {
             header: 'Activo',
             accessorFn: (row) => row.identificacionActivo ?? '—',
@@ -209,45 +220,74 @@ export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = f
             id: 'perf_producto',
             size: 130,
         },
-        { header: 'Fecha', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'perf_fecha', size: 140 },
         {
-            header: 'Estándar (A)',
-            accessorFn: (row) => `${row.consumoEstandar} ${row.unidadLabel}`,
+            header: 'Consumo estándar (A)',
+            // Unidad de TASA (Km/Gl, Gl/Hr, Km/M3, M3/Hr) — no confundir con
+            // unidadLabel (gal/m³ a secas), que es la unidad física del combustible
+            // usada en Proyectado/Real/Diferencia, no la de este número.
+            accessorFn: (row) => `${row.consumoEstandar} ${unidadConsumoLabel(row.unidadConsumo)}`,
             id: 'perf_consumo_estandar',
-            size: 130,
+            size: 110,
+            meta: { isMultilineHeader: true },
         },
-        { header: 'Último (B)', accessorKey: 'horometroAnterior', size: 100 },
-        { header: 'Actual (C)', accessorKey: 'horometroActual', size: 100 },
-        { header: 'Ejecutado (C−B)', accessorKey: 'ejecutado', size: 130 },
         {
-            header: 'Proyectado',
-            accessorFn: (row) => `${row.galonesProyectados} ${row.unidadLabel}`,
+            header: 'Km/Horómetro anterior (B)',
+            accessorFn: (row) => (row.machineId != null ? formatHoras(row.horometroAnterior) : formatKm(row.horometroAnterior)),
+            id: 'perf_horometro_anterior',
+            size: 110,
+            meta: { isMultilineHeader: true },
+        },
+        {
+            header: 'Km/Horómetro actual (C)',
+            accessorFn: (row) => (row.machineId != null ? formatHoras(row.horometroActual) : formatKm(row.horometroActual)),
+            id: 'perf_horometro_actual',
+            size: 105,
+            meta: { isMultilineHeader: true },
+        },
+        {
+            header: 'Km/Horómetro ejecutado (D = C−B)',
+            accessorFn: (row) => (row.machineId != null ? formatHoras(row.ejecutado) : formatKm(row.ejecutado)),
+            id: 'perf_ejecutado',
+            size: 120,
+            meta: { isMultilineHeader: true },
+        },
+        {
+            header: 'Galones proyectados (E = D÷A)',
+            accessorFn: (row) => `${formatCantidad(row.galonesProyectados)} ${row.unidadLabel}`,
             id: 'perf_proyectado',
-            size: 110,
+            size: 120,
+            meta: { isMultilineHeader: true },
         },
         {
-            header: 'Real',
-            accessorFn: (row) => `${row.galonesReal} ${row.unidadLabel}`,
+            header: 'Galones tanqueados (F)',
+            accessorFn: (row) => `${formatCantidad(row.galonesReal)} ${row.unidadLabel}`,
             id: 'perf_real',
-            size: 100,
-        },
-        {
-            header: 'Diferencia',
-            accessorFn: (row) => `${row.diferencia} ${row.unidadLabel}`,
-            id: 'perf_diferencia',
             size: 110,
+            meta: { isMultilineHeader: true },
         },
         {
-            header: 'Full',
+            header: 'Diferencia (G = F−E)',
+            accessorFn: (row) => `${formatCantidad(row.diferencia)} ${row.unidadLabel}`,
+            id: 'perf_diferencia',
+            size: 115,
+            meta: { isMultilineHeader: true },
+        },
+        {
+            header: '¿Tanque lleno?',
             accessorFn: (row) => yn(row.esFull),
             id: 'perf_full',
-            size: 80,
+            size: 95,
+            meta: { isMultilineHeader: true },
         },
         {
             header: 'Alerta',
-            accessorFn: (row) => yn(row.alerta),
+            // El asterisco marca que este activo todavía no tiene suficiente historial
+            // propio (mínimo 2 tanqueos previos comparables) para calcular su rango
+            // aprendido — mientras tanto se evalúa con la tolerancia general del 15%,
+            // no con el comportamiento normal de ESE activo en particular.
+            accessorFn: (row) => `${yn(row.alerta)}${row.usaRangoAprendido === false ? ' *' : ''}`,
             id: 'perf_alerta',
-            size: 80,
+            size: 90,
         },
     ];
     if (showHistorialAction) {

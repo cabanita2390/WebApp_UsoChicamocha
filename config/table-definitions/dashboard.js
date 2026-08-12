@@ -1,3 +1,5 @@
+import { formatHoras } from './helpers.js';
+
 export const dashboardColumns = [
     {
         accessorFn: (row) => {
@@ -23,7 +25,7 @@ export const dashboardColumns = [
         header: "MÁQUINA",
 
     },
-    { accessorKey: "hourMeter", header: "Horómetro", size: 80 },
+    { accessorFn: (row) => formatHoras(row.hourMeter), id: "hourMeter", header: "Horómetro", size: 80 },
     {
         accessorKey: "leakStatus",
         header: "Fugas Sistema",

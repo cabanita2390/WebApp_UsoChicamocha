@@ -323,7 +323,7 @@
       <div class="form-row form-row--align-center">
         <label class="field" for="horometroKm">
           <span class="field-lab">Horómetro/Km</span>
-          <input id="horometroKm" type="number" step="0.01" bind:value={form.horometroKm} required disabled={isSubmitting} />
+          <input id="horometroKm" type="number" step={form.tipoElemento === "MAQUINARIA" ? "0.1" : "1"} bind:value={form.horometroKm} required disabled={isSubmitting} />
         </label>
         <label class="field field--checkbox" for="esFull">
           <input id="esFull" type="checkbox" bind:checked={form.esFull} disabled={isSubmitting} />

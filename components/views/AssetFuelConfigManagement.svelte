@@ -5,7 +5,7 @@
   const dispatch = createEventDispatcher();
 
   const UNIDAD_VEHICULO = { GALON: "KM_POR_GALON", M3: "KM_POR_M3" };
-  const UNIDAD_MAQUINA = { GALON: "GAL_POR_HORA", M3: "M3_POR_HORA" };
+  const UNIDAD_MAQUINA = { GALON: "HORA_POR_GALON", M3: "HORA_POR_M3" };
 
   const initialState = {
     // Sin tipo preseleccionado: nada se carga hasta que el usuario elige uno,
@@ -36,7 +36,7 @@
   let activosCargando = false;
 
   // Unidad de consumo editable — se auto-sugiere la calculada, pero el usuario
-  // puede cambiarla (ej. pasar de GAL_POR_HORA a otra) sin que sea obligatorio.
+  // puede cambiarla (ej. pasar de HORA_POR_GALON a otra) sin que sea obligatorio.
   let unidadSeleccionada = null;
   let unidadSugeridaAnterior = null;
   // value = lo que el backend espera literalmente (CHECK de la BD +
@@ -47,11 +47,11 @@
   const UNIDADES_POR_MEDIDA = {
     GALON: [
       { value: "KM_POR_GALON", label: "Km/Gl" },
-      { value: "GAL_POR_HORA", label: "Gl/Hr" },
+      { value: "HORA_POR_GALON", label: "H/Gl" },
     ],
     M3: [
       { value: "KM_POR_M3", label: "Km/M3" },
-      { value: "M3_POR_HORA", label: "M3/Hr" },
+      { value: "HORA_POR_M3", label: "H/M3" },
     ],
   };
 
@@ -242,6 +242,7 @@
       };
       if (form.tipoActivo === "MAQUINA") {
         await data.updateAssetFuelConfigMachine(Number(form.activoId), payload);
+        data.fetchFuelPerformanceAllTipos();
       } else {
         await data.updateAssetFuelConfigVehicle(Number(form.activoId), payload);
       }
