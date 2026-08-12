@@ -4,7 +4,7 @@
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import { addNotification } from "../../stores/ui.js";
-  import { fuelDateRange } from "../../stores/fuelFilters.js";
+  import { fuelDateRange, resetFuelDateRange } from "../../stores/fuelFilters.js";
   import DataGrid from "../shared/DataGrid.svelte";
   import Loader from "../shared/Loader.svelte";
   import RefuelingFormModal from "../shared/RefuelingFormModal.svelte";
@@ -68,6 +68,11 @@
     data.fetchFuelPerformanceAllTipos($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
   }
 
+  function handleLimpiarFiltro() {
+    resetFuelDateRange();
+    handleFiltrar();
+  }
+
   function seleccionarTipo(nuevoTipo) {
     tipo = nuevoTipo;
   }
@@ -122,6 +127,7 @@
         <input id="perfFechaFin" type="date" bind:value={$fuelDateRange.fechaFin} />
       </label>
       <button type="button" class="btn-filter" on:click={handleFiltrar}>Filtrar</button>
+      <button type="button" class="btn-clear-filter" on:click={handleLimpiarFiltro}>Limpiar filtro</button>
     </div>
 
     <div class="tipo-selector-center">
@@ -286,6 +292,21 @@
   }
   .btn-filter:hover {
     background: #256abf;
+  }
+  .btn-clear-filter {
+    font-family: inherit;
+    padding: 9px 20px;
+    background: #fff;
+    color: #52514e;
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    height: 34px;
+  }
+  .btn-clear-filter:hover {
+    background: #f5f6f8;
   }
   .btn-config {
     background: #52514e;

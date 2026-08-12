@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { render, screen, fireEvent, within } from '@testing-library/svelte';
 import FuelFinancialDashboard from '../../components/views/FuelFinancialDashboard.svelte';
-import { fuelDateRange } from '../../stores/fuelFilters.js';
+import { fuelDateRange, defaultFuelDateRange } from '../../stores/fuelFilters.js';
 
 vi.mock('../../stores/data.js', () => ({
   data: {
@@ -9,7 +9,22 @@ vi.mock('../../stores/data.js', () => ({
     fetchFuelDashboard: vi.fn(),
     fetchFuelTypes: vi.fn(),
     fetchFuelTrend: vi.fn(),
+    fetchFuelBudgetProjection: vi.fn(),
+    createMonthlyDiscount: vi.fn().mockResolvedValue({ id: 1 }),
   },
+}));
+
+vi.mock('../../stores/auth.js', () => ({
+  auth: {
+    subscribe: vi.fn((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Test User', role: 'OPERARIO' }, isRefreshing: false });
+      return () => {};
+    }),
+  },
+}));
+
+vi.mock('../../stores/ui.js', () => ({
+  addNotification: vi.fn(),
 }));
 
 vi.mock('../shared/Loader.svelte', () => ({
@@ -21,6 +36,7 @@ vi.mock('../shared/Loader.svelte', () => ({
 }));
 
 import { data } from '../../stores/data.js';
+import { auth } from '../../stores/auth.js';
 
 const mockDashboard = {
   fechaInicio: '2026-07-01',
@@ -53,6 +69,10 @@ describe('FuelFinancialDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fuelDateRange.set({ fechaInicio: '', fechaFin: '' });
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Test User', role: 'OPERARIO' }, isRefreshing: false });
+      return () => {};
+    });
     data.subscribe.mockImplementation((callback) => {
       callback({
         fuelDashboard: mockDashboard,
@@ -64,6 +84,7 @@ describe('FuelFinancialDashboard', () => {
           { mes: '2026-06-01', gastoBruto: 400000, gastoNeto: 400000, galonesTotal: 20 },
           { mes: '2026-07-01', gastoBruto: 500000, gastoNeto: 500000, galonesTotal: 25 },
         ],
+        fuelBudgetProjection: [],
         isLoading: false,
       });
       return () => {};
@@ -184,5 +205,124 @@ describe('FuelFinancialDashboard', () => {
     expect(marcador.style.left).not.toBe('');
     expect(marcador.style.left.includes('NaN')).toBe(false);
     expect(marcador.style.top.includes('NaN')).toBe(false);
+  });
+
+  it('"Limpiar filtro" vuelve al rango por defecto (mes actual → hoy) y refiltra', async () => {
+    render(FuelFinancialDashboard);
+
+    await fireEvent.input(screen.getByLabelText(/fecha inicio/i), { target: { value: '2020-01-01' } });
+    await fireEvent.input(screen.getByLabelText(/fecha fin/i), { target: { value: '2020-01-31' } });
+    await fireEvent.click(screen.getByRole('button', { name: /limpiar filtro/i }));
+
+    const esperado = defaultFuelDateRange();
+    expect(screen.getByLabelText(/fecha inicio/i).value).toBe(esperado.fechaInicio);
+    expect(screen.getByLabelText(/fecha fin/i).value).toBe(esperado.fechaFin);
+    expect(data.fetchFuelDashboard).toHaveBeenLastCalledWith(esperado.fechaInicio, esperado.fechaFin);
+  });
+
+  it('muestra la tabla de proyección presupuestal con las filas históricas y proyectadas etiquetadas', () => {
+    data.subscribe.mockImplementation((callback) => {
+      callback({
+        fuelDashboard: mockDashboard,
+        fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
+        fuelTrend: [],
+        fuelBudgetProjection: [
+          { mes: '2026-06-01', gastoNeto: 400000, proyectado: false },
+          { mes: '2026-07-01', gastoNeto: 500000, proyectado: false },
+          { mes: '2026-08-01', gastoNeto: 450000, proyectado: true },
+          { mes: '2026-09-01', gastoNeto: 450000, proyectado: true },
+          { mes: '2026-10-01', gastoNeto: 450000, proyectado: true },
+        ],
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    render(FuelFinancialDashboard);
+
+    expect(screen.getByText(/proyecci[oó]n presupuestal/i)).toBeTruthy();
+    expect(screen.getAllByText('Histórico').length).toBe(2);
+    expect(screen.getAllByText('Proyectado').length).toBe(3);
+  });
+
+  it('la proyección presupuestal vive fuera de la tarjeta de KPIs reales, para no confundirse con ellos', () => {
+    data.subscribe.mockImplementation((callback) => {
+      callback({
+        fuelDashboard: mockDashboard,
+        fuelTypes: [],
+        fuelTrend: [],
+        fuelBudgetProjection: [{ mes: '2026-09-01', gastoNeto: 450000, proyectado: true }],
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    const { container } = render(FuelFinancialDashboard);
+
+    const kpiCard = container.querySelector('.kpi-card');
+    expect(kpiCard.textContent).not.toMatch(/proyecci[oó]n presupuestal/i);
+  });
+
+  it('no renderiza la sección de proyección si no hay filas (evita una tabla vacía confusa)', () => {
+    render(FuelFinancialDashboard); // fuelBudgetProjection: [] por defecto en beforeEach
+
+    expect(screen.queryByText(/proyecci[oó]n presupuestal/i)).toBeNull();
+  });
+
+  it('un OPERARIO no ve el botón "+ Registrar descuento"', () => {
+    render(FuelFinancialDashboard);
+    expect(screen.queryByRole('button', { name: /registrar descuento/i })).toBeNull();
+  });
+
+  it('un ADMIN sí ve el botón "+ Registrar descuento" y puede abrir el modal', async () => {
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Admin', role: 'ADMIN' }, isRefreshing: false });
+      return () => {};
+    });
+    render(FuelFinancialDashboard);
+
+    await fireEvent.click(screen.getByRole('button', { name: /registrar descuento/i }));
+
+    expect(screen.getByLabelText(/monto del descuento/i)).toBeTruthy();
+  });
+
+  it('un SUPERVISOR_OPERATIVO registra un descuento mensual y el dashboard se refresca', async () => {
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Supervisor', role: 'SUPERVISOR_OPERATIVO' }, isRefreshing: false });
+      return () => {};
+    });
+    render(FuelFinancialDashboard);
+
+    await fireEvent.click(screen.getByRole('button', { name: /registrar descuento/i }));
+    // El modal duplica los labels "Fecha inicio"/"Fecha fin" del filtro de la
+    // página (mismo texto, distinto propósito) — se acota al diálogo para evitar
+    // el "multiple elements" de getByLabelText.
+    const dialogo = within(screen.getByRole('dialog'));
+    await fireEvent.input(dialogo.getByLabelText(/fecha inicio/i), { target: { value: '2026-07-16' } });
+    await fireEvent.input(dialogo.getByLabelText(/fecha fin/i), { target: { value: '2026-08-15' } });
+    await fireEvent.input(dialogo.getByLabelText(/monto del descuento/i), { target: { value: '80000' } });
+    await fireEvent.click(dialogo.getByRole('button', { name: /^registrar descuento$/i }));
+
+    expect(data.createMonthlyDiscount).toHaveBeenCalledWith({
+      fechaInicio: '2026-07-16', fechaFin: '2026-08-15', monto: 80000,
+    });
+    expect(data.fetchFuelDashboard).toHaveBeenCalled();
+  });
+
+  it('muestra el descuento mensual junto al KPI de ahorro cuando el backend lo trae', () => {
+    data.subscribe.mockImplementation((callback) => {
+      callback({
+        fuelDashboard: { ...mockDashboard, descuentoMensual: 80000 },
+        fuelTypes: [],
+        fuelTrend: [],
+        fuelBudgetProjection: [],
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    render(FuelFinancialDashboard);
+
+    expect(screen.getByText(/descuento mensual registrado/i)).toBeTruthy();
   });
 });

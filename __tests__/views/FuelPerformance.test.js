@@ -32,7 +32,7 @@ vi.mock('../../stores/ui.js', () => ({
 
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
-import { fuelDateRange } from '../../stores/fuelFilters.js';
+import { fuelDateRange, defaultFuelDateRange } from '../../stores/fuelFilters.js';
 import { push } from 'svelte-spa-router';
 
 // Fila completa del reporte de Tanqueo y Distribución para refuelingId=1 — es lo
@@ -118,6 +118,19 @@ describe('FuelPerformance', () => {
     await fireEvent.click(screen.getByRole('button', { name: /filtrar/i }));
 
     expect(data.fetchFuelPerformanceAllTipos).toHaveBeenLastCalledWith('2026-07-01', '2026-07-22');
+  });
+
+  it('"Limpiar filtro" vuelve al rango por defecto (mes actual → hoy) y refiltra', async () => {
+    render(FuelPerformance);
+
+    await fireEvent.input(screen.getByLabelText(/fecha inicio/i), { target: { value: '2020-01-01' } });
+    await fireEvent.input(screen.getByLabelText(/fecha fin/i), { target: { value: '2020-01-31' } });
+    await fireEvent.click(screen.getByRole('button', { name: /limpiar filtro/i }));
+
+    const esperado = defaultFuelDateRange();
+    expect(screen.getByLabelText(/fecha inicio/i).value).toBe(esperado.fechaInicio);
+    expect(screen.getByLabelText(/fecha fin/i).value).toBe(esperado.fechaFin);
+    expect(data.fetchFuelPerformanceAllTipos).toHaveBeenLastCalledWith(esperado.fechaInicio, esperado.fechaFin);
   });
 
   it('cambia de sub-pestaña (Maquinaria/Vehículos/Motocicletas) sin volver a pedir datos, porque los 3 ya están cargados', async () => {

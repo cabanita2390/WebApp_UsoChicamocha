@@ -1,9 +1,12 @@
 <script>
   import { onMount } from "svelte";
   import { data } from "../../stores/data.js";
-  import { fuelDateRange } from "../../stores/fuelFilters.js";
+  import { auth } from "../../stores/auth.js";
+  import { addNotification } from "../../stores/ui.js";
+  import { fuelDateRange, resetFuelDateRange } from "../../stores/fuelFilters.js";
   import Loader from "../shared/Loader.svelte";
   import FuelTrendChart from "./FuelTrendChart.svelte";
+  import RegisterMonthlyDiscountModal from "../shared/RegisterMonthlyDiscountModal.svelte";
 
   // Paleta categórica validada (dataviz skill, references/palette.md, slots 1-4)
   // — orden fijo, nunca ciclado por índice de array. #e87ba4/#eda100 quedan bajo
@@ -17,6 +20,9 @@
 
   let mesesTendencia = 6;
   let mesesCustom = "";
+  let mostrarDescuentoModal = false;
+
+  $: canRegisterDiscount = ["ADMIN", "SUPERVISOR_OPERATIVO"].includes($auth?.currentUser?.role);
 
   $: dashboard = $data.fuelDashboard;
   $: isLoading = $data.isLoading;
@@ -61,6 +67,8 @@
   // mes), el hueco real queda reflejado en el gráfico en vez de verse desfasado
   // como si fuera continuo.
   $: trendTimestamps = trend.map((t) => new Date(t.mes).getTime());
+
+  $: proyeccion = $data.fuelBudgetProjection ?? [];
 
   // Delta vs. periodo anterior (misma duración que el rango filtrado, no "mes
   // anterior" fijo — el backend ya lo resuelve así). up = subir es malo para
@@ -136,11 +144,23 @@
     data.fetchFuelTypes();
     data.fetchFuelDashboard($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
     data.fetchFuelTrend(mesesTendencia, $fuelDateRange.fechaFin || undefined);
+    data.fetchFuelBudgetProjection($fuelDateRange.fechaFin || undefined);
   });
 
   function handleFiltrar() {
     data.fetchFuelDashboard($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
     data.fetchFuelTrend(mesesTendencia, $fuelDateRange.fechaFin || undefined);
+    data.fetchFuelBudgetProjection($fuelDateRange.fechaFin || undefined);
+  }
+
+  function handleLimpiarFiltro() {
+    resetFuelDateRange();
+    handleFiltrar();
+  }
+
+  function handleDescuentoRegistrado() {
+    handleFiltrar();
+    addNotification({ id: Date.now(), text: "Descuento registrado con éxito." });
   }
 </script>
 
@@ -155,7 +175,18 @@
       <input id="dashFechaFin" type="date" bind:value={$fuelDateRange.fechaFin} />
     </label>
     <button type="button" class="btn-filter" on:click={handleFiltrar}>Filtrar</button>
+    <button type="button" class="btn-clear-filter" on:click={handleLimpiarFiltro}>Limpiar filtro</button>
+    {#if canRegisterDiscount}
+      <button type="button" class="btn-filter btn-config" on:click={() => (mostrarDescuentoModal = true)}>+ Registrar descuento</button>
+    {/if}
   </div>
+
+  {#if mostrarDescuentoModal}
+    <RegisterMonthlyDiscountModal
+      on:close={() => (mostrarDescuentoModal = false)}
+      on:saved={handleDescuentoRegistrado}
+    />
+  {/if}
 
   {#if isLoading}
     <div class="fuel-loader">
@@ -182,6 +213,9 @@
         <span class="kpi-value kpi-value--good  kpi-value--primary">{formatCOP(dashboard.ahorro)}</span>
         {#if deltaAhorro}
           <span class="kpi-delta" style="color: {deltaAhorro.color}">{deltaAhorro.flecha} {deltaAhorro.texto}</span>
+        {/if}
+        {#if dashboard.descuentoMensual > 0}
+          <span class="kpi-hint">incluye {formatCOP(dashboard.descuentoMensual)} de descuento mensual registrado</span>
         {/if}
       </div>
       <div class="kpi-section">
@@ -279,6 +313,38 @@
       </div>
     </div>
 
+    {#if proyeccion.length > 0}
+      <div class="fuel-chart">
+        <div class="fuel-chart-head">Proyección presupuestal (estimado)</div>
+        <p class="proyeccion-disclaimer">
+          Estimación basada en el promedio de los últimos meses con actividad real —
+          no es un valor garantizado.
+        </p>
+        <table class="proyeccion-table">
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th>Gasto neto</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each proyeccion as fila}
+              <tr class:proyeccion-fila--proyectada={fila.proyectado}>
+                <td>{formatMesCorto(fila.mes)}</td>
+                <td class="td-gasto">{formatCOP(fila.gastoNeto)}</td>
+                <td>
+                  <span class="proyeccion-badge" class:proyeccion-badge--proyectado={fila.proyectado}>
+                    {fila.proyectado ? "Proyectado" : "Histórico"}
+                  </span>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+
   {/if}
 </div>
 
@@ -349,6 +415,28 @@
   .btn-filter:hover {
     background: #256abf;
   }
+  .btn-config {
+    background: #52514e;
+    margin-left: auto;
+  }
+  .btn-config:hover {
+    background: #3d3c3a;
+  }
+  .btn-clear-filter {
+    font-family: inherit;
+    padding: 9px 20px;
+    background: #fff;
+    color: #52514e;
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    height: 34px;
+  }
+  .btn-clear-filter:hover {
+    background: #f5f6f8;
+  }
   .fuel-loader {
     display: flex;
     justify-content: center;
@@ -366,6 +454,13 @@
     display: flex;
     flex-wrap: wrap;
     overflow: hidden;
+    /* .fuel-dashboard es un flex column con scroll propio (overflow-y: auto):
+       sin flex-shrink:0, cualquier hijo con overflow != visible (como este,
+       para recortar las esquinas redondeadas) calcula su min-height
+       automático como 0 en vez de basarse en su contenido, así que en cuanto
+       el contenido total de la página no cabe en el viewport, el navegador
+       lo comprime a casi 0px en vez de dejar que el contenedor scrollee. */
+    flex-shrink: 0;
   }
   .kpi-section {
     flex: 1;
@@ -495,6 +590,7 @@
     border-radius: 10px;
     box-shadow: var(--shadow);
     padding: 18px 20px;
+    flex-shrink: 0;
   }
   .fuel-chart-head {
     font-weight: 600;
@@ -559,5 +655,48 @@
     color: var(--ink-muted);
     font-size: 12px;
     margin: 0;
+  }
+
+  .proyeccion-disclaimer {
+    color: var(--ink-muted);
+    font-size: 11.5px;
+    margin: -6px 0 12px;
+  }
+  .proyeccion-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .proyeccion-table thead tr {
+    text-align: left;
+    color: var(--ink-secondary);
+    border-bottom: 1px solid #eee;
+  }
+  .proyeccion-table th {
+    padding: 6px 8px;
+    font-weight: 600;
+  }
+  .proyeccion-table td {
+    padding: 10px 8px;
+    border-top: 1px solid #f0f0ef;
+    color: var(--ink-secondary);
+  }
+  .proyeccion-fila--proyectada {
+    background: rgba(42, 120, 214, 0.05);
+  }
+  .proyeccion-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+  }
+  .proyeccion-badge--proyectado {
+    border: 1px dashed #2a78d6;
+    color: #2a78d6;
+    background: rgba(42, 120, 214, 0.08);
   }
 </style>
