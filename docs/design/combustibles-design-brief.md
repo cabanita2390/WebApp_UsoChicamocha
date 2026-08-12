@@ -71,7 +71,7 @@ font-size: 11px;
 - **Ruta:** `/fuel`, un único componente `FuelTabbed.svelte` con 6 pestañas.
 - **Roles del sistema que existen:** `OPERARIO`, `ALMACEN`, `SUPERVISOR_OPERATIVO`, `ADMIN`. Cualquier usuario autenticado con acceso a `/fuel` ve las 6 pestañas (la barra de pestañas hoy **no oculta pestañas por rol**) — lo que cambia por rol es qué *botones de acción* aparecen dentro de cada pestaña, y el backend rechaza (403) las peticiones de datos que ese rol no debería poder ver. **Esto es una inconsistencia conocida** (un `OPERARIO` vería una pestaña de Dashboard que después le falla al cargar) — vale la pena que la propuesta de diseño contemple qué pasa visualmente en ese caso (hoy no hay una pantalla de "no tienes acceso" diseñada).
 - **Pendiente conocido, fuera de este ejercicio de diseño:** el rol `ALMACEN` hoy ve todo el menú lateral del sistema (Vehículos, Maquinaria, etc.), no solo Combustibles. Se va a resolver aparte, no es parte de este rediseño.
-- **Las 6 pestañas, en el orden en que aparecen hoy:** Dashboard Financiero, Control de Almacén, Rendimiento, Distribución, Tanqueo, Suministro de Almacén *(el orden es configurable, no es una decisión de negocio — se puede reordenar en la propuesta si tiene más sentido)*.
+- **Las 6 pestañas, en el orden en que aparecen hoy:** Dashboard Financiero, Control de Almacén General, Rendimiento, Distribución, Tanqueo, Suministro de Almacén General *(el orden es configurable, no es una decisión de negocio — se puede reordenar en la propuesta si tiene más sentido)*.
 - **Patrón compartido de filtros:** en las 4 pestañas de reporte, el filtro de fecha (cuando existe) es igual: dos campos `<input type="date">` (Fecha inicio / Fecha fin) + un botón "Filtrar". Si se dejan vacíos, el backend asume el mes actual hasta hoy. No hay validación visual de que "fecha fin" sea posterior a "fecha inicio".
 - **Patrón compartido de estados vacíos:** un párrafo gris `Sin <cosa> en el rango seleccionado.` cuando no hay datos — no hay una ilustración ni un estado vacío diseñado, es texto plano.
 - **Patrón compartido de carga:** un componente `<Loader />` genérico (spinner, sin skeleton) mientras se espera la respuesta del backend.
@@ -85,14 +85,15 @@ font-size: 11px;
 **Propósito:** vista de aterrizaje del módulo — resumen financiero del gasto en combustible en un rango de fechas.
 
 ### 3.1 Filtro
-- Fecha inicio, Fecha fin, botón "Filtrar" (azul).
+- Fecha inicio, Fecha fin, botón "Filtrar" (azul), botón "Limpiar filtro".
+- **Botón "+ Registrar descuento"** (gris oscuro, solo `ADMIN`/`SUPERVISOR_OPERATIVO`, alineado a la derecha): abre un modal chiquito (Fecha inicio, Fecha fin, Monto) para registrar el descuento total que el proveedor informa a fin de mes/periodo — a diferencia del campo "Descuento" que existía antes por cada tanqueo/compra individual (nunca se llenaba en la práctica, porque el descuento real no se conoce hasta el cierre del periodo), este es un solo valor que se resta del gasto neto y se suma al ahorro del rango que se solape con su fecha_inicio/fecha_fin. Al guardar, refresca el dashboard.
 
 ### 3.2 Fila de 3 tarjetas KPI principales
 Cada tarjeta: punto de color a la izquierda de la etiqueta (`--tile-accent`), etiqueta pequeña gris, valor grande en negrita, y debajo un texto pequeño de "delta" con flecha y color.
 
 1. **Gasto bruto** — valor en pesos colombianos formato compacto (ej. `$1,2 M`). Acento azul.
 2. **Gasto neto** — igual formato. Acento azul.
-3. **Ahorro por descuentos** — mismo formato, texto en verde (`stat-value--good`). Acento verde.
+3. **Ahorro por descuentos** — mismo formato, texto en verde (`stat-value--good`). Acento verde. Si hay un descuento mensual registrado (ver 3.1) que se solapa con el rango filtrado, debajo se muestra un texto pequeño: *"incluye $X de descuento mensual registrado"*.
 
 **Delta bajo cada una de las 3:** compara contra el periodo inmediatamente anterior **de la misma duración** que el filtro aplicado (no "mes anterior" fijo — si filtras 10 días, compara contra los 10 días previos). Formato: `↑ +20% vs. periodo anterior` / `↓ -5% vs. periodo anterior` / `→ 0% vs. periodo anterior`. Color: verde si la dirección es "buena" (para gasto, que baje es bueno; para ahorro, que suba es bueno), rojo si es "mala", gris si es 0%. Si el periodo anterior no tiene datos (división por cero), no se muestra el delta.
 
@@ -109,8 +110,8 @@ Cada tarjeta: punto de color a la izquierda de la etiqueta (`--tile-accent`), et
   - **Comportamiento responsivo ya implementado:** con 6 meses o menos, las dos mini-gráficas van lado a lado; con más de 6 meses seleccionados, se apilan una debajo de la otra (para que las etiquetas de mes no se amontonen).
   - **Limitación conocida, no resuelta:** si en un mismo mes hay tanqueos de más de un tipo de combustible con distinta unidad física (ej. diésel en galones y gas en m³), el total mensual de "Consumo" los suma como si fueran la misma unidad. Vale la pena que la propuesta de diseño contemple cómo mostrar esto si se vuelve un caso real (hoy la organización solo usa combustibles en galones).
 
-### 3.5 Bloque "Origen del gasto: almacén vs. bomba"
-- Gráfica de barras horizontales, 2 barras: "Compras almacén" (azul `#2a78d6`) y "Tanqueos bomba" (naranja `#eb6834`, es el único color que no sigue la paleta categórica de 4 — es un color aparte para no confundir con la identidad de tipo de combustible).
+### 3.5 Bloque "Origen del gasto: Almacén General vs. Estación de Servicio"
+- Gráfica de barras horizontales, 2 barras: "Compras Almacén General" (azul `#2a78d6`) y "Tanqueos Estación de Servicio" (naranja `#eb6834`, es el único color que no sigue la paleta categórica de 4 — es un color aparte para no confundir con la identidad de tipo de combustible).
 - Leyenda arriba de las barras (swatch de color + etiqueta).
 - Cada barra tiene el valor en pesos escrito al final de la barra (nunca el valor solo-color).
 
@@ -124,11 +125,11 @@ Cada tarjeta: punto de color a la izquierda de la etiqueta (`--tile-accent`), et
 
 ---
 
-## 4. Pestaña 2 — Control de Almacén
+## 4. Pestaña 2 — Control de Almacén General
 
-**Rol que puede verla:** `ALMACEN`, `SUPERVISOR_OPERATIVO`, `ADMIN` (saldos/movimientos); el botón de reintegro solo aparece para `SUPERVISOR_OPERATIVO`/`ADMIN`.
+**Rol que puede verla:** `ALMACEN` (mostrado en UI como "Almacén General"), `SUPERVISOR_OPERATIVO`, `ADMIN` (saldos/movimientos); el botón de reintegro solo aparece para `SUPERVISOR_OPERATIVO`/`ADMIN`.
 **Estilo actual:** moderno (contenido) + modal retro (formulario de reintegro).
-**Propósito:** saldo disponible del almacén propio, conciliación de entradas/salidas, e historial de compras del periodo.
+**Propósito:** saldo disponible del almacén general propio, conciliación de entradas/salidas, e historial de compras del periodo.
 
 ### 4.1 Filtro y acciones
 - Fecha inicio, Fecha fin, botón "Filtrar".
@@ -206,7 +207,7 @@ Columnas: Elemento (`Vehículo #5` / `Máquina #8`), Fecha, Horómetro/Km ejecut
 ### 6.3 Tabla "Detalle de despachos"
 Columnas: Fecha, Elemento (`Vehículo #5` / `Máquina #8`), Combustible, Origen (texto libre, ej. "Estación Norte", o `—` si no se registró), Cantidad (con unidad), Valor, Reintegrado (cantidad con unidad, o `—`).
 
-- **Regla de negocio importante para el diseño:** cuando `Valor` es `null` (pasa cuando el tanqueo fue registrado como "ALMACEN" en vez de "BOMBA", porque no tiene precio de compra asociado directamente), la celda debe mostrar `—`, **nunca `$0`** — son conceptos distintos ("no se valorizó" vs. "costó cero") y mostrarlo mal generaría desconfianza en los números.
+- **Regla de negocio importante para el diseño:** cuando `Valor` es `null` (pasa cuando el tanqueo fue registrado con Lugar = Almacén General en vez de Estación de Servicio, porque no tiene precio de compra asociado directamente), la celda debe mostrar `—`, **nunca `$0`** — son conceptos distintos ("no se valorizó" vs. "costó cero") y mostrarlo mal generaría desconfianza en los números.
 - Si no hay despachos: `Sin despachos en el rango seleccionado.`
 
 ---
@@ -222,36 +223,35 @@ Columnas: Fecha, Elemento (`Vehículo #5` / `Máquina #8`), Combustible, Origen 
 - Botón "+ Registrar tanqueo" (abre modal).
 
 ### 7.2 Tabla de historial
-Columnas: Fecha, Elemento (`Máquina #10` / `Vehículo #7`), Lugar (`BOMBA`/`ALMACEN`), Área de costo, Combustible, Cantidad (con unidad), Horómetro/Km, Full (`SÍ`/`NO`), Precio unit. (o `—`), Total (o `—`), Discrepancia (`SÍ`/`NO`), Origen.
+Columnas: Fecha, Elemento (`Máquina #10` / `Vehículo #7`), Lugar (`Estación de Servicio`/`Almacén General` — internamente sigue guardado como `BOMBA`/`ALMACEN`, solo cambió el texto mostrado), Área de costo, Combustible, Cantidad (con unidad), Horómetro/Km, Full (`SÍ`/`NO`), Precio unit. (o `—`), Total (o `—`), Discrepancia (`SÍ`/`NO`), Origen.
 
 ### 7.3 Modal "Registrar tanqueo" (retro)
 Campos, en este orden:
 1. Tipo de elemento — select: Maquinaria / Vehículo / Motocicleta.
 2. Etiqueta dinámica según el tipo elegido — Id numérico ("Máquina (ID)" o "Vehículo (ID)").
-3. Lugar — select: Bomba / Almacén. **Este campo cambia qué otros campos son obligatorios** (ver punto 7 y 8 abajo).
+3. Lugar — select: Estación de Servicio / Almacén General (valores internos `BOMBA`/`ALMACEN`, sin cambios en backend). **Este campo cambia qué campos extra aparecen** (ver punto 9 abajo).
 4. Área de costo — select: Distrito / Asociación.
 5. Combustible — select (catálogo completo, no filtrado — a diferencia de los reportes, aquí siempre deben aparecer los 4 tipos, para poder registrar un combustible nuevo la primera vez que se compre).
 6. Cantidad — con etiqueta dinámica de unidad: `Cantidad (galones)` o `Cantidad (m³)` según el combustible elegido en el punto 5.
 7. Horómetro/Km — numérico.
 8. ¿Tanque lleno? — checkbox.
-9. **Solo si Lugar = Bomba:**
-   - Precio unitario.
-   - Descuento (opcional).
-   - "Total pagado (valor real)" con texto de ayuda pequeño: *"Lo que realmente pagaste, no un estimado"*.
-   - Factura — input de archivo (imagen o PDF).
+9. **Solo si Lugar = Estación de Servicio** (a pedido del usuario: a los operarios no les interesa tanto el costo por tanqueo individual — llega un informe mensual aparte del proveedor, y el énfasis real está en Rendimiento — así que estos 2 campos son opcionales, no bloquean el registro si se dejan en blanco; el campo "Descuento" que existía aquí se eliminó, ver 3.1):
+   - Precio unitario (opcional).
+   - "Total pagado" (opcional) con texto de ayuda pequeño: *"Lo que realmente pagaste, no un estimado"*.
+   - Factura — input de archivo (imagen o PDF, opcional).
 10. Origen — texto libre (ej. "Estación Norte").
 - Botón "Registrar tanqueo".
 
 ---
 
-## 8. Pestaña 6 — Suministro de Almacén
+## 8. Pestaña 6 — Suministro de Almacén General
 
 **Rol que puede verla:** todos ven el historial; solo `SUPERVISOR_OPERATIVO`/`ADMIN` pueden registrar.
 **Estilo actual:** 100% retro.
-**Propósito:** registrar las compras de combustible a proveedor que abastecen el almacén propio (a diferencia de Tanqueo, que es consumo).
+**Propósito:** registrar las compras de combustible a proveedor que abastecen el almacén general propio (a diferencia de Tanqueo, que es consumo).
 
 ### 8.1 Encabezado
-- Texto de contexto: *"Registro de compras de combustible que abastecen el almacén."*
+- Texto de contexto: *"Registro de compras de combustible que abastecen el Almacén General."*
 - Botón "+ Registrar compra" (solo visible para roles autorizados).
 
 ### 8.2 Tabla de historial
