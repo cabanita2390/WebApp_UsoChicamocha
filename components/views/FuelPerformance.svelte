@@ -29,10 +29,23 @@
   $: unidadPorMachineId = Object.fromEntries(
     fuelAssetConfig.filter((c) => c.machineId != null).map((c) => [c.machineId, unidadMedidaById[c.fuelTypeDefaultId]])
   );
+  // Unidad de RENDIMIENTO del consumo estándar (KM_POR_GALON, HORA_POR_GALON, ...) — distinta
+  // de unidadPorVehicleId/MachineId de arriba, que es la unidad física del
+  // combustible (gal/m³), no la de esta columna.
+  $: unidadConsumoPorVehicleId = Object.fromEntries(
+    fuelAssetConfig.filter((c) => c.vehicleId != null).map((c) => [c.vehicleId, c.unidadConsumo])
+  );
+  $: unidadConsumoPorMachineId = Object.fromEntries(
+    fuelAssetConfig.filter((c) => c.machineId != null).map((c) => [c.machineId, c.unidadConsumo])
+  );
 
   function unidadDe(row) {
     const unidad = row.machineId != null ? unidadPorMachineId[row.machineId] : unidadPorVehicleId[row.vehicleId];
     return unidad === "M3" ? "m³" : "gal";
+  }
+
+  function unidadConsumoDe(row) {
+    return row.machineId != null ? unidadConsumoPorMachineId[row.machineId] : unidadConsumoPorVehicleId[row.vehicleId];
   }
 
   $: columns = createFuelPerformanceColumns(fuelTypesById, isAdmin, true);
@@ -42,7 +55,7 @@
   $: rowsPorTipo = $data.fuelPerformance ?? { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] };
   // Filas con alerta=true reutilizan el resaltado de anomalía que el DataGrid ya
   // soporta (isAnomaly) — no hace falta tocar DataGrid.svelte para esto.
-  $: rows = (rowsPorTipo[tipo] ?? []).map((row) => ({ ...row, isAnomaly: row.alerta, unidadLabel: unidadDe(row) }));
+  $: rows = (rowsPorTipo[tipo] ?? []).map((row) => ({ ...row, isAnomaly: row.alerta, unidadLabel: unidadDe(row), unidadConsumo: unidadConsumoDe(row) }));
   // La tabla colapsa a 1 fila por activo = su tanqueo más reciente en el rango
   // filtrado (mismo patrón que la tabla resumen de Tanqueo y Distribución) — antes
   // se veían todas las filas de todos los tanqueos mezcladas, sin poder distinguir
@@ -62,6 +75,7 @@
     data.fetchFuelTypes();
     data.fetchAssetFuelConfig();
     data.fetchFuelPerformanceAllTipos($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
+    
   });
 
   function handleFiltrar() {
@@ -153,8 +167,46 @@
     </div>
   </div>
 
-  <style>
-    .fuel-filtros-grid {
+  {#if isAdmin && mostrarConfig}
+    <AssetFuelConfigManagement on:close={() => (mostrarConfig = false)} />
+  {/if}
+
+  {#if isLoading}
+    <div class="fuel-loader">
+      <Loader />
+    </div>
+  {:else}
+    <div class="fuel-chart">
+      <div class="fuel-chart-head">Rendimiento Operativo</div>
+      {#if resumenPorActivo.length}
+        <div class="fuel-table-wrap">
+          <DataGrid {columns} data={resumenPorActivo} showDeleteButton={false} variant="modern" on:action={handleGridAction} />
+        </div>
+      {:else}
+        <p class="no-data">Sin activos con línea base y consumo configurado en el rango seleccionado.</p>
+      {/if}
+    </div>
+  {/if}
+</div>
+
+{#if showEditModal}
+  <RefuelingFormModal
+    initialRow={editingRow}
+    assetEditable={false}
+    {fuelTypes}
+    onSubmit={(fd) => data.updateRefueling(editingRow.id, fd)}
+    on:success={() => {
+      showEditModal = false;
+      addNotification({ id: Date.now(), text: "Tanqueo actualizado con éxito." });
+      // Recalcula Ejecutado/Proyectado/Real/Diferencia con el valor corregido.
+      data.fetchFuelPerformanceAllTipos($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
+    }}
+    on:close={() => (showEditModal = false)}
+  />
+{/if}
+
+<style>
+.fuel-filtros-grid {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       gap: 8px 16px;
@@ -199,47 +251,7 @@
         justify-content: flex-end;
       }
     }
-  </style>
-
-  {#if isAdmin && mostrarConfig}
-    <AssetFuelConfigManagement on:close={() => (mostrarConfig = false)} />
-  {/if}
-
-  {#if isLoading}
-    <div class="fuel-loader">
-      <Loader />
-    </div>
-  {:else}
-    <div class="fuel-chart">
-      <div class="fuel-chart-head">Rendimiento Operativo</div>
-      {#if resumenPorActivo.length}
-        <div class="fuel-table-wrap">
-          <DataGrid {columns} data={resumenPorActivo} showDeleteButton={false} variant="modern" on:action={handleGridAction} />
-        </div>
-      {:else}
-        <p class="no-data">Sin activos con línea base y consumo configurado en el rango seleccionado.</p>
-      {/if}
-    </div>
-  {/if}
-</div>
-
-{#if showEditModal}
-  <RefuelingFormModal
-    initialRow={editingRow}
-    assetEditable={false}
-    {fuelTypes}
-    onSubmit={(fd) => data.updateRefueling(editingRow.id, fd)}
-    on:success={() => {
-      showEditModal = false;
-      addNotification({ id: Date.now(), text: "Tanqueo actualizado con éxito." });
-      // Recalcula Ejecutado/Proyectado/Real/Diferencia con el valor corregido.
-      data.fetchFuelPerformanceAllTipos($fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
-    }}
-    on:close={() => (showEditModal = false)}
-  />
-{/if}
-
-<style>
+    
   .fuel-dashboard {
     --surface: #ffffff;
     --page: #f7f7f6;
@@ -247,6 +259,7 @@
     --ink-secondary: #52514e;
     --ink-muted: #898781;
     --border: rgba(11, 11, 11, 0.08);
+       --row-border: rgba(11, 11, 11, 0.453);
     --shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 12px rgba(11, 11, 11, 0.05);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     background: var(--page);
@@ -358,9 +371,26 @@
     margin-bottom: 14px;
     color: var(--ink);
   }
+  .rendimiento-leyenda {
+    color: var(--ink-muted);
+    font-size: 11px;
+    margin: -8px 0 14px;
+  }
   .fuel-table-wrap {
     flex: 1;
     min-height: 0;
+  }
+  .fuel-table-wrap :global(.data-grid-wrapper.modern .data-grid tbody tr td) {
+    border-bottom: 1px solid var(--row-border) !important;
+  }
+  .fuel-table-wrap :global(.data-grid-wrapper.modern .data-grid thead th) {
+    border-bottom: 1px solid var(--row-border) !important;
+  }
+  .fuel-table-wrap :global(.data-grid-wrapper.modern .data-grid tbody tr:nth-child(even) td) {
+    background-color: #f3f4f6;
+  }
+  .fuel-table-wrap :global(.data-grid-wrapper.modern .data-grid tbody tr:hover td) {
+    background-color: #eef4fc;
   }
   .no-data {
     color: var(--ink-muted);

@@ -28,7 +28,7 @@
     { key: "1A", label: "1A", dias: 365 },
     { key: "TODO", label: "Todo", dias: null },
   ];
-  let rangoSeleccionado = "TODO";
+  let rangoSeleccionado = "1M";
 
   export let params = {};
 
@@ -52,12 +52,25 @@
     return unidad === "M3" ? "m³" : "gal";
   }
 
+  // Unidad de RENDIMIENTO del consumo estándar (KM_POR_GALON, HORA_POR_GALON, ...) — distinta
+  // de unidadPorVehicleId/MachineId de arriba, que es la unidad física del
+  // combustible (gal/m³), no la de la columna "Consumo estándar".
+  $: unidadConsumoPorVehicleId = Object.fromEntries(
+    fuelAssetConfig.filter((c) => c.vehicleId != null).map((c) => [c.vehicleId, c.unidadConsumo])
+  );
+  $: unidadConsumoPorMachineId = Object.fromEntries(
+    fuelAssetConfig.filter((c) => c.machineId != null).map((c) => [c.machineId, c.unidadConsumo])
+  );
+  function unidadConsumoDe(row) {
+    return row.machineId != null ? unidadConsumoPorMachineId[row.machineId] : unidadConsumoPorVehicleId[row.vehicleId];
+  }
+
   $: columns = createFuelPerformanceColumns(fuelTypesById, isAdmin, false);
 
   $: rowsPorTipo = $data.fuelPerformance ?? { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] };
   $: filas = (rowsPorTipo[tipoElemento] ?? [])
     .filter((r) => (tipoElemento === "MAQUINARIA" ? r.machineId === activoId : r.vehicleId === activoId))
-    .map((row) => ({ ...row, isAnomaly: row.alerta, unidadLabel: unidadDe(row) }))
+    .map((row) => ({ ...row, isAnomaly: row.alerta, unidadLabel: unidadDe(row), unidadConsumo: unidadConsumoDe(row) }))
     .sort((a, b) => new Date(b.fechaRegistro) - new Date(a.fechaRegistro));
 
   $: activoLabel = filas[0]?.identificacionActivo
@@ -246,6 +259,7 @@
     --ink-secondary: #52514e;
     --ink-muted: #898781;
     --border: rgba(11, 11, 11, 0.08);
+       --row-border: rgba(11, 11, 11, 0.453);
     --shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 12px rgba(11, 11, 11, 0.05);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     background: var(--page);
@@ -346,6 +360,24 @@
     border-radius: 10px;
     box-shadow: var(--shadow);
     padding: 18px 20px;
+  }
+  /*
+   * Las filas viven dentro de DataGrid.svelte (otro componente). Cambiar --border
+   * arriba NO las afecta: allí el separador está fijado como #f0f0ef. Estos
+   * :global() apuntan al tbody del grid hijo; !important gana sobre el estilo
+   * scoped del DataGrid cuando la especificidad empata.
+   */
+  .ph-table :global(.data-grid-wrapper.modern .data-grid tbody tr td) {
+    border-bottom: 1px solid var(--row-border) !important;
+  }
+  .ph-table :global(.data-grid-wrapper.modern .data-grid thead th) {
+    border-bottom: 1px solid var(--row-border) !important;
+  }
+  .ph-table :global(.data-grid-wrapper.modern .data-grid tbody tr:nth-child(even) td) {
+    background-color: #f3f4f6;
+  }
+  .ph-table :global(.data-grid-wrapper.modern .data-grid tbody tr:hover td) {
+    background-color: #eef4fc;
   }
   .no-data {
     color: var(--ink-muted);
