@@ -37,6 +37,7 @@ vi.mock('../../stores/ui.js', () => ({
 vi.mock('../../stores/api.js', () => ({
   getFileUrl: vi.fn((path) => (path ? `https://api.test${path}` : null)),
   openDocumentSafely: vi.fn(),
+  download: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../shared/Loader.svelte', () => ({
@@ -49,9 +50,10 @@ vi.mock('../shared/Loader.svelte', () => ({
 
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
-import { fuelDateRange } from '../../stores/fuelFilters.js';
+import { fuelDateRange, defaultFuelDateRange } from '../../stores/fuelFilters.js';
 import { push } from 'svelte-spa-router';
-import { getFileUrl, openDocumentSafely } from '../../stores/api.js';
+import { getFileUrl, openDocumentSafely, download } from '../../stores/api.js';
+import { addNotification } from '../../stores/ui.js';
 import { formatCurrency } from '../../config/table-definitions/helpers.js';
 
 const VEHICLES = [
@@ -255,6 +257,19 @@ describe('TanqueoDistribucion', () => {
     await fireEvent.click(screen.getByRole('button', { name: /^filtrar$/i }));
 
     expect(data.fetchRefuelingReport).toHaveBeenLastCalledWith('VEHICULO', 'ASOCIACION', '2026-06-01', '2026-06-30');
+  });
+
+  it('"Limpiar filtro" vuelve al rango de fechas por defecto (mes actual → hoy) y refiltra', async () => {
+    render(TanqueoDistribucion);
+
+    await fireEvent.input(screen.getByLabelText(/fecha inicio/i), { target: { value: '2020-01-01' } });
+    await fireEvent.input(screen.getByLabelText(/fecha fin/i), { target: { value: '2020-01-31' } });
+    await fireEvent.click(screen.getByRole('button', { name: /limpiar filtro/i }));
+
+    const esperado = defaultFuelDateRange();
+    expect(screen.getByLabelText(/fecha inicio/i).value).toBe(esperado.fechaInicio);
+    expect(screen.getByLabelText(/fecha fin/i).value).toBe(esperado.fechaFin);
+    expect(data.fetchRefuelingReport).toHaveBeenLastCalledWith('VEHICULO', 'TODAS', esperado.fechaInicio, esperado.fechaFin);
   });
 
   it('click en "Ver historial" navega a la pantalla completa de historial del activo (Fase 6: ya no es un modal)', async () => {
@@ -611,5 +626,42 @@ describe('TanqueoDistribucion', () => {
     await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '4' } });
 
     expect(screen.getByText('Cantidad (m³)')).toBeTruthy();
+  });
+
+  it('el botón "Exportar Excel" llama a download con el endpoint y filtros actuales', async () => {
+    render(TanqueoDistribucion);
+
+    await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+
+    expect(download).toHaveBeenCalledWith(
+      'fuel/refueling/reporte/export?tipo=VEHICULO',
+      'tanqueos_export.xlsx'
+    );
+  });
+
+  it('mientras exporta, el botón se deshabilita y muestra "Descargando..."', async () => {
+    let resolverDescarga;
+    download.mockReturnValueOnce(new Promise((resolve) => { resolverDescarga = resolve; }));
+    render(TanqueoDistribucion);
+
+    const boton = screen.getByRole('button', { name: /exportar excel/i });
+    await fireEvent.click(boton);
+
+    expect(screen.getByRole('button', { name: /descargando/i })).toBeDisabled();
+
+    resolverDescarga();
+    await screen.findByRole('button', { name: /exportar excel/i });
+  });
+
+  it('si la descarga falla, muestra una notificación de error en vez de romper la vista', async () => {
+    download.mockRejectedValueOnce(new Error('sin conexión'));
+    render(TanqueoDistribucion);
+
+    await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+    await screen.findByRole('button', { name: /exportar excel/i });
+
+    expect(addNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ text: expect.stringContaining('sin conexión') })
+    );
   });
 });

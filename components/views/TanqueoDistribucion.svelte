@@ -4,8 +4,8 @@
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import { addNotification } from "../../stores/ui.js";
-  import { getFileUrl, openDocumentSafely } from "../../stores/api.js";
-  import { fuelDateRange } from "../../stores/fuelFilters.js";
+  import { getFileUrl, openDocumentSafely, download } from "../../stores/api.js";
+  import { fuelDateRange, resetFuelDateRange } from "../../stores/fuelFilters.js";
   import Loader from "../shared/Loader.svelte";
   import DataGrid from "../shared/DataGrid.svelte";
   import RefuelingFormModal from "../shared/RefuelingFormModal.svelte";
@@ -28,6 +28,22 @@
   let showEditModal = false;
   let editingRow = null;
   let refuelingToDelete = null;
+  let isExporting = false;
+
+  async function handleExportarExcel() {
+    isExporting = true;
+    try {
+      const params = new URLSearchParams({ tipo });
+      if (area && area !== "TODAS") params.set("area", area);
+      if ($fuelDateRange.fechaInicio) params.set("fechaInicio", $fuelDateRange.fechaInicio);
+      if ($fuelDateRange.fechaFin) params.set("fechaFin", $fuelDateRange.fechaFin);
+      await download(`fuel/refueling/reporte/export?${params.toString()}`, "tanqueos_export.xlsx");
+    } catch (e) {
+      addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
+    } finally {
+      isExporting = false;
+    }
+  }
   let reintegrandoRow = null;
   let elementosCargando = false;
 
@@ -124,6 +140,11 @@
     data.fetchRefuelingReport(tipo, area, $fuelDateRange.fechaInicio || undefined, $fuelDateRange.fechaFin || undefined);
   }
 
+  function handleLimpiarFiltro() {
+    resetFuelDateRange();
+    handleFiltrar();
+  }
+
   function seleccionarTipo(nuevoTipo) {
     tipo = nuevoTipo;
     resumenPage = 0;
@@ -195,20 +216,24 @@
         <input id="tdFechaFin" type="date" bind:value={$fuelDateRange.fechaFin} />
       </label>
       <button type="button" class="btn-filter" on:click={handleFiltrar}>Filtrar</button>
+      <button type="button" class="btn-clear-filter" on:click={handleLimpiarFiltro}>Limpiar filtro</button>
     </div>
 
     <div class="tipo-selector-center">
       <div class="tipo-selector">
         <button type="button" class="tipo-pill" class:tipo-pill--active={tipo === "VEHICULO"} on:click={() => seleccionarTipo("VEHICULO")}>
-          Estación{tipo === "VEHICULO" ? ` (${resumenPorActivo.length})` : ""}
+          Estación de Servicio{tipo === "VEHICULO" ? ` (${resumenPorActivo.length})` : ""}
         </button>
         <button type="button" class="tipo-pill" class:tipo-pill--active={tipo === "MAQUINARIA_MOTO"} on:click={() => seleccionarTipo("MAQUINARIA_MOTO")}>
-          Almacén{tipo === "MAQUINARIA_MOTO" ? ` (${resumenPorActivo.length})` : ""}
+          Almacén General{tipo === "MAQUINARIA_MOTO" ? ` (${resumenPorActivo.length})` : ""}
         </button>
       </div>
     </div>
 
     <div class="accion-btn-wrap">
+      <button type="button" class="btn-filter" on:click={handleExportarExcel} disabled={isExporting}>
+        {isExporting ? "Descargando..." : "Exportar Excel"}
+      </button>
       <button type="button" class="btn-filter btn-registrar" on:click={() => (showModal = true)}>+ Registrar tanqueo</button>
     </div>
   </div>
@@ -221,7 +246,7 @@
     <div class="fuel-chart">
       <div class="dist-group-head">
         <span class="dist-chip" style="background: {ACCENT_BLUE}1a; color: {ACCENT_BLUE}">
-          {tipo === "VEHICULO" ? "Estación" : "Almacén"}
+          {tipo === "VEHICULO" ? "Estación de Servicio" : "Almacén General"}
         </span>
         <span class="dist-count">{resumenPorActivo.length} activos con tanqueo en el rango</span>
       </div>
@@ -355,6 +380,7 @@
     display: flex;
     justify-content: flex-end;
     align-items: end;
+    gap: 8px;
   }
   @media (max-width: 700px) {
     .fuel-filtros-grid {
@@ -410,6 +436,22 @@
   }
   .btn-filter:hover {
     background: #256abf;
+  }
+  .btn-clear-filter {
+    font-family: inherit;
+    padding: 9px 20px;
+    background: #fff;
+    color: #52514e;
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    height: 34px;
+    white-space: nowrap;
+  }
+  .btn-clear-filter:hover {
+    background: #f5f6f8;
   }
   .tipo-selector {
     display: flex;

@@ -55,7 +55,6 @@
         horometroKm: "",
         esFull: false,
         precioUnitario: "",
-        descuento: "",
         totalIngresado: "",
         origen: "",
       };
@@ -71,7 +70,6 @@
       horometroKm: String(row.horometroKm),
       esFull: !!row.esFull,
       precioUnitario: row.precioUnitario != null ? String(row.precioUnitario) : "",
-      descuento: row.descuento != null ? String(row.descuento) : "",
       totalIngresado: row.totalIngresado != null ? String(row.totalIngresado) : "",
       origen: row.origen ?? "",
     };
@@ -215,9 +213,8 @@
       fd.append("horometroKm", form.horometroKm);
       fd.append("esFull", String(form.esFull));
       if (form.lugar === "BOMBA") {
-        fd.append("precioUnitario", form.precioUnitario);
-        if (form.descuento) fd.append("descuento", form.descuento);
-        fd.append("totalIngresado", form.totalIngresado);
+        if (form.precioUnitario) fd.append("precioUnitario", form.precioUnitario);
+        if (form.totalIngresado) fd.append("totalIngresado", form.totalIngresado);
         if (facturaFile) fd.append("factura", facturaFile);
       }
       if (form.origen) fd.append("origen", form.origen);
@@ -296,8 +293,8 @@
         <label class="field" for="lugar">
           <span class="field-lab">Lugar</span>
           <select id="lugar" bind:value={form.lugar} disabled={isSubmitting}>
-            <option value="BOMBA">Bomba</option>
-            <option value="ALMACEN">Almacén</option>
+            <option value="BOMBA">Estación de Servicio</option>
+            <option value="ALMACEN">Almacén General</option>
           </select>
         </label>
         <label class="field" for="areaCosto">
@@ -336,22 +333,18 @@
       {#if form.lugar === "BOMBA"}
         <div class="form-row">
           <label class="field" for="precioUnitario">
-            <span class="field-lab">Precio unitario</span>
-            <input id="precioUnitario" type="number" step="0.01" bind:value={form.precioUnitario} required disabled={isSubmitting} />
+            <span class="field-lab">Precio unitario (opcional)</span>
+            <input id="precioUnitario" type="number" step="0.01" bind:value={form.precioUnitario} disabled={isSubmitting} />
           </label>
-          <label class="field" for="descuento">
-            <span class="field-lab">Descuento (opcional)</span>
-            <input id="descuento" type="number" step="0.01" bind:value={form.descuento} disabled={isSubmitting} />
-          </label>
-        </div>
-        <div class="form-row">
           <label class="field" for="totalIngresado">
-            <span class="field-lab">Total pagado (valor real)</span>
-            <input id="totalIngresado" type="number" step="0.01" bind:value={form.totalIngresado} required disabled={isSubmitting} />
+            <span class="field-lab">Total pagado (opcional)</span>
+            <input id="totalIngresado" type="number" step="0.01" bind:value={form.totalIngresado} disabled={isSubmitting} />
             {#if !isEdit}
               <span class="field-hint">Lo que realmente pagaste, no un estimado</span>
             {/if}
           </label>
+        </div>
+        <div class="form-row">
           <label class="field" for="origen">
             <span class="field-lab">Origen</span>
             <input id="origen" list="origenesList" type="text" bind:value={form.origen} placeholder="Elige o escribe uno nuevo" disabled={isSubmitting} />
