@@ -894,8 +894,7 @@
     background-color: #ffdddd !important;
   }
   .anomaly-row td {
-    background-color: #fff0d0 !important;
-    border-left: 3px solid #e8a000 !important;
+    background-color: #f2bcbc77 !important;
   }
   .pending-row td {
     background-color: #fffacd !important;

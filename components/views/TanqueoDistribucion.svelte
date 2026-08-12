@@ -342,6 +342,7 @@
     --ink-secondary: #52514e;
     --ink-muted: #898781;
     --border: rgba(11, 11, 11, 0.08);
+       --row-border: rgba(11, 11, 11, 0.453);
     --shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 12px rgba(11, 11, 11, 0.05);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     background: var(--page);
@@ -484,6 +485,18 @@
     border-radius: 10px;
     box-shadow: var(--shadow);
     padding: 18px 20px;
+  }
+  .fuel-chart :global(.data-grid-wrapper.modern .data-grid tbody tr td) {
+    border-bottom: 1px solid var(--row-border) !important;
+  }
+  .fuel-chart :global(.data-grid-wrapper.modern .data-grid thead th) {
+    border-bottom: 1px solid var(--row-border) !important;
+  }
+  .fuel-chart :global(.data-grid-wrapper.modern .data-grid tbody tr:nth-child(even) td) {
+    background-color: #f3f4f6;
+  }
+  .fuel-chart :global(.data-grid-wrapper.modern .data-grid tbody tr:hover td) {
+    background-color: #eef4fc;
   }
   .dist-group-head {
     display: flex;
