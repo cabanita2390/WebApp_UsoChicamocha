@@ -150,8 +150,10 @@ describe('FuelPerformanceHistory', () => {
     expect(valores[3]).toBe('1 / 3'); // Con alerta
   });
 
-  it('dibuja el gráfico Horas esperadas vs ejecutadas con leyenda', () => {
+  it('dibuja el gráfico Horas esperadas vs ejecutadas con leyenda', async () => {
     const { container } = render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Todo' }));
+
     const chart = container.querySelector('.ph-chart');
     expect(within(chart).getByText(/Horas esperadas/i)).toBeTruthy();
     expect(within(chart).getByText(/Horas ejecutadas/i)).toBeTruthy();
@@ -256,8 +258,10 @@ describe('FuelPerformanceHistory', () => {
 
   it('click en Editar precarga el tanqueo completo (sin buscador de activo, fijo por la ruta)', async () => {
     render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
-    // refuelingId=200, único registro dentro del rango "1M" por defecto (los otros
-    // dos, 07-10 y 07-15, quedan fuera del último mes respecto a la fecha real de hoy).
+    // refuelingId=200 — con el rango por defecto "1M", todos los registros del
+    // mock quedan fuera (están en julio 2026, hace más de 30 días respecto a la
+    // fecha real de hoy 2026-08-21), así que pasamos a "Todo" para verlo.
+    await fireEvent.click(screen.getByRole('button', { name: 'Todo' }));
     const filaMasReciente = screen.getAllByRole('row').find((r) => r.textContent.includes('20/07/2026'));
 
     await fireEvent.click(within(filaMasReciente).getByRole('button', { name: /^editar$/i }));
