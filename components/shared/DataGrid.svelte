@@ -1104,6 +1104,26 @@
   .data-grid-wrapper.modern .table-container {
     border: 1px solid rgba(11, 11, 11, 0.08);
     border-top: none;
+    /* Scrollbar delgada y redondeada (Firefox) — el resto del bloque cubre
+       Chrome/Edge/Safari. Sin esto, una tabla ancha (muchas columnas, ej.
+       Historial de Rendimiento) muestra la barra nativa del SO gruesa y con
+       flechas cuadradas, que desentona con el resto del diseño "moderno". */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(11, 11, 11, 0.18) transparent;
+  }
+  .data-grid-wrapper.modern .table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .data-grid-wrapper.modern .table-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .data-grid-wrapper.modern .table-container::-webkit-scrollbar-thumb {
+    background: rgba(11, 11, 11, 0.18);
+    border-radius: 999px;
+  }
+  .data-grid-wrapper.modern .table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(11, 11, 11, 0.32);
   }
   .data-grid-wrapper.modern .data-grid {
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;

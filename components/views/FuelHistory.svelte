@@ -266,6 +266,11 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* overflow-y sin overflow-x explícito hace que el navegador calcule
+       overflow-x en automático también (spec de CSS) — se fija en "hidden"
+       para que esta caja nunca scrollee horizontal con su propia barra nativa
+       (mismo ajuste aplicado en FuelPerformanceHistory.svelte). */
+    overflow-x: hidden;
   }
   .fh-toolbar {
     display: flex;
@@ -327,6 +332,11 @@
     border-radius: 10px;
     box-shadow: var(--shadow);
     padding: 18px 20px;
+    /* Deja que .table-container (adentro del DataGrid) sea quien realmente
+       recorta/scrollea la tabla ancha — sin min-width:0 acá, este div (hijo de
+       un flex column) no se encoge por debajo del ancho intrínseco de su
+       contenido y el overflow se escapa hacia .fuel-history. */
+    min-width: 0;
   }
   .fuel-chart :global(.data-grid-wrapper.modern .data-grid tbody tr td) {
     border-bottom: 1px solid var(--row-border) !important;

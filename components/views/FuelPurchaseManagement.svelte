@@ -177,7 +177,12 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    /* Antes "overflow: auto" (ambos ejes) — con una tabla ancha adentro esta
+       caja terminaba scrolleando horizontal con la barra nativa del SO en vez
+       de dejar que .fuel-table-wrap/DataGrid lo maneje con su propia barra
+       delgada (mismo ajuste que FuelPerformanceHistory.svelte). */
+    overflow-y: auto;
+    overflow-x: hidden;
   }
   .fuel-loader {
     display: flex;
@@ -288,5 +293,6 @@
   .fuel-table-wrap {
     flex: 1;
     min-height: 0;
+    min-width: 0;
   }
 </style>
