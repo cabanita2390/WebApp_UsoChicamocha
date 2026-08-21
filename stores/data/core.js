@@ -38,6 +38,19 @@ export const initialState = {
     // ver fetchFuelPerformanceAllTipos — para que cambiar de pill en Rendimiento
     // sea instantáneo y no dependa de una petición nueva por tipo.
     fuelPerformance: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
+    // Ventana fija de 90 días (independiente del filtro de fecha de la pantalla de
+    // Rendimiento) usada solo para dibujar los sparklines de las tarjetas — ver
+    // fetchFuelPerformanceTrend.
+    fuelPerformanceTrend: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
+    // Historial COMPLETO (rango amplio, ver fetchFuelPerformanceHistory) de UN
+    // activo — clave separada de fuelPerformance a propósito: son dos consultas
+    // con el mismo endpoint pero rangos de fecha distintos (la lista pide solo el
+    // rango filtrado; el detalle pide todo el histórico). Compartir la misma
+    // clave hacía que, al entrar al detalle, se pintara primero con las filas
+    // angostas que había dejado la lista (valores/gráfica "de otro rango") y
+    // recién después con el histórico completo — el salto se veía como un
+    // parpadeo de datos.
+    fuelPerformanceHistory: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
     fuelDistribution: null,
     fuelAssetConfig: [],
     isLoading: false,

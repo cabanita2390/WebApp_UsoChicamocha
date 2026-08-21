@@ -9,6 +9,8 @@ export function createFuelActions({ update, get, subscribe, setLoading, setError
     // raíz (carga los 3 tipos de una vez), pero conserva su propio contador por si
     // se dispara más de una vez seguida (ej. Filtrar con doble click).
     let fuelPerformanceRequestId = 0;
+    let fuelPerformanceTrendRequestId = 0;
+    let fuelPerformanceHistoryRequestId = 0;
     let refuelingReportRequestId = 0;
 
     // El backend ya actualiza vehicle.kilometrajeActual / machine.horometroActual al
@@ -200,6 +202,69 @@ export function createFuelActions({ update, get, subscribe, setLoading, setError
             } catch (err) {
                 if (requestId === fuelPerformanceRequestId) setError(err.message);
                 throw err;
+            }
+        },
+        // Historial completo de UN activo (pantalla de detalle de Rendimiento) —
+        // mismo endpoint que fetchFuelPerformanceAllTipos pero con clave de store
+        // separada (fuelPerformanceHistory, no fuelPerformance). Antes el detalle
+        // reusaba fuelPerformance: al entrar se pintaba primero con las filas
+        // angostas que había dejado la lista (otro rango de fecha) y luego, al
+        // resolver este fetch de rango amplio, saltaba a los valores/gráfica
+        // correctos — un parpadeo visible. Con la clave separada, el detalle
+        // arranca vacío (o con el Loader) hasta que ESTE fetch resuelve, sin
+        // pasar por un estado intermedio con datos de otro rango.
+        fetchFuelPerformanceHistory: async (fechaInicio, fechaFin) => {
+            const requestId = ++fuelPerformanceHistoryRequestId;
+            setLoading(true);
+            try {
+                const params = new URLSearchParams();
+                if (fechaInicio) params.set('fechaInicio', fechaInicio);
+                if (fechaFin) params.set('fechaFin', fechaFin);
+                const entries = await Promise.all(
+                    FUEL_PERFORMANCE_TIPOS.map(async (tipo) => {
+                        const tipoParams = new URLSearchParams(params);
+                        tipoParams.set('tipo', tipo);
+                        const result = await fetchWithAuth(`fuel/rendimiento?${tipoParams.toString()}`);
+                        return [tipo, result ?? []];
+                    })
+                );
+                const byTipo = Object.fromEntries(entries);
+                if (requestId === fuelPerformanceHistoryRequestId) {
+                    update(s => ({ ...s, fuelPerformanceHistory: byTipo, isLoading: false, error: null }));
+                }
+                return byTipo;
+            } catch (err) {
+                if (requestId === fuelPerformanceHistoryRequestId) setError(err.message);
+                throw err;
+            }
+        },
+        // Sparklines de las tarjetas de Rendimiento (Explorar activos): ventana fija de
+        // 90 días, independiente del filtro de fecha de la pantalla — así la tendencia
+        // de la tarjeta no desaparece solo porque el usuario filtró un rango angosto
+        // para las métricas principales. No usa setLoading/setError (carga secundaria,
+        // no debe bloquear el spinner de la lista si falla o tarda).
+        fetchFuelPerformanceTrend: async () => {
+            const requestId = ++fuelPerformanceTrendRequestId;
+            try {
+                const fechaFin = new Date().toISOString().slice(0, 10);
+                const fechaInicio = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                const params = new URLSearchParams({ fechaInicio, fechaFin });
+                const entries = await Promise.all(
+                    FUEL_PERFORMANCE_TIPOS.map(async (tipo) => {
+                        const tipoParams = new URLSearchParams(params);
+                        tipoParams.set('tipo', tipo);
+                        const result = await fetchWithAuth(`fuel/rendimiento?${tipoParams.toString()}`);
+                        return [tipo, result ?? []];
+                    })
+                );
+                const byTipo = Object.fromEntries(entries);
+                if (requestId === fuelPerformanceTrendRequestId) {
+                    update(s => ({ ...s, fuelPerformanceTrend: byTipo }));
+                }
+                return byTipo;
+            } catch (err) {
+                // Silencioso: sin sparkline no rompe la pantalla, solo la tarjeta se ve sin gráfico.
+                return null;
             }
         },
         // Combustibles — Distribución Asociación/Distrito (Fase 4, Task 23)

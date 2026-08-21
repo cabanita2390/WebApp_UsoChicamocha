@@ -204,10 +204,40 @@ export const createAssetFuelConfigColumns = (fuelTypesById = {}) => [
  * @param {boolean} showHistorialAction - agrega la columna "Ver historial" (de solo
  *   lectura, visible sin importar el rol) — mismo patrón que createRefuelingColumns.
  *   Se omite dentro de la propia pantalla de historial de un activo.
+ * @param {boolean} esMaquinaria - true si la tabla es de un activo tipo MAQUINARIA
+ *   (se mide en horómetro/horas), false si es VEHICULO o MOTOCICLETA (se mide en
+ *   kilometraje/km). Esta tabla siempre queda acotada a UN solo activo/tipo (el
+ *   reporte general ya no usa estas columnas, solo el detalle de Rendimiento por
+ *   activo), así que el encabezado puede ser exacto en vez del genérico
+ *   "Km/Horómetro" que no decía en qué unidad venía el número.
+ *
+ * Modelo de rendimiento (a pedido del usuario, reemplaza el anterior basado en
+ * galones proyectados/reales, que no aportaba nada legible): en vez de proyectar
+ * galones a partir de lo ejecutado y compararlos contra los galones realmente
+ * tanqueados, se proyectan HORAS/KM esperados a partir de lo que SÍ se tanqueó:
+ *   H (esperado)  = F (galones tanqueados) × A (consumo estándar, ya en horas u
+ *                   horas u horas/gal o km/gal)
+ *   D (ejecutado) = C − B (ya viene calculado del backend como `ejecutado`)
+ *   Diferencia    = D − H  (positivo: rindió más horas/km de las esperadas por
+ *                   ese combustible: mejor que el estándar. Negativo: rindió
+ *                   menos: consumió más rápido de lo normal)
+ *   % eficiencia  = D ÷ H × 100 (100% = exactamente lo esperado)
+ * "Alerta" sigue siendo la del backend (rango aprendido por activo) — no se
+ * recalcula acá para no duplicar esa lógica de negocio en el frontend.
  */
-export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = false, showHistorialAction = false) => {
+export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = false, showHistorialAction = false, esMaquinaria = false) => {
+    const unidadMedicion = esMaquinaria ? 'Horómetro' : 'Kilometraje';
+    const unidadEjec = esMaquinaria ? 'Horas' : 'Km';
+    const sufijo = esMaquinaria ? 'h' : 'km';
+    // 2 decimales fijos (no solo "máximo") para que la tabla quede alineada como
+    // en el ejemplo del usuario (20.00, 15.00, ...) — formatHoras/formatKm
+    // (helpers compartidos) usan otra cantidad de decimales para otras pantallas
+    // (Horómetro de Máquinas, historial de aceite, etc.), así que acá se define
+    // aparte en vez de tocarlos.
+    const fmt2 = (v) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+    const formatMedicion = (v) => `${fmt2(v)} ${sufijo}`;
+    const esperado = (row) => (Number(row.galonesReal) || 0) * (Number(row.consumoEstandar) || 0);
     const columns = [
-        { header: 'Fecha', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'perf_fecha', size: 140 },
         {
             header: 'Activo',
             accessorFn: (row) => row.identificacionActivo ?? '—',
@@ -220,56 +250,80 @@ export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = f
             id: 'perf_producto',
             size: 130,
         },
+        { header: 'Fecha', accessorFn: (row) => formatDateTimeLocal(row.fechaRegistro), id: 'perf_fecha', size: 140 },
         {
             header: 'Consumo estándar (A)',
             // Unidad de TASA (Km/Gl, Gl/Hr, Km/M3, M3/Hr) — no confundir con
             // unidadLabel (gal/m³ a secas), que es la unidad física del combustible
-            // usada en Proyectado/Real/Diferencia, no la de este número.
-            accessorFn: (row) => `${row.consumoEstandar} ${unidadConsumoLabel(row.unidadConsumo)}`,
+            // usada en Tamaño tanque/Total tanqueado, no la de este número.
+            accessorFn: (row) => `${formatCantidad(row.consumoEstandar)} ${unidadConsumoLabel(row.unidadConsumo)}`,
             id: 'perf_consumo_estandar',
             size: 110,
             meta: { isMultilineHeader: true },
         },
         {
-            header: 'Km/Horómetro anterior (B)',
-            accessorFn: (row) => (row.machineId != null ? formatHoras(row.horometroAnterior) : formatKm(row.horometroAnterior)),
+            header: 'Tamaño tanque (gal)',
+            // Se une en el componente (fuelAssetConfig.tanqueCapacidadGal no viene
+            // en el reporte de rendimiento en sí) — puede no estar configurado.
+            accessorFn: (row) => (row.tanqueCapacidadGal != null ? `${formatCantidad(row.tanqueCapacidadGal)} gal` : '—'),
+            id: 'perf_tanque',
+            size: 110,
+            meta: { isMultilineHeader: true },
+        },
+        {
+            header: 'Total tanqueado, último registro (F)',
+            accessorFn: (row) => `${formatCantidad(row.galonesReal)} ${row.unidadLabel}`,
+            id: 'perf_real',
+            size: 130,
+            meta: { isMultilineHeader: true },
+        },
+        {
+            header: `${unidadMedicion} anterior (B)`,
+            accessorFn: (row) => formatMedicion(row.horometroAnterior),
             id: 'perf_horometro_anterior',
             size: 110,
             meta: { isMultilineHeader: true },
         },
         {
-            header: 'Km/Horómetro actual (C)',
-            accessorFn: (row) => (row.machineId != null ? formatHoras(row.horometroActual) : formatKm(row.horometroActual)),
+            header: `${unidadMedicion} actual (C)`,
+            accessorFn: (row) => formatMedicion(row.horometroActual),
             id: 'perf_horometro_actual',
             size: 105,
             meta: { isMultilineHeader: true },
         },
         {
-            header: 'Km/Horómetro ejecutado (D = C−B)',
-            accessorFn: (row) => (row.machineId != null ? formatHoras(row.ejecutado) : formatKm(row.ejecutado)),
+            header: `${unidadEjec} esperadas por el combustible (H = F×A)`,
+            accessorFn: (row) => formatMedicion(esperado(row)),
+            id: 'perf_esperado',
+            size: 140,
+            meta: { isMultilineHeader: true },
+        },
+        {
+            header: `${unidadEjec} ejecutadas (D = C−B)`,
+            accessorFn: (row) => formatMedicion(row.ejecutado),
             id: 'perf_ejecutado',
             size: 120,
             meta: { isMultilineHeader: true },
         },
         {
-            header: 'Galones proyectados (E = D÷A)',
-            accessorFn: (row) => `${formatCantidad(row.galonesProyectados)} ${row.unidadLabel}`,
-            id: 'perf_proyectado',
-            size: 120,
-            meta: { isMultilineHeader: true },
-        },
-        {
-            header: 'Galones tanqueados (F)',
-            accessorFn: (row) => `${formatCantidad(row.galonesReal)} ${row.unidadLabel}`,
-            id: 'perf_real',
-            size: 110,
-            meta: { isMultilineHeader: true },
-        },
-        {
-            header: 'Diferencia (G = F−E)',
-            accessorFn: (row) => `${formatCantidad(row.diferencia)} ${row.unidadLabel}`,
+            header: 'Diferencia ejecutado / esperado (D − H)',
+            accessorFn: (row) => {
+                const dif = (Number(row.ejecutado) || 0) - esperado(row);
+                return `${dif >= 0 ? '+' : '−'}${fmt2(Math.abs(dif))} ${sufijo}`;
+            },
             id: 'perf_diferencia',
-            size: 115,
+            size: 130,
+            meta: { isMultilineHeader: true },
+        },
+        {
+            header: '% Eficiencia (D ÷ H)',
+            accessorFn: (row) => {
+                const h = esperado(row);
+                if (!h) return '—';
+                return `${fmt2((Number(row.ejecutado) / h) * 100)}%`;
+            },
+            id: 'perf_eficiencia',
+            size: 110,
             meta: { isMultilineHeader: true },
         },
         {

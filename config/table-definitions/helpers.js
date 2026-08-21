@@ -117,8 +117,8 @@ export const formatKm = (value) => new Intl.NumberFormat('es-CO', { maximumFract
 /** Horómetro de maquinaria: a diferencia del kilometraje de vehículos, se reporta con un decimal (fracción de hora). */
 export const formatHoras = (value) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value || 0);
 
-/** Cantidad de combustible (galones/m³): hasta 3 decimales (mismo step del formulario de tanqueo), con puntos de miles. */
-export const formatCantidad = (value) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 3 }).format(value || 0);
+/** Cantidad de combustible (galones/m³): hasta 2 decimales, con puntos de miles. */
+export const formatCantidad = (value) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(value || 0);
 
 // Helper para obtener color/semáforo basado en porcentaje de uso
 export function getStatusColor(percentageUsed) {
