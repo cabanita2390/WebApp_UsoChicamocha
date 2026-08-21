@@ -11,7 +11,7 @@ vi.mock('../../stores/data.js', () => ({
     subscribe: vi.fn(),
     fetchFuelTypes: vi.fn(),
     fetchAssetFuelConfig: vi.fn(),
-    fetchFuelPerformanceAllTipos: vi.fn(),
+    fetchFuelPerformanceHistory: vi.fn(),
     fetchRefuelingReport: vi.fn().mockResolvedValue(undefined),
     updateRefueling: vi.fn().mockResolvedValue({ id: 1 }),
   },
@@ -79,7 +79,7 @@ describe('FuelPerformanceHistory', () => {
     });
     data.subscribe.mockImplementation((callback) => {
       callback({
-        fuelPerformance: { MAQUINARIA: mockPerformanceMaquinaria, VEHICULO: [], MOTOCICLETA: [] },
+        fuelPerformanceHistory: { MAQUINARIA: mockPerformanceMaquinaria, VEHICULO: [], MOTOCICLETA: [] },
         fuelAssetConfig: [],
         fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
         fuelRefuelingReport: [mockFullRefueling],
@@ -91,18 +91,53 @@ describe('FuelPerformanceHistory', () => {
 
   it('pide el histórico completo (rango amplio, no el mes actual por defecto del backend)', () => {
     render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
-    expect(data.fetchFuelPerformanceAllTipos).toHaveBeenCalledWith('2000-01-01', expect.any(String));
+    expect(data.fetchFuelPerformanceHistory).toHaveBeenCalledWith('2000-01-01', expect.any(String));
   });
 
-  it('muestra todos los tanqueos del activo, no solo el más reciente', () => {
+  it('muestra todos los tanqueos del activo, no solo el más reciente', async () => {
+    // Default es "1M" (último mes) — se pasa a "Todo" para verlos los 3 sin
+    // depender de qué tan lejos esté "ahora" real de las fechas fijas de julio
+    // 2026 del fixture.
     render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Todo' }));
+
     const filas = screen.getAllByRole('row');
-    // 3 registros del activo + 1 fila de encabezado (valores formateados es-CO: coma decimal).
-    expect(filas.some((r) => r.textContent.includes('0,05'))).toBe(true);
-    expect(filas.some((r) => r.textContent.includes('38,67'))).toBe(true);
+    // 3 registros del activo + 1 fila de encabezado. Horas esperadas (H = F×A,
+    // ver createFuelPerformanceColumns): fila 199 → 1.05×30 = 31,50; fila 200 →
+    // 40×30 = 1.200,00 (valores formateados es-CO: coma decimal, punto de miles).
+    expect(filas.some((r) => r.textContent.includes('31,50'))).toBe(true);
+    expect(filas.some((r) => r.textContent.includes('1.200,00'))).toBe(true);
   });
 
-  it('el resumen muestra el total de registros y cuántos tienen alerta', async () => {
+  it('marca con un asterisco la Alerta de un activo sin suficiente historial propio (tolerancia general, no aprendida)', async () => {
+    // Default es "1M" — los registros del mock (2026-07-10/15) pueden caer fuera
+    // del último mes según la fecha real de hoy, así que se pasa a "Todo".
+    data.subscribe.mockImplementation((callback) => {
+      callback({
+        fuelPerformanceHistory: {
+          MAQUINARIA: [
+            { ...mockPerformanceMaquinaria[0], alerta: true, usaRangoAprendido: false },
+            { ...mockPerformanceMaquinaria[1], alerta: false, usaRangoAprendido: true },
+          ],
+          VEHICULO: [],
+          MOTOCICLETA: [],
+        },
+        fuelAssetConfig: [],
+        fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
+        fuelRefuelingReport: [],
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Todo' }));
+
+    expect(screen.getByText('SÍ *')).toBeTruthy();
+    expect(screen.getByText('NO')).toBeTruthy();
+  });
+
+  it('el resumen muestra el total de registros, la desviación promedio y cuántos tienen alerta', async () => {
     // Default es "1M" (último mes) — se pasa a "Todo" para contar los 3
     // registros del mock sin depender de qué tan lejos esté "ahora" real de
     // las fechas fijas de julio 2026 del fixture.
@@ -111,14 +146,15 @@ describe('FuelPerformanceHistory', () => {
 
     const valores = [...container.querySelectorAll('.summary-value')].map((el) => el.textContent.trim());
     expect(valores[0]).toBe('3'); // Total registros
-    expect(valores[2]).toBe('1 / 3'); // Con alerta
+    expect(valores[2]).toMatch(/%$/); // Desviación promedio
+    expect(valores[3]).toBe('1 / 3'); // Con alerta
   });
 
-  it('dibuja el gráfico Proyectado vs Real con leyenda', () => {
+  it('dibuja el gráfico Horas esperadas vs ejecutadas con leyenda', () => {
     const { container } = render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
     const chart = container.querySelector('.ph-chart');
-    expect(within(chart).getByText('Proyectado')).toBeTruthy();
-    expect(within(chart).getByText('Real')).toBeTruthy();
+    expect(within(chart).getByText(/Horas esperadas/i)).toBeTruthy();
+    expect(within(chart).getByText(/Horas ejecutadas/i)).toBeTruthy();
     expect(chart.querySelectorAll('polyline').length).toBe(2);
   });
 
@@ -143,7 +179,7 @@ describe('FuelPerformanceHistory', () => {
     ];
     data.subscribe.mockImplementation((callback) => {
       callback({
-        fuelPerformance: { MAQUINARIA: variosAniosMock, VEHICULO: [], MOTOCICLETA: [] },
+        fuelPerformanceHistory: { MAQUINARIA: variosAniosMock, VEHICULO: [], MOTOCICLETA: [] },
         fuelAssetConfig: [],
         fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
         fuelRefuelingReport: [mockFullRefueling],
@@ -170,7 +206,7 @@ describe('FuelPerformanceHistory', () => {
     ];
     data.subscribe.mockImplementation((callback) => {
       callback({
-        fuelPerformance: { MAQUINARIA: mockRango, VEHICULO: [], MOTOCICLETA: [] },
+        fuelPerformanceHistory: { MAQUINARIA: mockRango, VEHICULO: [], MOTOCICLETA: [] },
         fuelAssetConfig: [],
         fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
         fuelRefuelingReport: [mockFullRefueling],
@@ -187,7 +223,7 @@ describe('FuelPerformanceHistory', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Todo' }));
 
     // Filtrado 100% client-side: no dispara un fetch nuevo al backend.
-    expect(data.fetchFuelPerformanceAllTipos).toHaveBeenCalledTimes(1);
+    expect(data.fetchFuelPerformanceHistory).toHaveBeenCalledTimes(1);
     expect(container.querySelector('.summary-value').textContent.trim()).toBe('2');
   });
 
@@ -197,7 +233,7 @@ describe('FuelPerformanceHistory', () => {
     const muyViejo = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString();
     data.subscribe.mockImplementation((callback) => {
       callback({
-        fuelPerformance: { MAQUINARIA: [{ ...mockPerformanceMaquinaria[0], fechaRegistro: muyViejo }], VEHICULO: [], MOTOCICLETA: [] },
+        fuelPerformanceHistory: { MAQUINARIA: [{ ...mockPerformanceMaquinaria[0], fechaRegistro: muyViejo }], VEHICULO: [], MOTOCICLETA: [] },
         fuelAssetConfig: [],
         fuelTypes: [{ id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' }],
         fuelRefuelingReport: [mockFullRefueling],
@@ -220,7 +256,9 @@ describe('FuelPerformanceHistory', () => {
 
   it('click en Editar precarga el tanqueo completo (sin buscador de activo, fijo por la ruta)', async () => {
     render(FuelPerformanceHistory, { props: { params: { tipoElemento: 'MAQUINARIA', id: '8' } } });
-    const filaMasReciente = screen.getAllByRole('row').find((r) => r.textContent.includes('38,67'));
+    // refuelingId=200, único registro dentro del rango "1M" por defecto (los otros
+    // dos, 07-10 y 07-15, quedan fuera del último mes respecto a la fecha real de hoy).
+    const filaMasReciente = screen.getAllByRole('row').find((r) => r.textContent.includes('20/07/2026'));
 
     await fireEvent.click(within(filaMasReciente).getByRole('button', { name: /^editar$/i }));
 
@@ -232,7 +270,7 @@ describe('FuelPerformanceHistory', () => {
   it('sin datos para el activo, muestra el mensaje de "sin historial"', () => {
     data.subscribe.mockImplementation((callback) => {
       callback({
-        fuelPerformance: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
+        fuelPerformanceHistory: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
         fuelAssetConfig: [],
         fuelTypes: [],
         fuelRefuelingReport: [],
