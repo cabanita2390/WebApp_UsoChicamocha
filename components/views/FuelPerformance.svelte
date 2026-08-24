@@ -6,14 +6,8 @@
   import { fuelDateRange, resetFuelDateRange } from "../../stores/fuelFilters.js";
   import Loader from "../shared/Loader.svelte";
   import AssetFuelConfigManagement from "./AssetFuelConfigManagement.svelte";
+  import FuelPerformanceSparkline from "../shared/FuelPerformanceSparkline.svelte";
   import { formatCantidad } from "../../config/table-definitions/helpers.js";
-
-  // Alto del sparkline de cada tarjeta (viewBox y CSS van de la mano — ver
-  // buildSparkline y .fuel-card-spark). Antes 46px, muy chico para leer la
-  // línea proyectado/real; con tarjetas más anchas (mínimo 4 por fila en
-  // pantalla completa, ver .fuel-cards-grid) hay espacio de sobra para que la
-  // gráfica se vea mejor.
-  const SPARK_H = 76;
 
   $: isAdmin = $auth?.currentUser?.role === "ADMIN";
   let mostrarConfig = false;
@@ -55,14 +49,25 @@
   function labelVehicular(v) {
     return `${v.placa}${v.marca ? " — " + v.marca : ""}`;
   }
-  function inventarioDe(tipoSel) {
+  // machinesList/vehiclesList/motosList se reciben como parámetros (en vez de
+  // leer machines/vehicles/motos por closure) a propósito: Svelte solo detecta
+  // como dependencia de un `$:` los identificadores que aparecen directamente en
+  // esa línea, no las variables que usa una función llamada adentro. Si esta
+  // función leyera machines/vehicles/motos por closure, `universoTipo` quedaba
+  // pegado al valor calculado en el primer render (inventarios aún vacíos,
+  // fetch en curso) y nunca se refrescaba solo — solo se veía completo después
+  // de cambiar de pill y volver, porque eso sí cambia `tipo` y fuerza el
+  // recálculo. Con los inventarios como argumentos explícitos, Svelte los
+  // registra como dependencias y el recálculo ocurre solo en cuanto cada fetch
+  // resuelve.
+  function inventarioDe(tipoSel, machinesList, vehiclesList, motosList) {
     if (tipoSel === "MAQUINARIA") {
-      return machines.map((m) => ({ key: `M-${m.id}`, machineId: m.id, vehicleId: null, nombreInventario: `${m.name}${m.brand ? " — " + m.brand : ""}` }));
+      return machinesList.map((m) => ({ key: `M-${m.id}`, machineId: m.id, vehicleId: null, nombreInventario: `${m.name}${m.brand ? " — " + m.brand : ""}` }));
     }
-    const lista = tipoSel === "MOTOCICLETA" ? motos : vehicles;
+    const lista = tipoSel === "MOTOCICLETA" ? motosList : vehiclesList;
     return lista.map((v) => ({ key: `V-${v.id}`, machineId: null, vehicleId: v.id, nombreInventario: labelVehicular(v) }));
   }
-  $: universoTipo = inventarioDe(tipo);
+  $: universoTipo = inventarioDe(tipo, machines, vehicles, motos);
   $: totalInventario = { MAQUINARIA: machines.length, VEHICULO: vehicles.length, MOTOCICLETA: motos.length };
 
   $: fuelAssetConfigPorClave = Object.fromEntries(
@@ -169,18 +174,10 @@
     if (arr.length < 2) return null;
     // H (esperado) vs D (ejecutado) — mismo modelo que la tabla de detalle, ver
     // esperadoDe. Reemplaza el viejo proyectado/real en galones.
-    const esperadoVals = arr.map((r) => esperadoDe(r));
-    const ejecutadoVals = arr.map((r) => Number(r.ejecutado) || 0);
-    const max = Math.max(...esperadoVals, ...ejecutadoVals) || 1;
-    const step = 200 / (arr.length - 1);
-    // Alto del viewBox del sparkline — ver SPARK_H/.fuel-card-spark (tarjetas más
-    // grandes, 4 por fila en pantalla completa, con espacio para que la gráfica
-    // se lea mejor).
-    const y = (v) => SPARK_H - 6 - (v / max) * (SPARK_H - 14);
-    const esperado = esperadoVals.map((v, i) => `${(i * step).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-    const ejecutado = ejecutadoVals.map((v, i) => `${(i * step).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-    const area = `0,${SPARK_H - 6} ${ejecutado} ${((arr.length - 1) * step).toFixed(1)},${SPARK_H - 6}`;
-    return { esperado, ejecutado, area };
+    return {
+      esperado: arr.map((r) => esperadoDe(r)),
+      ejecutado: arr.map((r) => Number(r.ejecutado) || 0),
+    };
   }
 
   function formatFechaCorta(fechaIso) {
@@ -209,6 +206,7 @@
         ultimaFecha: formatFechaCorta(row.fechaRegistro),
         footLabel: `${registrosPorActivo[u.key] ?? 1} registros · últ. ${formatFechaCorta(row.fechaRegistro)}`,
         spark,
+        unidadEjec,
       };
     }
     // Sin tanqueos en el rango filtrado — sigue siendo un activo real del
@@ -352,13 +350,11 @@
               </span>
             </div>
 
-            <svg width="100%" height={SPARK_H} viewBox="0 0 200 {SPARK_H}" preserveAspectRatio="none" class="fuel-card-spark">
-              {#if t.spark}
-                <polygon points={t.spark.area} fill="#eb6834" opacity=".1"></polygon>
-                <polyline points={t.spark.esperado} fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round"></polyline>
-                <polyline points={t.spark.ejecutado} fill="none" stroke="#eb6834" stroke-width="2.2" stroke-linejoin="round"></polyline>
-              {/if}
-            </svg>
+            {#if t.spark}
+              <FuelPerformanceSparkline esperado={t.spark.esperado} ejecutado={t.spark.ejecutado} unidad={t.unidadEjec} />
+            {:else}
+              <div class="fuel-card-spark fuel-card-spark--vacio"></div>
+            {/if}
 
             <div class="fuel-card-metrics">
               <div>
@@ -693,10 +689,11 @@
     color: var(--ink-muted);
     background: rgba(11, 11, 11, 0.06);
   }
-  .fuel-card-spark {
-    display: block;
+  .fuel-card-spark--vacio {
+    /* Mismo alto que FuelPerformanceSparkline (ver height prop) — sin esto,
+       las tarjetas sin histórico quedan más bajas que el resto de la grilla. */
+    height: 76px;
     margin: 14px 0 6px;
-    overflow: visible;
   }
   .fuel-card-metrics {
     display: flex;
