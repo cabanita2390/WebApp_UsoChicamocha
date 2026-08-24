@@ -166,11 +166,22 @@
     return acc;
   }, {});
 
+  // Ventana de 30 días (no un conteo fijo de tanqueos) — con un activo que
+  // tanquea poco, "últimos 10" podía estirarse meses atrás y mezclar tramos
+  // muy separados en el tiempo; acotar a 30 días mantiene la mini-gráfica
+  // como lo que es, "el último mes". Tope de 15 puntos por encima de eso: un
+  // activo que tanquea muy seguido (varios por día) no debería saturar una
+  // gráfica que mide ~200px de ancho — se queda con los 15 más recientes
+  // dentro del mes.
+  const TREINTA_DIAS_MS = 30 * 24 * 60 * 60 * 1000;
+  const MAX_PUNTOS_SPARKLINE = 15;
+
   function buildSparkline(porActivo, key) {
+    const desde = Date.now() - TREINTA_DIAS_MS;
     const arr = (porActivo[key] ?? [])
-      .slice()
+      .filter((r) => new Date(r.fechaRegistro).getTime() >= desde)
       .sort((a, b) => new Date(a.fechaRegistro) - new Date(b.fechaRegistro))
-      .slice(-10);
+      .slice(-MAX_PUNTOS_SPARKLINE);
     if (arr.length < 2) return null;
     // H (esperado) vs D (ejecutado) — mismo modelo que la tabla de detalle, ver
     // esperadoDe. Reemplaza el viejo proyectado/real en galones.
