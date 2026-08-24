@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import FuelPerformance from '../../components/views/FuelPerformance.svelte';
 
 vi.mock('svelte-spa-router', () => ({
@@ -201,6 +201,51 @@ describe('FuelPerformance', () => {
     expect(cards.length).toBe(1);
     // "9 gal" (galonesReal de la fila más nueva, refuelingId=11) identifica cuál quedó.
     expect(cards[0].querySelector('.fuel-card-metric-val').textContent).toContain('9');
+  });
+
+  it('muestra el inventario completo apenas resuelven fetchMachines/fetchVehicles/fetchMotos, sin tener que cambiar de pestaña', async () => {
+    // Reproduce la carga real: al montar, fetchFuelTypes/fetchAssetFuelConfig/
+    // fetchFuelPerformanceAllTipos/fetchMachines/etc. se disparan todos juntos y
+    // resuelven en cualquier orden. Este test simula que el inventario
+    // (machines/vehicles/motos) llega DESPUÉS del primer render, sin que el
+    // usuario cambie de pill (`tipo` no cambia) — antes del fix, `universoTipo`
+    // se calculaba una sola vez con los inventarios vacíos y nunca se refrescaba
+    // sin ese cambio de pill.
+    let capturedCallback;
+    data.subscribe.mockImplementation((callback) => {
+      capturedCallback = callback;
+      callback({
+        fuelPerformance: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
+        fuelPerformanceTrend: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
+        fuelAssetConfig: [],
+        fuelTypes: [],
+        machines: [],
+        vehicles: [],
+        motos: [],
+        isLoading: false,
+      });
+      return () => {};
+    });
+
+    const { container } = render(FuelPerformance);
+    expect(container.querySelectorAll('.fuel-card').length).toBe(0);
+
+    // fetchMachines resuelve tarde: llega el inventario completo de MAQUINARIA
+    // (la pestaña activa por defecto), sin ningún click en las pills.
+    capturedCallback({
+      fuelPerformance: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
+      fuelPerformanceTrend: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
+      fuelAssetConfig: [],
+      fuelTypes: [],
+      machines: [{ id: 101, name: 'Excavadora 101' }, { id: 102, name: 'Retro 102' }],
+      vehicles: [],
+      motos: [],
+      isLoading: false,
+    });
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('.fuel-card').length).toBe(2);
+    });
   });
 
   it('click en una tarjeta navega a /fuel-performance-history/:tipo/:id', async () => {

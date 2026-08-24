@@ -38,6 +38,18 @@ vi.mock('../shared/Loader.svelte', () => ({
   })),
 }));
 
+// FuelTrendChart ahora renderiza en un <canvas> vía ECharts (jsdom no tiene
+// contexto 2D real, ver __tests__/views/FuelTrendChart.test.js para la
+// cobertura del componente en sí). Se reemplaza por un stub Svelte real
+// (mismo pipeline de compilación) que hace eco de `label`/`label2`/`months`,
+// para no perder la cobertura de este archivo sobre la leyenda y el formato
+// adaptativo de etiquetas (día/mes vs. mes/año) — lógica de
+// FuelPerformanceHistory, no de FuelTrendChart.
+vi.mock('../../components/views/FuelTrendChart.svelte', async () => {
+  const mod = await import('../__mocks__/FuelTrendChartStub.svelte');
+  return { default: mod.default };
+});
+
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
 import { pop } from 'svelte-spa-router';
@@ -157,7 +169,6 @@ describe('FuelPerformanceHistory', () => {
     const chart = container.querySelector('.ph-chart');
     expect(within(chart).getByText(/Horas esperadas/i)).toBeTruthy();
     expect(within(chart).getByText(/Horas ejecutadas/i)).toBeTruthy();
-    expect(chart.querySelectorAll('polyline').length).toBe(2);
   });
 
   it('con un rango de hasta un año, la etiqueta muestra día arriba y mes abreviado abajo', async () => {

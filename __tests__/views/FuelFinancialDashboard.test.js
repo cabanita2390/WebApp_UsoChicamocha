@@ -35,6 +35,16 @@ vi.mock('../shared/Loader.svelte', () => ({
   })),
 }));
 
+// FuelTrendChart ahora renderiza en un <canvas> vía ECharts (jsdom no tiene
+// contexto 2D real, ver __tests__/views/FuelTrendChart.test.js para la
+// cobertura del componente en sí). Este archivo no inspecciona el contenido
+// del gráfico, así que basta con el mismo stub Svelte real usado en
+// FuelPerformanceHistory.test.js.
+vi.mock('../../components/views/FuelTrendChart.svelte', async () => {
+  const mod = await import('../__mocks__/FuelTrendChartStub.svelte');
+  return { default: mod.default };
+});
+
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
 
@@ -200,11 +210,11 @@ describe('FuelFinancialDashboard', () => {
     // "-01" de más, produciendo "2026-06-01-01" (fecha inválida -> NaN).
     const { container } = render(FuelFinancialDashboard);
 
-    const marcador = container.querySelector('.trend-marker');
-    expect(marcador).toBeTruthy();
-    expect(marcador.style.left).not.toBe('');
-    expect(marcador.style.left.includes('NaN')).toBe(false);
-    expect(marcador.style.top.includes('NaN')).toBe(false);
+    const timestamps = JSON.parse(container.querySelector('[data-testid="trend-timestamps"]').textContent);
+    expect(timestamps.length).toBeGreaterThan(0);
+    for (const ts of timestamps) {
+      expect(Number.isNaN(new Date(ts).getTime())).toBe(false);
+    }
   });
 
   it('"Limpiar filtro" vuelve al rango por defecto (mes actual → hoy) y refiltra', async () => {
