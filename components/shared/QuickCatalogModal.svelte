@@ -13,9 +13,17 @@
   function close() {
     dispatch('close');
   }
+
+  function handleKeydown(event) {
+    if (event.key === 'Escape') close();
+  }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if open}
+  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="modal-overlay modal-overlay-front" role="presentation" on:click={close}>
     <div class="modal-content modal-quick" role="dialog" aria-modal="true" aria-labelledby="quick-cat-title" on:click|stopPropagation>
       <div class="modal-header">

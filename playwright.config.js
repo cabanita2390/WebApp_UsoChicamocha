@@ -11,8 +11,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Los specs de e2e/fuel comparten datos reales en Postgres y dependen del
+     orden de archivo 01->09 (documentado en los comentarios de cada spec,
+     ej. 08-reintegro.js reutiliza el tanqueo creado por 03) — con más de un
+     worker corren en paralelo y se pisan entre sí. Se fuerza serial siempre,
+     no solo en CI. */
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -28,7 +32,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
     },
 
     {

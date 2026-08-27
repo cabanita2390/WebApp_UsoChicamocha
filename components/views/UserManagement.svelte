@@ -183,6 +183,13 @@
     editUserLicenseFile = null;
   }
 
+  function handleKeydown(event) {
+    if (event.key !== "Escape") return;
+    if (showEditModal) closeEditModal();
+    else if (showDeleteModal) closeDeleteModal();
+    else if (showSoftDeletedModal) handleCreateDifferent();
+  }
+
   async function handleRestoreUser() {
     if (!softDeletedUserToRestore?.id) return;
     isRestoringUser = true;
@@ -212,6 +219,8 @@
     }, 150);
   }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 {#if isLoading}
   <div class="loader-container">
@@ -266,6 +275,7 @@
             <option value="ADMIN">ADMIN </option>
             <option value="SUPERVISOR_OPERATIVO">SUPERVISOR OPERATIVO </option>
             <option value="OPERARIO">OPERARIO</option>
+            <option value="ALMACEN">ALMACÉN GENERAL</option>
           </select>
         </label>
       </div>
@@ -315,6 +325,8 @@
 
 {#if showEditModal}
   <div class="modal-overlay" >
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
         <h3>Editar Usuario</h3>
@@ -339,6 +351,7 @@
                 <option value="ADMIN">ADMIN</option>
                 <option value="SUPERVISOR_OPERATIVO">SUPERVISOR OPERATIVO</option>
                 <option value="OPERARIO">OPERARIO</option>
+                <option value="ALMACEN">ALMACÉN GENERAL</option>
               </select>
             </label>
           {/if}
@@ -432,6 +445,8 @@
 
 {#if showDeleteModal}
   <div class="modal-overlay" >
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content confirmation" on:click|stopPropagation>
       <h3>Confirmar Eliminación</h3>
       <p>
@@ -451,7 +466,11 @@
 {/if}
 
 {#if showSoftDeletedModal && softDeletedUserToRestore}
-  <div class="modal-overlay" on:click={handleCreateDifferent}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="modal-overlay" role="presentation" on:click={handleCreateDifferent}>
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
         <h3>Advertencia: Usuario Eliminado Detectado</h3>

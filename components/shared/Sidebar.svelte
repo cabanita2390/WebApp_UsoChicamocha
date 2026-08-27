@@ -55,22 +55,22 @@
     <span class="nav-text">Marcas (catálogo)</span>
   </a>
 
-  <!-- ── Combustibles ── 
+  <!-- ── Combustibles ── -->
   <div class="section-header"><span>Combustibles</span></div>
 
-  <a class="nav-item" href="/fuel" use:link use:active={{ path: "/fuel", className: "active" }} title="Registro de cargas de combustible — Maquinaria · Vehículos · Motos">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+  <a class="nav-item" href="/fuel" use:link use:active={{ path: "/fuel", className: "active" }} title="Tanqueo, suministro, dashboard financiero, almacén, rendimiento y distribución">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.77,7.23L19.78,7.22L16.06,3.5L15,4.56L17.11,6.67C16.17,7 15.5,7.93 15.5,9A2.5,2.5 0 0,0 18,11.5C18.36,11.5 18.69,11.42 19,11.29V18.5A1,1 0 0,1 18,19.5A1,1 0 0,1 17,18.5V14A2,2 0 0,0 15,12H14V4A2,2 0 0,0 12,2H6A2,2 0 0,0 4,4V20H14V13.5H15.5V18.5A2.5,2.5 0 0,0 18,21A2.5,2.5 0 0,0 20.5,18.5V9C20.5,8.31 20.22,7.68 19.77,7.23M12,10H6V4H12V10Z" /></svg>
     <span class="nav-text">Combustibles</span>
   </a>
-  -->
+
 </nav>
 
 <style>
   .sidebar {
     height: 100%;
     width: 60px;
-    background: linear-gradient(to bottom, #e0e0e0 0%, #c0c0c0 100%);
-    border-right: 2px outset #c0c0c0;
+    background: #ffffff;
+    border-right: 1px solid #d8d8d6;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -79,6 +79,7 @@
     transition: width 0.3s ease;
     overflow-y: auto;
     overflow-x: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   .sidebar:hover {
     width: 220px;
@@ -86,17 +87,15 @@
 
   .section-header {
     width: 100%;
-    padding: 10px 10px 4px 10px;
-    font-size: 9px;
-    color: #555;
-    font-weight: bold;
+    padding: 6px 16px;
+    font-size: 10px;
+    color: #5a6069;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(0,0,0,0.05);
-    border-bottom: 1px solid #aaa;
+    background: #e4e5e7;
     white-space: nowrap;
+    box-sizing: border-box;
     margin-top: 0;
   }
   .sidebar:not(:hover) .section-header {
@@ -109,10 +108,8 @@
   .nav-item {
     width: 100%;
     height: 40px;
-    background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%);
+    background: #ffffff;
     border: none;
-    border-top: 1px solid #ffffff;
-    border-bottom: 1px solid #808080;
     cursor: pointer;
     display: flex;
     justify-content: flex-start;
@@ -120,27 +117,26 @@
     padding: 0 14px;
     gap: 14px;
     text-decoration: none;
-    color: inherit;
+    color: #33322f;
     box-sizing: border-box;
   }
   .nav-item:hover {
-    background: linear-gradient(to bottom, #ffffff 0%, #e0e0e0 100%);
+    background: #f5f6f8;
   }
   .nav-item:active,
   :global(.nav-item.active) {
-    background: #c0c0c0;
-    border-top-color: #808080;
+    background: #eef2f7;
+    color: #2a78d6;
   }
   .nav-item svg {
-    width: 24px;
-    height: 24px;
-    fill: #000000;
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
     flex-shrink: 0;
   }
 
   /* Consolidado: documento + aceite (trazo + gota rellena); anula fill heredado en trazos */
   .nav-item svg.nav-icon-consolidado {
-    color: #000000;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
@@ -161,9 +157,8 @@
   }
 
   .nav-text {
-    font-family: "MS Sans Serif", "Tahoma", sans-serif;
-    font-size: 11px;
-    font-weight: bold;
+    font-size: 13px;
+    font-weight: 600;
     white-space: nowrap;
     opacity: 0;
     transition: opacity 0.2s ease;
@@ -171,5 +166,8 @@
   .sidebar:hover .nav-text {
     opacity: 1;
     transition-delay: 0.15s;
+  }
+  :global(.nav-item.active) .nav-text {
+    font-weight: 700;
   }
 </style>

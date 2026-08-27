@@ -16,6 +16,10 @@
     dispatch('close');
   }
 
+  function handleKeydown(event) {
+    if (event.key === 'Escape' && open) close();
+  }
+
   function formatFechaRegistro(subidoEn) {
     if (!subidoEn) return '—';
     const d = new Date(subidoEn);
@@ -28,8 +32,14 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if open}
-  <div class="modal-overlay" on:click={close}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="modal-overlay" role="presentation" on:click={close}>
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content modal-doc-history" on:click|stopPropagation>
       <div class="modal-header">
         <h3>Historial de documentación — {plate ?? ''}</h3>

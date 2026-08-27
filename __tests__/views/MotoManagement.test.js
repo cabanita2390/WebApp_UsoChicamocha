@@ -20,6 +20,10 @@ vi.mock('../../stores/data.js', () => ({
     uploadVehicleDocumentFile: vi.fn(),
     updateVehicleDocument: vi.fn(),
     getVehicleDocumentHistory: vi.fn(),
+    getMotoByPlaca: vi.fn(),
+    fetchFuelTypes: vi.fn(),
+    fetchAssetFuelConfig: vi.fn(),
+    updateAssetFuelConfigVehicle: vi.fn(),
   },
 }));
 
@@ -80,6 +84,11 @@ describe('MotoManagement', () => {
       vehicleTypes: [{ id: 1, name: 'MOTOCICLETA' }],
       areas: [],
       locations: [],
+      fuelTypes: [
+        { id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' },
+        { id: 4, codigo: 'GAS', nombre: 'Gas natural vehicular', unidadMedida: 'M3' },
+      ],
+      fuelAssetConfig: [],
       isLoading: false,
       error: null,
     };
@@ -94,6 +103,9 @@ describe('MotoManagement', () => {
     data.fetchVehicleTypes.mockResolvedValue();
     data.fetchAreas.mockResolvedValue();
     data.fetchLocations.mockResolvedValue();
+    data.fetchFuelTypes.mockResolvedValue();
+    data.fetchAssetFuelConfig.mockResolvedValue();
+    data.updateAssetFuelConfigVehicle.mockResolvedValue({});
   });
 
   it('muestra el estado de carga cuando está cargando sin motos', async () => {
@@ -154,6 +166,45 @@ describe('MotoManagement', () => {
     await waitFor(() => {
       expect(data.createMoto).toHaveBeenCalled();
     });
+  });
+
+  it('al crear una moto con combustible + consumo estándar, también guarda el consumo estándar del activo (mismo endpoint que vehículos)', async () => {
+    mockDataStore.motos = [];
+    data.createMoto.mockResolvedValue({ id: 2, placa: 'MTO999' });
+
+    const { container } = render(MotoManagement);
+    await tick();
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: ABC12D'), { target: { value: 'MTO999' } });
+    await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
+    await fireEvent.input(screen.getByLabelText(/consumo estándar/i), { target: { value: '85' } });
+
+    await fireEvent.submit(container.querySelector('form.create-form'));
+
+    await waitFor(() => {
+      expect(data.updateAssetFuelConfigVehicle).toHaveBeenCalledWith(2, {
+        fuelTypeDefaultId: 1,
+        consumoEstandar: 85,
+        unidadConsumo: 'KM_POR_GALON',
+        tanqueCapacidadGal: null,
+      });
+    });
+  });
+
+  it('si no se elige combustible al crear una moto, NO llama a guardar el consumo estándar', async () => {
+    mockDataStore.motos = [];
+    data.createMoto.mockResolvedValue({ id: 3, placa: 'NOFUEL2' });
+
+    const { container } = render(MotoManagement);
+    await tick();
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: ABC12D'), { target: { value: 'NOFUEL2' } });
+    await fireEvent.submit(container.querySelector('form.create-form'));
+
+    await waitFor(() => {
+      expect(data.createMoto).toHaveBeenCalled();
+    });
+    expect(data.updateAssetFuelConfigVehicle).not.toHaveBeenCalled();
   });
 
   it('el campo de placa es obligatorio', async () => {

@@ -178,6 +178,33 @@ describe('DataGrid', () => {
   });
 
   /**
+    * @test Renderiza y despacha el botón "Ver historial" (meta.isViewHistoryAction).
+    * Botón de solo lectura, independiente de Editar/Eliminar (isAction) — debe
+    * poder mostrarse aunque la columna de Editar/Eliminar no esté presente.
+    */
+  it('renders and dispatches the "Ver historial" button for isViewHistoryAction columns', async () => {
+    const historyColumns = [
+      { accessorKey: 'name', header: 'Name', cell: ({ getValue }) => getValue() },
+      { id: 'historial', header: '', meta: { isViewHistoryAction: true } },
+    ];
+    const mockDispatch = vi.fn();
+
+    const component = render(DataGrid, {
+      props: { columns: historyColumns, data: mockData, showPagination: false },
+    });
+    component.component.$on('action', (event) => mockDispatch(event.detail));
+
+    await tick();
+
+    const historyButtons = screen.getAllByText('Ver historial');
+    expect(historyButtons.length).toBe(2);
+
+    await fireEvent.click(historyButtons[0]);
+
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'viewHistory', data: mockData[0] });
+  });
+
+  /**
     * @test Renderiza botones de estado con clases correctas.
     * Verifica que los botones de estado se rendericen con clases correctas, como "status-optimo".
     */

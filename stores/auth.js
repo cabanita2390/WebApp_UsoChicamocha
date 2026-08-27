@@ -139,8 +139,8 @@ function createAuthStore() {
 
         const userRole = (decodedPayload.role || '').replace(/[\[\]']+/g, '').replace('ROLE_', '');
 
-        // Web: ADMIN, SUPERVISOR_OPERATIVO. OPERARIO solo usa app móvil.
-        const allowedRoles = ['ADMIN', 'SUPERVISOR_OPERATIVO'];
+        // Web: ADMIN, SUPERVISOR_OPERATIVO, ALMACEN (panel de combustibles). OPERARIO solo usa app móvil.
+        const allowedRoles = ['ADMIN', 'SUPERVISOR_OPERATIVO', 'ALMACEN'];
         if (!allowedRoles.includes(userRole)) {
           return { success: false, error: 'Acceso denegado. Usa la app móvil 📱' };
         }

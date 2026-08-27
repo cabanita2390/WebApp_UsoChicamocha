@@ -1,4 +1,5 @@
 <script>
+  import { push } from 'svelte-spa-router';
   import { createConsolidadoColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
   import { auth } from '../../stores/auth.js';
@@ -38,6 +39,10 @@
     hourmeterSubmitting = false;
   }
 
+  function handleKeydown(event) {
+    if (event.key === 'Escape' && hourmeterModalOpen) closeHourmeterModal();
+  }
+
   async function submitHourmeter() {
     const val = parseFloat(hourmeterValue);
     if (isNaN(val) || val < 0) {
@@ -59,6 +64,14 @@
   function handleGridAction(ev) {
     const { type, data: row } = ev.detail;
     if (type === 'edit_hourmeter') openHourmeterModal(row);
+    else if (type === 'viewMotorOilHistory') irAHistorialAceite(row, 'MOTOR');
+    else if (type === 'viewHydraulicOilHistory') irAHistorialAceite(row, 'HYDRAULIC');
+  }
+
+  // Historial editable de aceite (motor/hidráulico) vive en su propia página
+  // (mismo patrón "más cómodo" que /vehicle-oil-history/:placa para Vehículos/Motos).
+  function irAHistorialAceite(row, tipo) {
+    push(`/machine-oil-history/${row.machine.id}/${tipo}`);
   }
 
   async function handleExportConsolidated() {
@@ -115,8 +128,14 @@
   </div>
 </div>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if hourmeterModalOpen && hourmeterRow && (isAdmin || isSupervisorOperativo)}
+  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="hm-overlay" role="presentation" on:click|self={closeHourmeterModal}>
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div
       class="vehicle-form-section hm-dialog"
       role="dialog"

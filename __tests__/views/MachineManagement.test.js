@@ -12,6 +12,10 @@ vi.mock('../../stores/data.js', () => ({
     updateMachine: vi.fn(),
     deleteMachine: vi.fn(),
     fetchMachineCurriculum: vi.fn(),
+    getMachineById: vi.fn(),
+    fetchFuelTypes: vi.fn(),
+    fetchAssetFuelConfig: vi.fn(),
+    updateAssetFuelConfigMachine: vi.fn(),
   },
 }));
 
@@ -83,12 +87,20 @@ describe('MachineManagement', () => {
     mockDataStore = {
       machines: [],
       isLoading: false,
+      fuelTypes: [
+        { id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' },
+        { id: 4, codigo: 'GAS', nombre: 'Gas natural vehicular', unidadMedida: 'M3' },
+      ],
+      fuelAssetConfig: [],
     };
 
     data.subscribe.mockImplementation((callback) => {
       callback(mockDataStore);
       return () => {};
     });
+    data.fetchFuelTypes.mockResolvedValue();
+    data.fetchAssetFuelConfig.mockResolvedValue();
+    data.updateAssetFuelConfigMachine.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -160,10 +172,63 @@ describe('MachineManagement', () => {
         soat: '',
         runt: '',
         belongsTo: 'Distrito',
-        fuelTankCapacityGallons: null,
-        factoryEfficiencyUnit: 'GAL_PER_HOUR',
       });
     });
+  });
+
+  it('el formulario de creación incluye Combustible/Consumo estándar (conectado a asset_fuel_config)', async () => {
+    mockDataStore.machines = [];
+    render(MachineManagement);
+    await tick();
+
+    expect(screen.getByLabelText(/combustible/i)).toBeTruthy();
+    expect(screen.getByLabelText(/consumo estándar/i)).toBeTruthy();
+    expect(screen.getByLabelText(/capacidad del tanque/i)).toBeTruthy();
+  });
+
+  it('al crear una máquina con combustible + consumo estándar, también guarda el consumo estándar del activo', async () => {
+    mockDataStore.machines = [];
+    data.createMachine.mockResolvedValue({ id: 5, name: 'New Machine' });
+
+    render(MachineManagement);
+    await tick();
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: Excavadora CAT'), { target: { value: 'New Machine' } });
+    await fireEvent.input(screen.getByPlaceholderText('Ej: 320D'), { target: { value: 'Model X' } });
+    await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
+    await fireEvent.input(screen.getByLabelText(/consumo estándar/i), { target: { value: '3.5' } });
+    await fireEvent.click(screen.getByText('Registrar máquina'));
+    // waitFor no sirve aquí: vi.useFakeTimers() (usado por el temporizador del
+    // botón de eliminar) bloquea su polling por intervalos. La cadena
+    // createMachine -> guardarFuelConfigMaquina son promesas encadenadas, así
+    // que varios tick() seguidos alcanzan a drenarlas sin depender de timers.
+    await tick();
+    await tick();
+    await tick();
+
+    expect(data.updateAssetFuelConfigMachine).toHaveBeenCalledWith(5, {
+      fuelTypeDefaultId: 1,
+      consumoEstandar: 3.5,
+      unidadConsumo: 'HORA_POR_GALON',
+      tanqueCapacidadGal: null,
+    });
+  });
+
+  it('si no se elige combustible al crear una máquina, NO llama a guardar el consumo estándar', async () => {
+    mockDataStore.machines = [];
+    data.createMachine.mockResolvedValue({ id: 6, name: 'No Fuel Machine' });
+
+    render(MachineManagement);
+    await tick();
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: Excavadora CAT'), { target: { value: 'No Fuel Machine' } });
+    await fireEvent.input(screen.getByPlaceholderText('Ej: 320D'), { target: { value: 'Model Y' } });
+    await fireEvent.click(screen.getByText('Registrar máquina'));
+
+    await waitFor(() => {
+      expect(data.createMachine).toHaveBeenCalled();
+    });
+    expect(data.updateAssetFuelConfigMachine).not.toHaveBeenCalled();
   });
 
   it('handles machine creation failure', async () => {

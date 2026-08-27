@@ -142,4 +142,97 @@ describe('data store', () => {
       expect(result).toEqual([]);
     });
   });
+
+  /**
+   * @description deleteOil no existía en el store (bug real: el botón "Eliminar"
+   * de OilManagement.svelte llamaba a una función inexistente). El backend ya
+   * tenía el endpoint DELETE /api/v1/oil/brand/{id} completo.
+   */
+  describe('deleteOil', () => {
+    it('llama al endpoint DELETE y quita el aceite del store', async () => {
+      fetchWithAuth.mockResolvedValue(undefined);
+
+      await data.deleteOil(5);
+
+      expect(fetchWithAuth).toHaveBeenCalledWith('oil/brand/5', { method: 'DELETE' });
+      expect(get(data).oils.find(o => o.id === 5)).toBeUndefined();
+    });
+  });
+
+  /**
+   * @description Las motos viven en la misma tabla `vehiculos` que los carros — el
+   * historial de cambio de aceite lo sirve el mismo endpoint de vehículo para
+   * cualquier placa, no hay una ruta separada `/moto/{placa}/oil-change-history`
+   * en el backend (confirmado: no existe ningún controller con esa ruta).
+   */
+  describe('fetchMotoOilHistory', () => {
+    it('llama al mismo endpoint de historial de vehículo (las motos comparten tabla vehiculos)', async () => {
+      fetchWithAuth.mockResolvedValue([]);
+
+      await data.fetchMotoOilHistory('XMX28F');
+
+      expect(fetchWithAuth).toHaveBeenCalledWith('vehicle/oil-change/history/XMX28F');
+    });
+  });
+
+  /**
+   * @description Cambiar de "tipo" rápido (pills de Rendimiento / Tanqueo y
+   * Distribución) deja dos peticiones en vuelo a la vez. Si la más vieja
+   * resuelve después de la más nueva (jitter de red), no debe pisar el store
+   * con datos del tipo anterior — antes de este fix, sí lo hacía, y la
+   * pantalla parecía "no cargar" hasta volver a cambiar de tipo.
+   *
+   * Rendimiento ya no pide un tipo a la vez (fetchFuelPerformance) — pide los 3
+   * juntos con fetchFuelPerformanceAllTipos, así que cambiar de pill no dispara
+   * ninguna petición nueva. La guarda de orden sigue haciendo falta para el caso
+   * de doble-click en "Filtrar" (dos llamadas completas, cada una con sus 3
+   * peticiones internas, en vuelo a la vez).
+   */
+  describe('fetchFuelPerformanceAllTipos — orden de respuestas', () => {
+    it('descarta una respuesta vieja que resuelve después de una más nueva', async () => {
+      const resolvers = [];
+      fetchWithAuth.mockImplementation(() => new Promise((res) => { resolvers.push(res); }));
+
+      const oldRequest = data.fetchFuelPerformanceAllTipos('2026-01-01', '2026-01-31');
+      const newRequest = data.fetchFuelPerformanceAllTipos('2026-02-01', '2026-02-28');
+
+      // Cada llamada pide los 3 tipos en paralelo: [0-2] = la vieja, [3-5] = la nueva.
+      expect(resolvers).toHaveLength(6);
+
+      resolvers[3]([{ id: 'new-maq' }]);
+      resolvers[4]([{ id: 'new-veh' }]);
+      resolvers[5]([{ id: 'new-moto' }]);
+      await newRequest;
+
+      resolvers[0]([{ id: 'old-maq' }]);
+      resolvers[1]([{ id: 'old-veh' }]);
+      resolvers[2]([{ id: 'old-moto' }]);
+      await oldRequest;
+
+      expect(get(data).fuelPerformance).toEqual({
+        MAQUINARIA: [{ id: 'new-maq' }],
+        VEHICULO: [{ id: 'new-veh' }],
+        MOTOCICLETA: [{ id: 'new-moto' }],
+      });
+    });
+  });
+
+  describe('fetchRefuelingReport — orden de respuestas', () => {
+    it('descarta una respuesta vieja que resuelve después de una más nueva', async () => {
+      let resolveOld, resolveNew;
+      fetchWithAuth
+        .mockReturnValueOnce(new Promise((res) => { resolveOld = res; }))
+        .mockReturnValueOnce(new Promise((res) => { resolveNew = res; }));
+
+      const oldRequest = data.fetchRefuelingReport('MAQUINARIA_MOTO', 'TODAS');
+      const newRequest = data.fetchRefuelingReport('VEHICULO', 'TODAS');
+
+      resolveNew([{ id: 2, vehicleId: 10 }]);
+      await newRequest;
+      resolveOld([{ id: 1, machineId: 5 }]);
+      await oldRequest;
+
+      expect(get(data).fuelRefuelingReport).toEqual([{ id: 2, vehicleId: 10 }]);
+    });
+  });
 });

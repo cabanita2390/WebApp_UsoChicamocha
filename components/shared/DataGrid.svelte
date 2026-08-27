@@ -8,7 +8,6 @@
     getFilteredRowModel,
     getSortedRowModel,
   } from "@tanstack/svelte-table";
-  import { getFileUrl, openDocumentSafely } from "../../stores/api";
   import { getStatusTailwindClass } from "../../config/table-definitions.js";
 
   export let columns = [];
@@ -23,6 +22,12 @@
   export let showPagination = true;
   /** Controla si se muestran los botones de eliminación en las acciones */
   export let showDeleteButton = true;
+  /**
+   * "retro" (default) mantiene el look Windows-98 del resto de la app — no cambiar
+   * sin pedirlo explícitamente, DataGrid es compartido por toda la app. "modern"
+   * es opt-in por vista, solo para reportes ya rediseñados (Combustibles).
+   */
+  export let variant = "retro";
 
   const dispatch = createEventDispatcher();
 
@@ -259,7 +264,7 @@
   }
 </script>
 
-<div class="data-grid-wrapper">
+<div class="data-grid-wrapper" class:modern={variant === "modern"}>
   <div class="controls-container">
     <div class="filter-group">
       <label for="search-input">Filtrar:</label>
@@ -347,10 +352,12 @@
                   cell.column.columnDef.meta?.isConsolidadoMotoActions ||
                   cell.column.columnDef.meta?.isConsolidadoMaqActions ||
                   cell.column.columnDef.meta?.isDocHistoryAction ||
-                  cell.column.columnDef.meta?.isFuelHistorial ||
-                  cell.column.columnDef.meta?.isFuelInvoice ||
                   cell.column.columnDef.meta?.isLicenseDocAction ||
-                  cell.column.columnDef.meta?.isAnomDismissAction}
+                  cell.column.columnDef.meta?.isFacturaAction ||
+                  cell.column.columnDef.meta?.isReintegroAction ||
+                  cell.column.columnDef.meta?.isViewHistoryAction ||
+                  cell.column.columnDef.meta?.isViewMotorOilHistoryAction ||
+                  cell.column.columnDef.meta?.isViewHydraulicOilHistoryAction}
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
@@ -398,6 +405,33 @@
                       Historial docs
                     </button>
                   </div>
+                {:else if cell.column.columnDef.meta?.isViewHistoryAction}
+                  <div class="actions-cell">
+                    <button
+                      class="btn-action btn-view-history"
+                      on:click={() => handleAction("viewHistory", row.original)}
+                    >
+                      Ver historial
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isViewMotorOilHistoryAction}
+                  <div class="actions-cell">
+                    <button
+                      class="btn-action btn-view-history"
+                      on:click={() => handleAction("viewMotorOilHistory", row.original)}
+                    >
+                      Ver historial motor
+                    </button>
+                  </div>
+                {:else if cell.column.columnDef.meta?.isViewHydraulicOilHistoryAction}
+                  <div class="actions-cell">
+                    <button
+                      class="btn-action btn-view-history"
+                      on:click={() => handleAction("viewHydraulicOilHistory", row.original)}
+                    >
+                      Ver historial hidráulico
+                    </button>
+                  </div>
                 {:else if cell.column.columnDef.meta?.isLicenseDocAction}
                   <div class="license-doc-cell">
                     {#if row.original.licenseDocumentUrl}
@@ -411,6 +445,32 @@
                       <span class="license-doc-cell__empty">—</span>
                     {/if}
                   </div>
+                {:else if cell.column.columnDef.meta?.isFacturaAction}
+                  <div class="license-doc-cell">
+                    {#if row.original.urlFactura}
+                      <button
+                        class="btn-action btn-view-images btn-license-doc"
+                        on:click={() => handleAction("view_factura", row.original)}
+                      >
+                        Factura
+                      </button>
+                    {:else}
+                      <span class="license-doc-cell__empty">—</span>
+                    {/if}
+                  </div>
+                {:else if cell.column.columnDef.meta?.isReintegroAction}
+                  <div class="license-doc-cell">
+                    {#if Number(row.original.cantidadGalones) - Number(row.original.cantidadReintegrada ?? 0) > 0.0001}
+                      <button
+                        class="btn-action btn-view-images btn-license-doc"
+                        on:click={() => handleAction("reintegro", row.original)}
+                      >
+                        Reintegrar
+                      </button>
+                    {:else}
+                      <span class="license-doc-cell__empty">Reintegrado</span>
+                    {/if}
+                  </div>
                 {:else if cell.column.columnDef.meta?.isImageAction}
                   <div class="actions-cell">
                     <button
@@ -421,7 +481,15 @@
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isConsolidadoVehicleActions}
-                  <div class="actions-cell">
+                  <div class="actions-cell actions-cell-stack">
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact"
+                      title="Corregir el kilometraje actual"
+                      on:click={() => handleAction("edit_km", row.original)}
+                    >
+                      Corregir Km
+                    </button>
                     <button
                       type="button"
                       class="mon-action-text mon-action-text--compact mon-action-text--hist"
@@ -443,7 +511,15 @@
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isConsolidadoMotoActions}
-                  <div class="actions-cell">
+                  <div class="actions-cell actions-cell-stack">
+                    <button
+                      type="button"
+                      class="mon-action-text mon-action-text--compact"
+                      title="Corregir el kilometraje actual"
+                      on:click={() => handleAction("edit_km", row.original)}
+                    >
+                      Corregir Km
+                    </button>
                     <button
                       type="button"
                       class="mon-action-text mon-action-text--compact mon-action-text--hist"
@@ -462,41 +538,6 @@
                       on:click={() => handleAction("edit_hourmeter", row.original)}
                     >
                       Corregir Horómetro
-                    </button>
-                  </div>
-                {:else if cell.column.columnDef.meta?.isFuelInvoice}
-                  <div class="actions-cell">
-                    {#if row.original.invoicePhotoUrl}
-                      <a
-                        href={getFileUrl(row.original.invoicePhotoUrl)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="btn-action mon-action-text mon-action-text--compact"
-                        title="Ver factura"
-                        on:click|preventDefault={() => openDocumentSafely(getFileUrl(row.original.invoicePhotoUrl))}
-                      >
-                        👁 Ver
-                      </a>
-                    {:else}
-                      <label class="btn-action mon-action-text mon-action-text--compact" title="Subir factura">
-                        ⬆ Subir
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          style="display:none"
-                          on:change={e => handleAction("fuel_invoice_upload", row.original, e)}
-                        />
-                      </label>
-                    {/if}
-                  </div>
-                {:else if cell.column.columnDef.meta?.isFuelHistorial}
-                  <div class="actions-cell">
-                    <button
-                      type="button"
-                      class="btn-action mon-action-text mon-action-text--compact mon-action-text--hist"
-                      on:click={() => handleAction("fuel_historial", row.original)}
-                    >
-                      Ver historial
                     </button>
                   </div>
                 {:else if cell.column.columnDef.meta?.isMonitoringDocsAction}
@@ -604,64 +645,6 @@
                   <span class="order-status {(lower === 'done' || lower === 'completada') ? 'order-status--done' : lower === 'pending' ? 'order-status--pending' : ''}">
                     {(lower === 'done' || lower === 'completada') ? 'Completada' : lower === 'pending' ? 'Pendiente' : raw}
                   </span>
-                {:else if cell.column.columnDef.meta?.isAnomalyEfficiency}
-                  {@const label = cell.row.original._effLabel ?? '—'}
-                  <span class="badge-warn">⚠ {label}</span>
-                {:else if cell.column.columnDef.meta?.isAnomalyCost}
-                  {@const r = cell.row.original}
-                  <div>
-                    <span>{r._costLabel ?? '—'}</span>
-                    {#if r.totalCostMismatch}
-                      <div style="color:#c00;font-size:10px">⚠ declarado: {r._costMismatchLabel ?? ''}</div>
-                    {/if}
-                  </div>
-                {:else if cell.column.columnDef.meta?.isInvoicePhotoLink}
-                  {@const url = cell.row.original.invoicePhotoUrl}
-                  {#if url}
-                    <a href={getFileUrl(url)}
-                       target="_blank" rel="noopener noreferrer" class="inv-photo-link"
-                       on:click|preventDefault={() => openDocumentSafely(getFileUrl(url))}>👁 Ver</a>
-                  {:else}
-                    <label class="btn-action mon-action-text mon-action-text--compact" title="Subir recibo">
-                      ⬆ Subir
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        style="display:none"
-                        on:change={e => handleAction("fuel_invoice_upload", row.original, e)}
-                      />
-                    </label>
-                  {/if}
-                {:else if cell.column.columnDef.meta?.isAnomDismissAction}
-                  <div class="actions-cell">
-                    <button class="btn-action dismiss-btn"
-                      on:click={() => handleAction('dismiss_anomaly', row.original)}>
-                      Quitar anomalía
-                    </button>
-                  </div>
-                {:else if cell.column.columnDef.meta?.isRankPosition}
-                  {@const pos = cell.row.index + 1}
-                  <strong style="font-size:13px;color:{pos===1?'#b8860b':pos===2?'#707070':pos===3?'#8b4513':'inherit'}">{pos}</strong>
-                {:else if cell.column.columnDef.meta?.isRankBar}
-                  {@const pct = Number(cell.getContext().getValue() ?? 0)}
-                  <div style="display:flex;align-items:center;gap:6px;min-width:120px">
-                    <div style="flex:1;height:10px;background:#ddd;border:1px inset #bbb">
-                      <div style="height:100%;width:{pct.toFixed(1)}%;background:linear-gradient(to right,#5a9fd4,#2a6fa8)"></div>
-                    </div>
-                    <span style="font-size:10px;white-space:nowrap">{pct.toFixed(0)}%</span>
-                  </div>
-                {:else if cell.column.columnDef.meta?.isEfficiencyRank}
-                  {@const r = cell.row.original}
-                  {@const isConsumption = ['GALLON_PER_HOUR','GAL_PER_HOUR','M3_PER_HOUR','L_PER_HOUR'].includes(r.factoryEfficiencyUnit)}
-                  {@const below = r.factoryEfficiency != null && r.efficiencyValue != null && (isConsumption ? +r.efficiencyValue > +r.factoryEfficiency : +r.efficiencyValue < +r.factoryEfficiency)}
-                  {@const dev = (r.factoryEfficiency != null && r.efficiencyValue != null && +r.factoryEfficiency !== 0) ? (isConsumption ? (+r.efficiencyValue - +r.factoryEfficiency) / +r.factoryEfficiency * 100 : (+r.factoryEfficiency - +r.efficiencyValue) / +r.factoryEfficiency * 100) : null}
-                  {@const label = cell.getContext().getValue() ?? '—'}
-                  <div style="text-align:right">
-                    <span style="font-weight:bold;color:{below?'#c00':label==='—'?'#999':'#1a5c1a'}">{label}{below?' ↓':''}</span>
-                    {#if dev !== null}
-                      <div style="font-size:10px;color:{dev>0?'#c00':'#1a5c1a'}">{dev>0?'+':''}{dev.toFixed(1)}% vs fábrica</div>
-                    {/if}
-                  </div>
                 {:else if cell.column.columnDef.meta?.isStatus || cell.column.columnDef.meta?.isBadge}
                   {@const cellValue = cell.getContext().getValue()}
                   {@const colorClass = getStatusClass(cellValue)}
@@ -911,8 +894,7 @@
     background-color: #ffdddd !important;
   }
   .anomaly-row td {
-    background-color: #fff0d0 !important;
-    border-left: 3px solid #e8a000 !important;
+    background-color: #f2bcbc77 !important;
   }
   .pending-row td {
     background-color: #fffacd !important;
@@ -991,6 +973,10 @@
   }
   .btn-doc-history {
     background-color: #d1c4e9;
+    font-weight: bold;
+  }
+  .btn-view-history {
+    background-color: #b3e5fc;
     font-weight: bold;
   }
   .status-btn {
@@ -1091,6 +1077,104 @@
   .pagination-controls button:disabled {
     cursor: not-allowed;
     color: #808080;
+  }
+
+  /* ── Variante "modern" — opt-in por vista (prop variant="modern"), solo para
+     reportes de Combustibles ya rediseñados. El resto de la app sigue retro. ── */
+  .data-grid-wrapper.modern .controls-container {
+    padding: 12px 14px;
+    background: #ffffff;
+    border: 1px solid rgba(11, 11, 11, 0.08);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+  }
+  .data-grid-wrapper.modern .filter-group label {
+    font-size: 12px;
+    color: #52514e;
+  }
+  .data-grid-wrapper.modern .search-input {
+    font-family: inherit;
+    padding: 7px 14px;
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 999px;
+    font-size: 12px;
+    background-color: #ffffff;
+    width: 240px;
+  }
+  .data-grid-wrapper.modern .table-container {
+    border: 1px solid rgba(11, 11, 11, 0.08);
+    border-top: none;
+    /* Scrollbar delgada y redondeada (Firefox) — el resto del bloque cubre
+       Chrome/Edge/Safari. Sin esto, una tabla ancha (muchas columnas, ej.
+       Historial de Rendimiento) muestra la barra nativa del SO gruesa y con
+       flechas cuadradas, que desentona con el resto del diseño "moderno". */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(11, 11, 11, 0.18) transparent;
+  }
+  .data-grid-wrapper.modern .table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .data-grid-wrapper.modern .table-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .data-grid-wrapper.modern .table-container::-webkit-scrollbar-thumb {
+    background: rgba(11, 11, 11, 0.18);
+    border-radius: 999px;
+  }
+  .data-grid-wrapper.modern .table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(11, 11, 11, 0.32);
+  }
+  .data-grid-wrapper.modern .data-grid {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 12px;
+  }
+  .data-grid-wrapper.modern .data-grid th,
+  .data-grid-wrapper.modern .data-grid td {
+    border: none;
+    border-bottom: 1px solid #f0f0ef;
+    padding: 10px 8px;
+  }
+  .data-grid-wrapper.modern .data-grid th {
+    background: #ffffff;
+    font-weight: 600;
+    border-bottom: 1px solid #eee;
+    color: #52514e;
+    text-align: left;
+  }
+  .data-grid-wrapper.modern .data-grid tr:nth-child(even) td {
+    background-color: #f9fafb;
+  }
+  .data-grid-wrapper.modern th.sortable:hover {
+    background: #f5f6f8;
+  }
+  .data-grid-wrapper.modern .footer-controls {
+    padding: 10px 14px;
+    background: #ffffff;
+    border: 1px solid rgba(11, 11, 11, 0.08);
+    border-top: 1px solid #eee;
+    border-radius: 0 0 10px 10px;
+  }
+  .data-grid-wrapper.modern .record-count,
+  .data-grid-wrapper.modern .pagination-controls {
+    font-size: 12px;
+    color: #52514e;
+  }
+  .data-grid-wrapper.modern .pagination-controls button,
+  .data-grid-wrapper.modern .pagination-controls select {
+    font-family: inherit;
+    padding: 5px 10px;
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 6px;
+    font-size: 11px;
+    background-color: #ffffff;
+    color: #52514e;
+  }
+  .data-grid-wrapper.modern .pagination-controls button:hover:not(:disabled) {
+    background-color: #f5f6f8;
+  }
+  .data-grid-wrapper.modern .pagination-controls button:disabled {
+    color: #c7c6c2;
   }
 
   :global(th.motor-oil-cell),

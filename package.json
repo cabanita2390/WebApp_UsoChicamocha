@@ -28,6 +28,7 @@
   "dependencies": {
     "@stomp/stompjs": "^7.2.1",
     "@tanstack/svelte-table": "^8.21.3",
+    "echarts": "^6.1.0",
     "event-source-polyfill": "^1.0.31",
     "jwt-decode": "^4.0.0",
     "lucide-svelte": "^0.400.0",

@@ -125,7 +125,7 @@
         </div>
 
         <div class="form-group">
-          <label for="km-at-change">Kilometraje Actual (*)</label>
+          <label for="km-at-change">Kilometraje al momento del cambio (*)</label>
           <input type="number" id="km-at-change" bind:value={kmAtChange} required />
         </div>
       </div>

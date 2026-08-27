@@ -5,8 +5,7 @@ import Sidebar from '../../components/shared/Sidebar.svelte';
 /**
  * @description Suite de pruebas para el componente Sidebar.
  * El componente no recibe props: la navegación y el estado activo dependen de
- * svelte-spa-router (link/active). Actualmente Combustibles está oculto en el
- * markup porque esa sección está en desarrollo.
+ * svelte-spa-router (link/active).
  */
 
 const ADMIN_ITEM_TITLES = [
@@ -16,6 +15,7 @@ const ADMIN_ITEM_TITLES = [
   'Órdenes de trabajo: Maquinaria · Vehículos · Motos',
   'Consolidado de aceites y estado: Maquinaria · Vehículos · Motos',
   'Marcas de aceite del catálogo compartido',
+  'Tanqueo, suministro, dashboard financiero, almacén, rendimiento y distribución',
 ];
 
 const ADMIN_ITEM_COUNT = ADMIN_ITEM_TITLES.length;
@@ -71,7 +71,6 @@ describe('Sidebar', () => {
         expect(screen.getByTitle(title)).toBeTruthy();
       }
       expect(container.querySelectorAll('.nav-item').length).toBe(ADMIN_ITEM_COUNT - 1);
-      expect(screen.queryByTitle('Registro de cargas de combustible — Maquinaria · Vehículos · Motos')).toBeNull();
     });
   });
 

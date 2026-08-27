@@ -72,9 +72,21 @@
         }
     }
 
+    // Escape cierra el dropdown de notificaciones — antes de esto, cerrarlo
+    // solo funcionaba con click fuera (mouse), sin equivalente de teclado.
+    function handleKeydown(event) {
+        if (event.key === "Escape" && showNotifications) {
+            showNotifications = false;
+        }
+    }
+
     $: pageTitle = getPageTitle($location);
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<!-- svelte-ignore a11y-click-events-have-key-events -->
 <div class="app-container" on:click={handleContainerClick}>
     <Sidebar />
 
@@ -205,8 +217,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border-bottom: 2px inset #c0c0c0;
-        border-top: 1px solid #ffffff;
+        border-bottom: 1px solid #808080;
     }
     .header-right {
         display: flex;
