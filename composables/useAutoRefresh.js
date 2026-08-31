@@ -26,10 +26,9 @@ export function startAutoRefresh() {
         // 3. Not currently loading data
         // 4. ONLY on Dashboard/Inspections view ('/' or empty)
         const isDashboard = $location === '/' || $location === '' || $location === '#/';
-        const isVehicles = $location === '/vehicles';
-        const isMotos = $location === '/moto-inventory';
+        const isInventory = $location === '/inventory';
 
-        if ($isEnabled && $auth.isAuthenticated && !$data.isLoading && (isDashboard || isVehicles || isMotos)) {
+        if ($isEnabled && $auth.isAuthenticated && !$data.isLoading && (isDashboard || isInventory)) {
              isAutoRefreshActive.set(true);
              try {
                  if (isDashboard) {
@@ -37,11 +36,9 @@ export function startAutoRefresh() {
                      await data.fetchDashboardData($data.dashboard.currentPage, $data.dashboard.pageSize);
                      await data.fetchVehicleInspections($data.vehicleInspections.currentPage, $data.vehicleInspections.pageSize, { reload: true });
                      await data.fetchMotoInspections();
-                 } else if (isVehicles) {
-                     console.log('🔄 [AUTO-REFRESH] Actualizando Vehículos...');
+                 } else if (isInventory) {
+                     console.log('🔄 [AUTO-REFRESH] Actualizando Vehículos y Motocicletas...');
                      await data.fetchVehicles();
-                 } else if (isMotos) {
-                     console.log('🔄 [AUTO-REFRESH] Actualizando Motocicletas...');
                      await data.fetchMotos();
                  }
                  console.log(`✅ [AUTO-REFRESH] Completado a las ${new Date().toLocaleTimeString()}`);

@@ -1,6 +1,7 @@
 <script>
   import { pop } from 'svelte-spa-router';
-  import { vehicleOilHistoryColumns } from '../../config/table-definitions.js';
+  import { createVehicleOilHistoryColumns } from '../../config/table-definitions.js';
+  const vehicleOilHistoryColumns = createVehicleOilHistoryColumns();
   import { data } from '../../stores/data.js';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';

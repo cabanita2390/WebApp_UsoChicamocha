@@ -16,7 +16,7 @@ test.describe('Maquinaria Dashboard', () => {
     await page.goto('/');
 
     // Verificar que la página se cargue (ya sea login o la aplicación principal)
-    await expect(page).toHaveTitle(/Dashboard Maquinaria/);
+    await expect(page).toHaveTitle(/Estado De Equipos/);
   });
 
   test('should display login form when not authenticated', async ({ page }) => {
@@ -55,11 +55,13 @@ test.describe('Maquinaria Dashboard', () => {
     const sidebar = page.locator('.sidebar');
     await expect(sidebar).toBeVisible();
 
-    // Probar navegación a diferentes vistas
-    const views = ['dashboard', 'users', 'machines', 'work-orders', 'consolidado'];
+    // Probar navegación a diferentes vistas (nombres reales del Sidebar actual;
+    // svelte-spa-router reescribe href a formato hash, así que se navega por
+    // nombre accesible del link en vez del atributo href crudo)
+    const views = ['Dashboard', 'Inventario', 'Órdenes de Trabajo', 'Consolidado'];
 
     for (const view of views) {
-      const navItem = sidebar.locator(`[data-view="${view}"]`);
+      const navItem = sidebar.getByRole('link', { name: view });
       if (await navItem.isVisible()) {
         await navItem.click();
 
@@ -92,7 +94,7 @@ test.describe('Maquinaria Dashboard', () => {
     }
 
     // Asegurar que estamos en dashboard
-    const dashboardNav = page.locator('.sidebar [data-view="dashboard"]');
+    const dashboardNav = page.locator('.sidebar').getByRole('link', { name: 'Dashboard' });
     await dashboardNav.click();
 
     // Verificar contenido del dashboard
@@ -102,7 +104,7 @@ test.describe('Maquinaria Dashboard', () => {
     // Verificar header
     await page.waitForSelector('.header-center h2');
     const header = page.locator('.header');
-    await expect(header).toContainText('Panel de Control');
+    await expect(header).toContainText('Estado De Equipos');
   });
 
   test('should handle notifications', async ({ page }) => {

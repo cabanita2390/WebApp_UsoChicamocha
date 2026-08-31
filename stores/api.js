@@ -106,7 +106,7 @@ async function fetchWithAuth(endpoint, options = {}, retryCount = 0) {
 /**
  * Descarga un archivo binario (ej. exports a Excel) reutilizando la autenticación,
  * el refresh de token en 401 y el manejo de 403 del resto de la app.
- * @param {string} endpoint - Ruta relativa, misma convención que fetchWithAuth (ej. 'fuel/export').
+ * @param {string} endpoint - Ruta relativa, misma convención que fetchWithAuth (ej. 'vehicle/export').
  * @param {string} filename - Nombre con el que se descarga el archivo en el navegador.
  * @param {object} options - { version, headers, ...resto de opciones de fetch }.
  */
@@ -148,7 +148,14 @@ export function getFileUrl(relativePath) {
     if (!relativePath) return null;
     if (relativePath.startsWith('http')) return relativePath;
     const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-    return `${BASE_URL}/${relativePath}`;
+    // Los *DocumentStorageService del backend devuelven la ruta con "/" inicial
+    // (ej. "/uploads/documents/fuel/..."), así que concatenar sin normalizar deja
+    // una doble barra ("http://host//uploads/...") que Spring Security no matchea
+    // contra el patrón "/uploads/**" (permitAll) y cae al fallback ADMIN-only,
+    // devolviendo 403 en vez de servir el archivo.
+    const base = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
+    const path = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+    return `${base}${path}`;
 }
 
 /**

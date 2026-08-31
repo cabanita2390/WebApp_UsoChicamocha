@@ -286,3 +286,105 @@ describe('WorkOrderModal', () => {
     expect(submitButton).toBeTruthy();
   });
 });
+
+/**
+ * @description assetType="vehicle" — antes era un componente aparte
+ * (VehicleWorkOrderModal.svelte, sin tests propios), fusionado en este mismo
+ * archivo. Cubre el comportamiento que antes solo existía sin verificar.
+ */
+describe('WorkOrderModal (assetType="vehicle")', () => {
+  const mockVehicleRowData = {
+    idInspeccion: 7,
+    placa: 'ABC123',
+    marca: 'Toyota',
+    tipoVehiculo: 'CAMIONETA',
+    leakStatus: 'Óptimo',
+  };
+
+  const mockColumnDef = {
+    header: 'Sistema de Fugas',
+    accessorKey: 'leakStatus',
+  };
+
+  it('renders modal with the vehicle title', () => {
+    render(WorkOrderModal, {
+      props: {
+        rowData: mockVehicleRowData,
+        columnDef: mockColumnDef,
+        currentUser: 'Test User',
+        assetType: 'vehicle',
+      },
+    });
+
+    const title = screen.getByRole('heading', { name: 'Crear Orden de Trabajo — Vehículo' });
+    expect(title.tagName).toBe('H2');
+  });
+
+  it('displays placa/marca/tipo as the vehicle label', () => {
+    render(WorkOrderModal, {
+      props: {
+        rowData: mockVehicleRowData,
+        columnDef: mockColumnDef,
+        currentUser: 'Test User',
+        assetType: 'vehicle',
+      },
+    });
+
+    expect(screen.getByText('ABC123 — Toyota — CAMIONETA')).toBeTruthy();
+  });
+
+  it('supports columnDef.accessorFn (no lo soporta el modo machine)', () => {
+    const accessorFnColumnDef = {
+      header: 'Estado Calculado',
+      accessorFn: (row) => `calculado:${row.leakStatus}`,
+    };
+
+    render(WorkOrderModal, {
+      props: {
+        rowData: mockVehicleRowData,
+        columnDef: accessorFnColumnDef,
+        currentUser: 'Test User',
+        assetType: 'vehicle',
+      },
+    });
+
+    expect(screen.getByText('calculado:Óptimo')).toBeTruthy();
+  });
+
+  it('dispatches createVehicleOrder with vehicleInspectionId (no createWorkOrder)', async () => {
+    const mockDispatch = vi.fn();
+
+    const component = render(WorkOrderModal, {
+      props: {
+        rowData: mockVehicleRowData,
+        columnDef: mockColumnDef,
+        currentUser: 'Test User',
+        assetType: 'vehicle',
+      },
+    });
+
+    component.component.$on('createVehicleOrder', (event) => mockDispatch(event.detail));
+
+    await tick();
+
+    const detallesTextarea = screen.getByPlaceholderText('Describa en detalle el trabajo a realizar...');
+    const asignadoInput = screen.getByPlaceholderText('Nombre del técnico o equipo');
+
+    await fireEvent.input(detallesTextarea, { target: { value: 'Test work details' } });
+    await fireEvent.input(asignadoInput, { target: { value: 'Test Technician' } });
+
+    // A diferencia del modo machine, el título es "...— Vehículo" (texto distinto
+    // al botón), así que aquí solo hay UNA coincidencia de "Crear Orden de Trabajo".
+    const createButton = screen.getByText('Crear Orden de Trabajo');
+    await fireEvent.click(createButton);
+    await fireEvent.click(screen.getByText('Aceptar'));
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      vehicleInspectionId: 7,
+      description: 'Inspección|Sistema de Fugas|Óptimo|Test work details|Test Technician',
+      orderType: null,
+      maintenanceType: null,
+      maintenanceCategory: null,
+    });
+  });
+});

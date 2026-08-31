@@ -93,6 +93,36 @@ describe('auth store', () => {
     });
 
     /**
+     * @test Inicio de sesión exitoso con rol ALMACEN (módulo de combustibles).
+     */
+    it('logs in successfully with ALMACEN role', async () => {
+      const mockResponse = {
+        status: 'success',
+        jwt: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
+      };
+      const decodedPayload = {
+        sub: 'almacenuser',
+        role: 'ROLE_ALMACEN',
+        exp: Date.now() / 1000 + 3600,
+      };
+
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+      jwtDecode.mockReturnValue(decodedPayload);
+
+      const result = await auth.login('almacenuser', 'password');
+
+      expect(result.success).toBe(true);
+      expect(result.error).toBe(null);
+      const storeState = get(auth);
+      expect(storeState.isAuthenticated).toBe(true);
+      expect(storeState.currentUser).toEqual({ name: 'almacenuser', role: 'ALMACEN' });
+    });
+
+    /**
      * @test Fallo en el login con credenciales incorrectas.
      */
     it('fails login with incorrect credentials', async () => {

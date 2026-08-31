@@ -14,3 +14,6 @@ test-results/
 # IDE and runtime logs
 .idea/
 frontend.log
+
+# Graphify local artifacts
+graphify-out/

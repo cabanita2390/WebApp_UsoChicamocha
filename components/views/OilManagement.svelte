@@ -34,7 +34,9 @@
     try {
       await dataStore.createOil(formatOilBrandPayload({ name: newOilName, type: newOilType }));
       newOilName = '';
-    } catch (err) {}
+    } catch (err) {
+      formError = err.message || 'No se pudo crear el aceite.';
+    }
   }
 
   async function confirmEdit() {
@@ -46,14 +48,18 @@
     try {
       await dataStore.updateOil(selectedOil.id, formatOilBrandPayload({ ...selectedOil, name: editedName }));
       closeModals();
-    } catch (err) {}
+    } catch (err) {
+      modalError = err.message || 'No se pudo actualizar el aceite.';
+    }
   }
 
   async function confirmDelete() {
     try {
       await dataStore.deleteOil(selectedOil.id);
       closeModals();
-    } catch (err) {}
+    } catch (err) {
+      modalError = err.message || 'No se pudo eliminar el aceite.';
+    }
   }
 
   function closeModals() {
@@ -62,7 +68,11 @@
     selectedOil = null;
   }
 
-  
+  function handleKeydown(event) {
+    if (event.key === 'Escape' && (showEditModal || showDeleteModal)) closeModals();
+  }
+
+
   function handleGridAction(event) {
     const { type, data } = event.detail;
     if (type === 'edit') {
@@ -72,6 +82,7 @@
       showEditModal = true;
     } else if (type === 'delete') {
       selectedOil = data;
+      modalError = '';
       showDeleteModal = true;
     }
   }
@@ -142,6 +153,8 @@
   }
 </style>
 
+<svelte:window on:keydown={handleKeydown} />
+
 <!-- Refresh Button -->
 <div class="refresh-container">
   <button class="btn-refresh" on:click={() => dataStore.fetchOils()}>
@@ -203,6 +216,8 @@
 <!-- Modal para Editar -->
 {#if showEditModal}
   <div class="modal-overlay">
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
         <h3>Editar Aceite</h3>
@@ -230,9 +245,14 @@
 <!-- Modal para Eliminar -->
 {#if showDeleteModal}
   <div class="modal-overlay">
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content confirmation" on:click|stopPropagation>
       <h3>Confirmar Eliminación</h3>
       <p>¿Está seguro que desea eliminar el registro "<strong>{selectedOil?.name}</strong>"?</p>
+      {#if modalError}
+        <p class="error">{modalError}</p>
+      {/if}
       <div class="modal-actions">
         <button type="button" class="btn-cancel" on:click={closeModals}>Cancelar</button>
         <button type="button" class="btn-delete-confirm" on:click={confirmDelete}>Sí, Eliminar</button>

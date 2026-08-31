@@ -20,6 +20,10 @@ vi.mock('../../stores/data.js', () => ({
     uploadVehicleDocumentFile: vi.fn(),
     updateVehicleDocument: vi.fn(),
     getVehicleDocumentHistory: vi.fn(),
+    getVehicleByPlaca: vi.fn(),
+    fetchFuelTypes: vi.fn(),
+    fetchAssetFuelConfig: vi.fn(),
+    updateAssetFuelConfigVehicle: vi.fn(),
   },
 }));
 
@@ -80,6 +84,11 @@ describe('VehicleManagement', () => {
       vehicleTypes: [],
       areas: [],
       locations: [],
+      fuelTypes: [
+        { id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' },
+        { id: 4, codigo: 'GAS', nombre: 'Gas natural vehicular', unidadMedida: 'M3' },
+      ],
+      fuelAssetConfig: [],
       isLoading: false,
       error: null,
     };
@@ -94,6 +103,9 @@ describe('VehicleManagement', () => {
     data.fetchVehicleTypes.mockResolvedValue();
     data.fetchAreas.mockResolvedValue();
     data.fetchLocations.mockResolvedValue();
+    data.fetchFuelTypes.mockResolvedValue();
+    data.fetchAssetFuelConfig.mockResolvedValue();
+    data.updateAssetFuelConfigVehicle.mockResolvedValue({});
   });
 
   it('muestra el estado de carga cuando está cargando', async () => {
@@ -174,6 +186,57 @@ describe('VehicleManagement', () => {
     await tick();
 
     expect(screen.getByPlaceholderText('Ej: ABC123')).toBeTruthy();
+  });
+
+  it('el formulario de creación incluye Combustible/Consumo estándar/Capacidad del tanque (conectado a asset_fuel_config)', async () => {
+    mockDataStore.vehicles = [];
+
+    render(VehicleManagement);
+    await tick();
+
+    expect(screen.getByLabelText(/combustible/i)).toBeTruthy();
+    expect(screen.getByLabelText(/consumo estándar/i)).toBeTruthy();
+    expect(screen.getByLabelText(/capacidad del tanque/i)).toBeTruthy();
+  });
+
+  it('al crear un vehículo con combustible + consumo estándar, también guarda el consumo estándar del activo', async () => {
+    mockDataStore.vehicles = [];
+    data.createVehicle.mockResolvedValue({ id: 2, placa: 'XYZ999' });
+
+    const { container } = render(VehicleManagement);
+    await tick();
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: ABC123'), { target: { value: 'XYZ999' } });
+    await fireEvent.change(screen.getByLabelText(/combustible/i), { target: { value: '1' } });
+    await fireEvent.input(screen.getByLabelText(/consumo estándar/i), { target: { value: '30' } });
+    await fireEvent.input(screen.getByLabelText(/capacidad del tanque/i), { target: { value: '18.5' } });
+
+    await fireEvent.submit(container.querySelector('form.create-form'));
+
+    await waitFor(() => {
+      expect(data.updateAssetFuelConfigVehicle).toHaveBeenCalledWith(2, {
+        fuelTypeDefaultId: 1,
+        consumoEstandar: 30,
+        unidadConsumo: 'KM_POR_GALON',
+        tanqueCapacidadGal: 18.5,
+      });
+    });
+  });
+
+  it('si no se elige combustible al crear, NO llama a guardar el consumo estándar (es opcional)', async () => {
+    mockDataStore.vehicles = [];
+    data.createVehicle.mockResolvedValue({ id: 3, placa: 'NOFUEL1' });
+
+    const { container } = render(VehicleManagement);
+    await tick();
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: ABC123'), { target: { value: 'NOFUEL1' } });
+    await fireEvent.submit(container.querySelector('form.create-form'));
+
+    await waitFor(() => {
+      expect(data.createVehicle).toHaveBeenCalled();
+    });
+    expect(data.updateAssetFuelConfigVehicle).not.toHaveBeenCalled();
   });
 
   it('maneja el fallo en creación de vehículo', async () => {

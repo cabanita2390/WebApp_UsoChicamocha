@@ -8,6 +8,7 @@
   import CurriculumModal from "../shared/CurriculumModal.svelte";
   import DocHistoryModal from "../shared/DocHistoryModal.svelte";
   import EditAssetModal from "../shared/EditAssetModal.svelte";
+  import FuelConfigFields from "../shared/FuelConfigFields.svelte";
   import { vehicleManagementColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
@@ -154,9 +155,15 @@
     belongsTo: "",
     idUbicacionBase: null,
     activo: true,
-    fuelTankCapacityGallons: null,
   };
   let newVehicle = { ...initialVehicleState };
+
+  // Consumo estándar / capacidad de tanque — asset_fuel_config, entidad aparte
+  // del vehículo (mismo backend que "Configurar rendimiento del activo").
+  // Opcional: si se deja sin combustible, no se guarda nada.
+  const initialFuelConfig = { fuelTypeDefaultId: "", consumoEstandar: "", unidadConsumo: "", tanqueCapacidadGal: "" };
+  let fuelConfigNew = { ...initialFuelConfig };
+  let fuelConfigEdit = { ...initialFuelConfig };
   /** Vigencias y archivos al alta. */
   let docSoatVencimiento = "";
   let docTecnoVencimiento = "";
@@ -259,6 +266,8 @@
 
   $: vehicles = rawVehicles.filter((v) => !vehicleRowIsMoto(v));
   $: brands = Array.isArray($data.vehicleBrands) ? $data.vehicleBrands : [];
+  $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
+  $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
   $: types = vehicleTypesList.filter((t) => {
     const tid = t?.id != null && t.id !== '' ? Number(t.id) : NaN;
     if (!Number.isNaN(tid) && motoTypeIds.has(tid)) return false;
@@ -275,6 +284,8 @@
         data.fetchVehicleBrands(),
         data.fetchVehicleTypes(),
         data.fetchLocations().catch(e => console.warn('No se cargó ubicaciones:', e)),
+        data.fetchFuelTypes(),
+        data.fetchAssetFuelConfig(),
       ]);
 
       // Verificar documentos próximos a vencer
@@ -294,6 +305,17 @@
 
   function firstOversizedDocError() {
     return firstOversizedDocErrorOf([docSoatFile, docTecnoFile, docTarjetaPropiedadFile, docExtintorFile]);
+  }
+
+  /** Solo guarda si eligieron combustible + consumo estándar — es opcional, no bloquea el alta/edición del vehículo. */
+  async function guardarFuelConfigVehiculo(vehicleId, fuelConfig) {
+    if (!fuelConfig.fuelTypeDefaultId || !fuelConfig.consumoEstandar) return null;
+    return data.updateAssetFuelConfigVehicle(vehicleId, {
+      fuelTypeDefaultId: Number(fuelConfig.fuelTypeDefaultId),
+      consumoEstandar: Number(fuelConfig.consumoEstandar),
+      unidadConsumo: fuelConfig.unidadConsumo,
+      tanqueCapacidadGal: fuelConfig.tanqueCapacidadGal ? Number(fuelConfig.tanqueCapacidadGal) : null,
+    });
   }
 
   async function handleCreateVehicle(event) {
@@ -343,8 +365,14 @@
             (docErr.message ||
               "No se pudieron guardar algunos documentos (¿rol ADMIN?).");
         }
+        try {
+          await guardarFuelConfigVehiculo(vid, fuelConfigNew);
+        } catch (fuelErr) {
+          docExtra += " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+        }
       }
       newVehicle = { ...initialVehicleState };
+      fuelConfigNew = { ...initialFuelConfig };
       docSoatVencimiento = "";
       docTecnoVencimiento = "";
       docTarjetaPropiedadFile = null;
@@ -408,9 +436,15 @@
     errorMessage = "";
     try {
       await data.updateVehicle(vehicleInEditor.id, formatVehiclePayload(vehicleInEditor));
+      let fuelExtra = "";
+      try {
+        await guardarFuelConfigVehiculo(vehicleInEditor.id, fuelConfigEdit);
+      } catch (fuelErr) {
+        fuelExtra = " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+      }
       await data.fetchVehicles();
       closeEditModal();
-      addNotification({ id: Date.now(), text: 'Vehículo actualizado con éxito.' });
+      addNotification({ id: Date.now(), text: 'Vehículo actualizado con éxito.' + fuelExtra });
     } catch (e) {
       errorMessage = e.message || "Error al actualizar vehículo.";
     } finally {
@@ -449,7 +483,6 @@
   async function openEditModal(vehicle) {
     try {
       const fullVehicle = await data.getVehicleByPlaca(vehicle.placa);
-      console.log("🔍 fullVehicle cargado:", fullVehicle);
       vehicleInEditor = {
         ...fullVehicle,
         idMarca: resolveBrandIdFromVehicle(fullVehicle),
@@ -462,11 +495,16 @@
         })(),
         belongsTo: normalizeBelongsTo(fullVehicle.belongsTo),
         activo: fullVehicle.activo !== false && fullVehicle.activo !== 'false' && fullVehicle.activo !== 0 && fullVehicle.activo !== '0',
-        fuelTankCapacityGallons: fullVehicle.fuelTankCapacityGallons ?? null,
-        factoryEfficiencyKmPerGallon: fullVehicle.factoryEfficiencyKmPerGallon ?? null,
-        factoryEfficiencyUnit: fullVehicle.factoryEfficiencyUnit ?? 'KM_PER_GALLON',
       };
-      console.log("✏️ vehicleInEditor.belongsTo asignado a:", vehicleInEditor.belongsTo);
+      const existingConfig = fuelAssetConfigs.find((c) => c.vehicleId === fullVehicle.id);
+      fuelConfigEdit = existingConfig
+        ? {
+            fuelTypeDefaultId: String(existingConfig.fuelTypeDefaultId),
+            consumoEstandar: String(existingConfig.consumoEstandar),
+            unidadConsumo: existingConfig.unidadConsumo,
+            tanqueCapacidadGal: existingConfig.tanqueCapacidadGal != null ? String(existingConfig.tanqueCapacidadGal) : "",
+          }
+        : { ...initialFuelConfig };
       showEditModal = true;
     } catch (e) {
       errorMessage = 'No se pudo cargar el vehículo para editar.';
@@ -477,6 +515,7 @@
   function closeEditModal() {
     showEditModal = false;
     vehicleInEditor = null;
+    fuelConfigEdit = { ...initialFuelConfig };
     errorMessage = "";
   }
 
@@ -513,7 +552,15 @@
       isExporting = false;
     }
   }
+
+  function handleKeydown(event) {
+    if (event.key !== "Escape") return;
+    if (vehicleToDelete) vehicleToDelete = null;
+    else if (showSoftDeletedModal) showSoftDeletedModal = false;
+  }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 {#if isLoading && vehicles.length === 0}
   <div class="vehicle-module">
@@ -630,31 +677,15 @@
             </select>
           </label>
           {#if isAdmin}
-          <label class="field">
-            <span class="field-lab">Capacidad del tanque (Gal)</span>
-            <input
-              type="number" step="0.001" min="0.1"
-              bind:value={newVehicle.fuelTankCapacityGallons}
-              placeholder="Ej: 18.5"
+            <FuelConfigFields
+              bind:fuelTypeDefaultId={fuelConfigNew.fuelTypeDefaultId}
+              bind:consumoEstandar={fuelConfigNew.consumoEstandar}
+              bind:unidadConsumo={fuelConfigNew.unidadConsumo}
+              bind:tanqueCapacidadGal={fuelConfigNew.tanqueCapacidadGal}
+              {fuelTypes}
               disabled={isSubmitting}
+              idPrefix="newVehicleFuel"
             />
-          </label>
-          <label class="field">
-            <span class="field-lab">Eficiencia de fábrica</span>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center">
-              <input
-                type="number" step="0.01" min="0"
-                bind:value={newVehicle.factoryEfficiencyKmPerGallon}
-                placeholder="Ej: 42.5"
-                disabled={isSubmitting}
-                style="padding:3px 4px;font-size:11px;min-height:26px"
-              />
-              <select bind:value={newVehicle.factoryEfficiencyUnit} disabled={isSubmitting} style="padding:4px;font-size:12px;min-height:28px">
-                <option value="KM_PER_GALLON">km/Gal</option>
-                <option value="KM_PER_CUBIC_METER">km/m³ (gas)</option>
-              </select>
-            </div>
-          </label>
           {/if}
         </div>
         <div class="create-docs-head">Documentación</div>
@@ -749,6 +780,8 @@
   {isAdmin}
   {isSubmitting}
   {errorMessage}
+  fuelConfig={fuelConfigEdit}
+  {fuelTypes}
   on:close={closeEditModal}
   on:quickcatalog={(e) => openQuickCatalog(e.detail)}
   on:submit={handleUpdateVehicle}
@@ -777,7 +810,11 @@
 
 {#if isAdmin}
 {#if vehicleToDelete}
-  <div class="modal-overlay" on:click={() => vehicleToDelete = null}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="modal-overlay" role="presentation" on:click={() => vehicleToDelete = null}>
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content confirmation" on:click|stopPropagation>
       <h3>Confirmar Eliminación</h3>
       <p>¿Está seguro que desea eliminar el vehículo con placa <b>{vehicleToDelete.placa}</b>?</p>
@@ -834,7 +871,11 @@
 {/if}
 
 {#if showSoftDeletedModal && softDeletedVehicleToRestore}
-  <div class="modal-overlay" on:click={() => (showSoftDeletedModal = false)}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="modal-overlay" role="presentation" on:click={() => (showSoftDeletedModal = false)}>
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
       <h3 style="margin-top: 0; color: #d9534f;">Vehículo Eliminado</h3>
       <p>{errorMessage}</p>

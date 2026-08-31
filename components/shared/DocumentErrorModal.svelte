@@ -4,11 +4,21 @@
   function close() {
     documentErrorVisible.set(false);
   }
+
+  function handleKeydown(event) {
+    if (event.key === "Escape" && $documentErrorVisible) close();
+  }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if $documentErrorVisible}
-  <div class="modal-overlay" on:click={close}>
-    <div class="doc-error-card" on:click|stopPropagation>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="modal-overlay" role="presentation" on:click={close}>
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
+    <div class="doc-error-card" role="dialog" aria-modal="true" aria-label="Documento no disponible" on:click|stopPropagation>
       <svg
         class="drop-mascot"
         viewBox="0 0 200 220"
