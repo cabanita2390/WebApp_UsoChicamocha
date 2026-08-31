@@ -2,6 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/svelte';
 import FuelPerformanceHistory from '../../components/views/FuelPerformanceHistory.svelte';
 
+const { mockFullRefueling } = vi.hoisted(() => ({
+  mockFullRefueling: {
+    id: 200, vehicleId: null, machineId: 8, lugar: 'ALMACEN', areaCosto: 'DISTRITO', fuelTypeId: 1,
+    cantidadGalones: 40, horometroKm: 150, esFull: true, precioUnitario: null, descuento: null,
+    totalIngresado: null, totalCalculado: null, urlFactura: null, origen: 'Bodega central',
+    responsableId: 1, fechaRegistro: '2026-07-20T10:00:00',
+  },
+}));
+
 vi.mock('svelte-spa-router', () => ({
   pop: vi.fn(),
 }));
@@ -13,6 +22,7 @@ vi.mock('../../stores/data.js', () => ({
     fetchAssetFuelConfig: vi.fn(),
     fetchFuelPerformanceHistory: vi.fn(),
     fetchRefuelingReport: vi.fn().mockResolvedValue(undefined),
+    fetchRefuelingRecordById: vi.fn().mockResolvedValue(mockFullRefueling),
     updateRefueling: vi.fn().mockResolvedValue({ id: 1 }),
   },
 }));
@@ -53,13 +63,6 @@ vi.mock('../../components/views/FuelTrendChart.svelte', async () => {
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
 import { pop } from 'svelte-spa-router';
-
-const mockFullRefueling = {
-  id: 200, vehicleId: null, machineId: 8, lugar: 'ALMACEN', areaCosto: 'DISTRITO', fuelTypeId: 1,
-  cantidadGalones: 40, horometroKm: 150, esFull: true, precioUnitario: null, descuento: null,
-  totalIngresado: null, totalCalculado: null, urlFactura: null, origen: 'Bodega central',
-  responsableId: 1, fechaRegistro: '2026-07-20T10:00:00',
-};
 
 // machineId=8: 3 tanqueos con proyectado/real y alerta variados, para verificar
 // que se ven todos (no solo el más reciente, a diferencia de la tabla resumen de
@@ -277,7 +280,7 @@ describe('FuelPerformanceHistory', () => {
 
     await fireEvent.click(within(filaMasReciente).getByRole('button', { name: /^editar$/i }));
 
-    expect(data.fetchRefuelingReport).toHaveBeenCalledWith('MAQUINARIA_MOTO', 'TODAS');
+    expect(data.fetchRefuelingRecordById).toHaveBeenCalledWith(200);
     expect(await screen.findByLabelText(/cantidad/i)).toHaveValue(40);
     expect(screen.queryByLabelText(/buscar/i)).toBeNull();
   });
