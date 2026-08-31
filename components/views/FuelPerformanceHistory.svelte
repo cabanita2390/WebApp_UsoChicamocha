@@ -4,6 +4,7 @@
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import { addNotification } from "../../stores/ui.js";
+  import { download } from "../../stores/api.js";
   import Loader from "../shared/Loader.svelte";
   import DataGrid from "../shared/DataGrid.svelte";
   import RefuelingFormModal from "../shared/RefuelingFormModal.svelte";
@@ -227,6 +228,24 @@
     data.fetchFuelPerformanceHistory(FECHA_INICIO_HISTORICO, new Date().toISOString().slice(0, 10));
   }
 
+  // Exporta TODO el histórico del activo (no el rango 1M/3M/6M/1A/Todo elegido
+  // arriba) — la separación por hoja/mes ya da el desglose temporal, así que
+  // acotar además por el pill del selector solo recortaría meses del archivo sin
+  // aportar nada.
+  let isExportingExcel = false;
+  async function handleExportarExcel() {
+    isExportingExcel = true;
+    try {
+      const params = new URLSearchParams({ tipo: tipoElemento, activoId: String(activoId) });
+      const nombreArchivo = `rendimiento_${activoLabel.replace(/[^a-z0-9]+/gi, "_")}.xlsx`;
+      await download(`fuel/rendimiento/export?${params.toString()}`, nombreArchivo);
+    } catch (err) {
+      addNotification({ id: Date.now(), text: `No se pudo exportar el historial: ${err.message}` });
+    } finally {
+      isExportingExcel = false;
+    }
+  }
+
   let _lastKey = "";
   $: if (`${tipoElemento}:${activoId}` !== _lastKey) {
     _lastKey = `${tipoElemento}:${activoId}`;
@@ -239,20 +258,29 @@
     data.fetchAssetFuelConfig();
   });
 
-  // ---- Editar un tanqueo desde el historial (mismo patrón que FuelPerformance.svelte) ----
+  // ---- Editar un tanqueo desde el historial ----
+  // Pide el tanqueo puntual por id (fetchRefuelingRecordById) en vez de todo el
+  // reporte del tipo de activo — antes esto traía TODO el historial de
+  // Vehículos o de Maquinaria+Motos (sin límite de fecha) solo para sacar un
+  // registro, y encima usaba el loading GLOBAL ($data.isLoading), que tapa toda
+  // la pantalla (ver {#if isLoading} más abajo) mientras esa consulta pesada
+  // resolvía — al usuario le parecía que la pantalla completa "se quedaba
+  // cargando" en vez de ver el modal. editModalLoading es un loading propio del
+  // modal, no comparte el flag de la página.
   let editingRow = null;
   let showEditModal = false;
+  let editModalLoading = false;
 
   async function openEditModal(row) {
-    const reportTipo = tipoElemento === "VEHICULO" ? "VEHICULO" : "MAQUINARIA_MOTO";
-    await data.fetchRefuelingReport(reportTipo, "TODAS");
-    const full = ($data.fuelRefuelingReport ?? []).find((r) => r.id === row.refuelingId);
-    if (!full) {
-      addNotification({ id: Date.now(), text: "No se encontró el tanqueo completo para editar." });
-      return;
+    editModalLoading = true;
+    try {
+      editingRow = await data.fetchRefuelingRecordById(row.refuelingId);
+      showEditModal = true;
+    } catch (err) {
+      addNotification({ id: Date.now(), text: "No se pudo cargar el tanqueo para editar. Intenta de nuevo." });
+    } finally {
+      editModalLoading = false;
     }
-    editingRow = full;
-    showEditModal = true;
   }
 
   function handleGridAction(event) {
@@ -283,6 +311,9 @@
       <button type="button" class="btn-secondary" on:click={() => (showCfgModal = true)}>Ajustar estándar</button>
       <button type="button" class="btn-secondary" on:click={() => irAAdyacente(-1)} disabled={activosMismoTipo.length < 2}>‹ Anterior</button>
       <button type="button" class="btn-secondary" on:click={() => irAAdyacente(1)} disabled={activosMismoTipo.length < 2}>Siguiente ›</button>
+      <button type="button" class="btn-export" on:click={handleExportarExcel} disabled={isExportingExcel || filas.length === 0}>
+        {isExportingExcel ? "Descargando..." : "Exportar Excel"}
+      </button>
       <button type="button" class="btn-filter" on:click={loadHistory} disabled={isLoading}>
         {isLoading ? "Cargando..." : "Refrescar"}
       </button>
@@ -351,7 +382,10 @@
 
     <div class="ph-table">
       <div class="ph-table-head">
-        <div class="ph-table-title">Historial detallado</div>
+        <div class="ph-table-title">
+          Historial detallado
+          {#if editModalLoading}<span class="ph-table-title-loading">— cargando tanqueo…</span>{/if}
+        </div>
         <input type="text" bind:value={histQ} placeholder="Filtrar por fecha..." class="ph-table-search" />
       </div>
       {#if filasTabla.length}
@@ -579,6 +613,12 @@
     font-weight: 700;
     color: var(--ink);
   }
+  .ph-table-title-loading {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-muted);
+    margin-left: 6px;
+  }
   .ph-table-search {
     font-family: inherit;
     font-size: 12px;
@@ -644,6 +684,26 @@
     background: #256abf;
   }
   .btn-filter:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .btn-export {
+    font-family: inherit;
+    padding: 9px 20px;
+    background: #2e7d32;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    height: 34px;
+    white-space: nowrap;
+  }
+  .btn-export:hover {
+    background: #256428;
+  }
+  .btn-export:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }

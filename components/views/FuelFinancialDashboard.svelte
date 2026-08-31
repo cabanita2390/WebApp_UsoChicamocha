@@ -223,6 +223,11 @@
         <span class="kpi-value  kpi-value--primary" class:kpi-value--warning={dashboard.discrepancias > 0}>{dashboard.discrepancias}</span>
         <span class="kpi-hint">Ingresado ≠ calculado</span>
       </div>
+      <div class="kpi-section">
+        <span class="kpi-label">Alertas de rendimiento</span>
+        <span class="kpi-value  kpi-value--primary" class:kpi-value--warning={dashboard.alertasRendimiento > 0}>{dashboard.alertasRendimiento}</span>
+        <span class="kpi-hint">Consumo fuera de lo esperado</span>
+      </div>
     </div>
 
     <div class="fuel-chart">

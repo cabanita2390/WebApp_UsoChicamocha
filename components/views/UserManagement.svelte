@@ -275,7 +275,6 @@
             <option value="ADMIN">ADMIN </option>
             <option value="SUPERVISOR_OPERATIVO">SUPERVISOR OPERATIVO </option>
             <option value="OPERARIO">OPERARIO</option>
-            <option value="ALMACEN">ALMACÉN GENERAL</option>
           </select>
         </label>
       </div>

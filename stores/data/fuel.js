@@ -283,6 +283,13 @@ export function createFuelActions({ update, get, subscribe, setLoading, setError
                 throw err;
             }
         },
+        // Un solo tanqueo (por id), con el mismo enriquecimiento que fetchRefuelingReport
+        // (alertas de capacidad/precio/full) — para abrir el modal de editar desde una
+        // vista que no tiene ya cargado el reporte completo (ver FuelPerformanceHistory.svelte)
+        // sin traer TODO el reporte del tipo de activo solo para sacar un registro.
+        // No usa setLoading/setError: es una carga puntual del modal, no debe tapar
+        // toda la pantalla detrás del loader global mientras resuelve.
+        fetchRefuelingRecordById: (id) => fetchWithAuth(`fuel/refueling/reporte/${id}`),
         // Combustibles — Reporte de tanqueos por tipo de activo (Fase 5, reemplaza
         // el agrupado por lugar de Tanqueo y Distribución: Bomba=Vehículos,
         // Almacén=Maquinaria+Motocicletas siempre, así que agrupar por tipo de

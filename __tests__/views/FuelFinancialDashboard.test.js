@@ -62,6 +62,7 @@ const mockDashboard = {
   // ALMACEN (sin costo). El precio/unidad debe usar este valor, no el total.
   galonesBombaPorTipo: [{ fuelTypeId: 1, cantidad: 30 }],
   discrepancias: 2,
+  alertasRendimiento: 3,
   precioPromedioGalonComprado: 10000,
   comparacionAnterior: {
     fechaInicioAnterior: '2026-06-01',
@@ -161,6 +162,12 @@ describe('FuelFinancialDashboard', () => {
     render(FuelFinancialDashboard);
     expect(screen.getByText('Discrepancias detectadas')).toBeTruthy();
     expect(screen.getByText('2')).toBeTruthy();
+  });
+
+  it('muestra alertas de rendimiento (aparte de las discrepancias financieras)', () => {
+    render(FuelFinancialDashboard);
+    expect(screen.getByText('Alertas de rendimiento')).toBeTruthy();
+    expect(screen.getByText('3')).toBeTruthy();
   });
 
   it('no muestra "Precio promedio por galón comprado" (sin compras/inventario en el alcance actual, siempre daría "—")', () => {

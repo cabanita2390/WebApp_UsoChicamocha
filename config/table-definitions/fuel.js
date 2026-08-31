@@ -337,8 +337,12 @@ export const createFuelPerformanceColumns = (fuelTypesById = {}, showActions = f
             header: 'Alerta',
             // El asterisco marca que este activo todavía no tiene suficiente historial
             // propio (mínimo 2 tanqueos previos comparables) para calcular su rango
-            // aprendido — mientras tanto se evalúa con la tolerancia general del 15%,
-            // no con el comportamiento normal de ESE activo en particular.
+            // aprendido — mientras tanto se evalúa con la tolerancia general fija
+            // (app.fuel.rendimiento-desviacion-tolerancia-porcentaje, 8% por defecto),
+            // no con el comportamiento normal de ESE activo en particular. Aun sin el
+            // asterisco (ya en modo "rango aprendido"), una desviación por encima del
+            // techo absoluto (app.fuel.rendimiento-desviacion-tolerancia-maxima-porcentaje,
+            // 13% por defecto) siempre alerta, sin importar qué tan normal sea para el activo.
             accessorFn: (row) => `${yn(row.alerta)}${row.usaRangoAprendido === false ? ' *' : ''}`,
             id: 'perf_alerta',
             size: 90,

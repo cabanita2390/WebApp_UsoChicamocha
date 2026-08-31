@@ -231,7 +231,7 @@
     </div>
 
     <div class="accion-btn-wrap">
-      <button type="button" class="btn-filter" on:click={handleExportarExcel} disabled={isExporting}>
+      <button type="button" class="btn-export" on:click={handleExportarExcel} disabled={isExporting}>
         {isExporting ? "Descargando..." : "Exportar Excel"}
       </button>
       <button type="button" class="btn-filter btn-registrar" on:click={() => (showModal = true)}>+ Registrar tanqueo</button>
@@ -442,6 +442,26 @@
   }
   .btn-filter:hover {
     background: #256abf;
+  }
+  .btn-export {
+    font-family: inherit;
+    padding: 9px 20px;
+    background: #2e7d32;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    height: 34px;
+    white-space: nowrap;
+  }
+  .btn-export:hover {
+    background: #256428;
+  }
+  .btn-export:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
   .btn-clear-filter {
     font-family: inherit;
