@@ -62,6 +62,24 @@ Esta documentación describe todos los tests ubicados en la carpeta `__tests__/s
 
 - **renders info panel with correct data**: Verifica que se renderice el panel informativo con datos correctos.
 
+## FuelConfigFields.test.js
+
+**Descripción del componente:** Suite de pruebas para `FuelConfigFields.svelte`, los campos de configuración de rendimiento de combustible (combustible, unidad de consumo, capacidad de tanque) reutilizados en varias vistas del módulo de combustible.
+
+### Tests:
+
+- **empieza sin combustible elegido y con Consumo estándar deshabilitado**: estado inicial vacío.
+- **al elegir un combustible de galón, ofrece Km/Gl y H/Gl, y sugiere Km/Gl por defecto**: las opciones de unidad dependen de la familia física del combustible elegido.
+- **al elegir un combustible de gas (m³), ofrece Km/M3 y H/M3**: mismo criterio para combustibles medidos en m³.
+- **permite elegir manualmente la otra unidad válida (ej. H/Gl para un vehículo diésel por horómetro)**: la sugerencia no bloquea la elección manual.
+- **al cambiar a un combustible de otra familia física, resetea la unidad a una válida para la nueva**: evita quedar con una unidad incompatible tras el cambio.
+- **al quitar el combustible ("— Sin configurar —"), no muestra selector de unidad y deshabilita consumo estándar**.
+- **permite ingresar la capacidad del tanque**.
+- **respeta el prop `disabled` en todos los campos**.
+- **sugiere la unidad "por hora" primero cuando `preferPorHora=true` (maquinaria)**.
+- **sugiere la unidad "por distancia" primero cuando `preferPorHora=false` (vehículo/moto, default)**.
+- **usa ids distintos según `idPrefix`, para poder usarse dos veces en la misma página (crear + editar)**.
+
 ## ImageCarouselModal.test.js
 
 **Descripción del componente:** Suite de pruebas para el componente ImageCarouselModal. Verifica el renderizado, navegación, manejo de errores y limpieza de recursos.

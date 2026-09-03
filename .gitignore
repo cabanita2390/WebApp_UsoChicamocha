@@ -10,10 +10,18 @@ dist/
 coverage/
 playwright-report/
 test-results/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 
 # IDE and runtime logs
 .idea/
-frontend.log
+*.log
+
+# Claude Code local session/config data
+.claude/
 
 # Graphify local artifacts
 graphify-out/
+
+# OS junk
+.DS_Store
