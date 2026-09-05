@@ -163,9 +163,20 @@ describe('FuelHistory', () => {
     expect(data.deleteRefueling).toHaveBeenCalledWith(100);
   });
 
-  it('Editar/Eliminar no se muestran para un rol no ADMIN', () => {
+  it('un SUPERVISOR_OPERATIVO ve Editar pero no Eliminar (el backend exige ADMIN o SUPERVISOR_OPERATIVO para editar, solo ADMIN para eliminar)', () => {
     auth.subscribe.mockImplementation((callback) => {
       callback({ isAuthenticated: true, currentUser: { name: 'Sup', role: 'SUPERVISOR_OPERATIVO' }, isRefreshing: false });
+      return () => {};
+    });
+    render(FuelHistory, { props: { params: { tipoElemento: 'VEHICULO', id: '5' } } });
+
+    expect(screen.getAllByRole('button', { name: /^editar$/i }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /^eliminar$/i })).toBeNull();
+  });
+
+  it('Editar/Eliminar no se muestran para un rol sin permiso de editar (OPERARIO)', () => {
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Op', role: 'OPERARIO' }, isRefreshing: false });
       return () => {};
     });
     render(FuelHistory, { props: { params: { tipoElemento: 'VEHICULO', id: '5' } } });

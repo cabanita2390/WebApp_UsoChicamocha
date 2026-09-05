@@ -49,17 +49,18 @@
 
   $: isLoading = $data.isLoading;
   $: isAdmin = $auth?.currentUser?.role === "ADMIN";
-  // Reintegrar exige SUPERVISOR_OPERATIVO o ADMIN en el backend
-  // (FuelReintegrationController) — más permisivo que Editar/Eliminar, que son
-  // ADMIN-only.
+  // Reintegrar y Editar exigen SUPERVISOR_OPERATIVO o ADMIN en el backend
+  // (FuelReintegrationController / SecurityConfig); Eliminar sigue siendo
+  // ADMIN-only (showDeleteButton más abajo).
   $: isSupervisorOperativo = $auth?.currentUser?.role === "SUPERVISOR_OPERATIVO";
   $: canReintegrar = isAdmin || isSupervisorOperativo;
+  $: canEditar = isAdmin || isSupervisorOperativo;
   $: fuelTypes = $data.fuelTypes ?? [];
   $: fuelTypesById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.nombre]));
   $: unidadMedidaById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.unidadMedida]));
   $: vehiculosById = Object.fromEntries(($data.vehicles ?? []).map((v) => [v.id, v]));
   $: machinesById = Object.fromEntries(($data.machines ?? []).map((m) => [m.id, m]));
-  $: resumenColumns = createRefuelingColumns(fuelTypesById, unidadMedidaById, vehiculosById, machinesById, isAdmin, true, canReintegrar);
+  $: resumenColumns = createRefuelingColumns(fuelTypesById, unidadMedidaById, vehiculosById, machinesById, canEditar, true, canReintegrar);
   // GET /vehicle no filtra por tipo — trae motos también (viven en la misma
   // tabla vehiculos). GET /moto sí filtra correctamente solo motos.
   $: vehicles = ($data.vehicles ?? []).filter((v) => (v.tipoVehiculo ?? "").toUpperCase() !== "MOTOCICLETA");

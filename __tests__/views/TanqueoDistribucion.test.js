@@ -290,9 +290,9 @@ describe('TanqueoDistribucion', () => {
     expect(push).toHaveBeenCalledWith('/fuel-history/MAQUINARIA/8');
   });
 
-  it('"Ver historial" es visible para cualquier rol, a diferencia de Editar/Eliminar que son solo ADMIN', () => {
+  it('"Ver historial" es visible para cualquier rol, a diferencia de Eliminar que es solo ADMIN', () => {
     auth.subscribe.mockImplementation((callback) => {
-      callback({ isAuthenticated: true, currentUser: { name: 'Sup', role: 'SUPERVISOR_OPERATIVO' }, isRefreshing: false });
+      callback({ isAuthenticated: true, currentUser: { name: 'Op', role: 'OPERARIO' }, isRefreshing: false });
       return () => {};
     });
     render(TanqueoDistribucion);
@@ -302,7 +302,7 @@ describe('TanqueoDistribucion', () => {
     expect(screen.queryByRole('button', { name: /^eliminar$/i })).toBeNull();
   });
 
-  it('un ADMIN ve Editar/Eliminar en la tabla resumen, un SUPERVISOR_OPERATIVO no', () => {
+  it('un ADMIN y un SUPERVISOR_OPERATIVO ven Editar en la tabla resumen, pero solo ADMIN ve Eliminar', () => {
     const { unmount } = render(TanqueoDistribucion);
     expect(screen.getAllByRole('button', { name: /^editar$/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /^eliminar$/i }).length).toBeGreaterThan(0);
@@ -313,7 +313,7 @@ describe('TanqueoDistribucion', () => {
       return () => {};
     });
     render(TanqueoDistribucion);
-    expect(screen.queryByRole('button', { name: /^editar$/i })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^editar$/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /^eliminar$/i })).toBeNull();
   });
 

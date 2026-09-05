@@ -34,6 +34,18 @@
 
   $: isEdit = initialRow != null;
 
+  // Fecha real del tanqueo, editable — antes no existía este campo y siempre
+  // quedaba fijada a "ahora" en el backend, así que un tanqueo registrado
+  // tarde perdía el histórico real. Formato "yyyy-MM-ddTHH:mm" (el que produce
+  // un <input type="datetime-local">), en hora local — coincide con lo que
+  // espera LocalDateTime.parse() en el backend sin conversión adicional.
+  function toDatetimeLocalValue(value) {
+    const d = value ? new Date(value) : new Date();
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   function tipoElementoDe(row) {
     if (!row) return "MAQUINARIA";
     if (row.machineId != null) return "MAQUINARIA";
@@ -57,6 +69,7 @@
         precioUnitario: "",
         totalIngresado: "",
         origen: "",
+        fecha: toDatetimeLocalValue(),
       };
     }
     const idActivo = row.machineId ?? row.vehicleId;
@@ -72,6 +85,7 @@
       precioUnitario: row.precioUnitario != null ? String(row.precioUnitario) : "",
       totalIngresado: row.totalIngresado != null ? String(row.totalIngresado) : "",
       origen: row.origen ?? "",
+      fecha: toDatetimeLocalValue(row.fechaRegistro),
     };
   }
 
@@ -212,6 +226,7 @@
       fd.append("cantidadGalones", form.cantidadGalones);
       fd.append("horometroKm", form.horometroKm);
       fd.append("esFull", String(form.esFull));
+      if (form.fecha) fd.append("fecha", form.fecha);
       if (form.lugar === "BOMBA") {
         if (form.precioUnitario) fd.append("precioUnitario", form.precioUnitario);
         if (form.totalIngresado) fd.append("totalIngresado", form.totalIngresado);
@@ -289,6 +304,12 @@
           </div>
         </div>
       {/if}
+      <div class="form-row">
+        <label class="field" for="fecha">
+          <span class="field-lab">Fecha del tanqueo</span>
+          <input id="fecha" type="datetime-local" bind:value={form.fecha} required disabled={isSubmitting} />
+        </label>
+      </div>
       <div class="form-row">
         <label class="field" for="lugar">
           <span class="field-lab">Lugar</span>

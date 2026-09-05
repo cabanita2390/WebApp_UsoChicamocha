@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import FuelPerformance from '../../components/views/FuelPerformance.svelte';
 
@@ -32,10 +32,16 @@ vi.mock('../../stores/ui.js', () => ({
   addNotification: vi.fn(),
 }));
 
+vi.mock('../../stores/api.js', () => ({
+  download: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { data } from '../../stores/data.js';
 import { auth } from '../../stores/auth.js';
 import { fuelDateRange, defaultFuelDateRange } from '../../stores/fuelFilters.js';
 import { push } from 'svelte-spa-router';
+import { download } from '../../stores/api.js';
+import { addNotification } from '../../stores/ui.js';
 
 // Los 3 tipos se piden y se guardan siempre juntos (fetchFuelPerformanceAllTipos) —
 // MAQUINARIA es el tipo inicial de la vista, por eso sus filas son las que se ven
@@ -256,5 +262,78 @@ describe('FuelPerformance', () => {
 
     // Tipo MAQUINARIA es la pestaña activa por defecto; vehicleId=5 es el activo más reciente.
     expect(push).toHaveBeenCalledWith('/fuel-performance-history/MAQUINARIA/5');
+  });
+
+  describe('Exportar rendimiento mensual (modal)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-15T12:00:00'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('"Exportar Excel" abre un modal (no descarga directo) con el mes en curso propuesto por defecto', async () => {
+      const { container } = render(FuelPerformance);
+
+      await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+
+      expect(download).not.toHaveBeenCalled();
+      expect(screen.getByRole('dialog', { name: /exportar rendimiento mensual/i })).not.toBeNull();
+      expect(container.querySelector('#exportFechaInicio').value).toBe('2026-07-01');
+      expect(container.querySelector('#exportFechaFin').value).toBe('2026-07-15');
+    });
+
+    it('"Cancelar" cierra el modal sin descargar', async () => {
+      render(FuelPerformance);
+      await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+
+      await fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
+
+      expect(download).not.toHaveBeenCalled();
+      expect(screen.queryByRole('dialog', { name: /exportar rendimiento mensual/i })).toBeNull();
+    });
+
+    it('"Descargar" con el rango por defecto (mes en curso) llama a download con esas fechas', async () => {
+      render(FuelPerformance);
+      await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+
+      await fireEvent.click(screen.getByRole('button', { name: /^descargar$/i }));
+
+      expect(download).toHaveBeenCalledWith(
+        'fuel/rendimiento/export-mensual?fechaInicio=2026-07-01&fechaFin=2026-07-15',
+        'rendimiento_mensual.xlsx'
+      );
+    });
+
+    it('"Descargar" con fechas elegidas en el modal las manda como query, independiente del filtro de pantalla', async () => {
+      const { container } = render(FuelPerformance);
+      await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+
+      await fireEvent.input(container.querySelector('#exportFechaInicio'), { target: { value: '2026-01-01' } });
+      await fireEvent.input(container.querySelector('#exportFechaFin'), { target: { value: '2026-07-31' } });
+      await fireEvent.click(screen.getByRole('button', { name: /^descargar$/i }));
+
+      expect(download).toHaveBeenCalledWith(
+        'fuel/rendimiento/export-mensual?fechaInicio=2026-01-01&fechaFin=2026-07-31',
+        'rendimiento_mensual.xlsx'
+      );
+    });
+
+    it('si la exportación mensual falla, muestra una notificación de error y deja el modal abierto', async () => {
+      download.mockRejectedValueOnce(new Error('sin conexión'));
+
+      render(FuelPerformance);
+      await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+      await fireEvent.click(screen.getByRole('button', { name: /^descargar$/i }));
+
+      await waitFor(() => {
+        expect(addNotification).toHaveBeenCalledWith(
+          expect.objectContaining({ text: expect.stringContaining('sin conexión') })
+        );
+      });
+      expect(screen.getByRole('dialog', { name: /exportar rendimiento mensual/i })).not.toBeNull();
+    });
   });
 });
