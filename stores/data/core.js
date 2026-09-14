@@ -18,6 +18,7 @@ export const initialState = {
     /** Lista completa de inspecciones vehículo (API devuelve array, no página Spring). */
     vehicleInspectionsFull: [],
     vehicleWorkOrders: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
+    motoWorkOrders: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
     motoInspections: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
     // Gestión Administrativa
     vehicles: [],
@@ -160,10 +161,10 @@ export function createCore({ update, get, subscribe, fetchWithAuth }) {
         }
     }
 
-    async function fetchPaginated(key, endpoint, page, size) {
+    async function fetchPaginated(key, endpoint, page, size, extraQuery = '') {
         setLoading(true);
         try {
-            const result = await fetchWithAuth(`${endpoint}?page=${page}&size=${size}`);
+            const result = await fetchWithAuth(`${endpoint}?page=${page}&size=${size}${extraQuery}`);
             const paginatedData = {
                 data: result.content, totalPages: result.totalPages, totalElements: result.totalElements,
                 currentPage: result.number, pageSize: result.size
