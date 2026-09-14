@@ -17,6 +17,7 @@
   import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
   import { normLower, normalizeBelongsTo, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
+  import { createQuickCatalog } from '../../composables/useQuickCatalog.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -54,21 +55,26 @@
     curriculumData = null;
   }
 
-  let quickModal = null;
-  let quickName = "";
-  let quickError = "";
-  let quickSubmitting = false;
-
-  const quickModalTitles = {
-    brand: "Nueva marca",
-    location: "Nueva ubicación",
-  };
-
-  /** Placeholder del modal rápido según tipo de catálogo. */
-  const quickPlaceholder = {
-    brand: "Ej: Honda",
-    location: "Ej: Unidad Pantano, Represa LA COPA…",
-  };
+  const quickCatalog = createQuickCatalog({
+    brand: {
+      title: 'Nueva marca',
+      placeholder: 'Ej: Honda',
+      create: (name) => data.createVehicleBrand({ descripcion: name }),
+      getId: (created) => created?.idMarca,
+      targetField: 'idMarca',
+      successMessage: 'Marca registrada.',
+    },
+    location: {
+      title: 'Nueva ubicación',
+      placeholder: 'Ej: Unidad Pantano, Represa LA COPA…',
+      create: (name) => data.createCatalogItem('location', { name }),
+      afterCreate: () => data.fetchLocations(),
+      getId: (created) => created?.id,
+      targetField: 'idUbicacionBase',
+      successMessage: 'Ubicación registrada.',
+    },
+  });
+  const quickCatalogTarget = () => (showEditModal && motoInEditor ? motoInEditor : newMoto);
 
   function resolveBrandIdFromMoto(v) {
     if (v?.idMarca != null && v.idMarca !== "") return Number(v.idMarca);
@@ -79,53 +85,6 @@
     return hit?.idMarca != null ? Number(hit.idMarca) : null;
   }
 
-  function openQuickCatalog(kind) {
-    quickModal = kind;
-    quickName = "";
-    quickError = "";
-  }
-
-  function closeQuickCatalog() {
-    quickModal = null;
-    quickName = "";
-    quickError = "";
-    quickSubmitting = false;
-  }
-
-  async function submitQuickCatalog() {
-    const name = quickName.trim();
-    if (!name) {
-      quickError = "Escriba un nombre.";
-      return;
-    }
-    quickSubmitting = true;
-    quickError = "";
-    try {
-      if (quickModal === "brand") {
-        const created = await data.createVehicleBrand({ descripcion: name });
-        const id = created?.idMarca;
-        if (id != null) {
-          if (showEditModal && motoInEditor) motoInEditor.idMarca = id;
-          else newMoto.idMarca = id;
-        }
-        addNotification({ id: Date.now(), text: "Marca registrada." });
-      } else if (quickModal === "location") {
-        const created = await data.createCatalogItem("location", { name });
-        await data.fetchLocations();
-        const id = created?.id;
-        if (id != null) {
-          if (showEditModal && motoInEditor) motoInEditor.idUbicacionBase = id;
-          else newMoto.idUbicacionBase = id;
-        }
-        addNotification({ id: Date.now(), text: "Ubicación registrada." });
-      }
-      closeQuickCatalog();
-    } catch (e) {
-      quickError = e.message || "No se pudo guardar.";
-    } finally {
-      quickSubmitting = false;
-    }
-  }
 
   const initialMotoState = {
     placa: "",
@@ -530,7 +489,7 @@
             <label class="field">
               <span class="field-lab field-lab-row">
                 Marca
-                <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog("brand")}>+ Añadir</button>
+                <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => quickCatalog.open("brand")}>+ Añadir</button>
               </span>
               <select
                 required
@@ -562,7 +521,7 @@
             <label class="field">
               <span class="field-lab field-lab-row">
                 Ubicación
-                <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog("location")}>+ Añadir</button>
+                <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => quickCatalog.open("location")}>+ Añadir</button>
               </span>
               <select
                 disabled={isSubmitting}
@@ -688,7 +647,7 @@
   fuelConfig={fuelConfigEdit}
   {fuelTypes}
   on:close={closeEditModal}
-  on:quickcatalog={(e) => openQuickCatalog(e.detail)}
+  on:quickcatalog={(e) => quickCatalog.open(e.detail)}
   on:submit={handleUpdateMoto}
 />
 {/if}
@@ -722,14 +681,14 @@
 />
 
 <QuickCatalogModal
-  open={!!quickModal}
-  title={quickModal ? quickModalTitles[quickModal] : ''}
-  placeholder={quickModal ? (quickPlaceholder[quickModal] ?? 'Ej: …') : 'Ej: …'}
-  bind:value={quickName}
-  error={quickError}
-  submitting={quickSubmitting}
-  on:close={closeQuickCatalog}
-  on:submit={submitQuickCatalog}
+  open={!!$quickCatalog.modal}
+  title={quickCatalog.titleFor($quickCatalog.modal)}
+  placeholder={quickCatalog.placeholderFor($quickCatalog.modal)}
+  bind:value={$quickCatalog.name}
+  error={$quickCatalog.error}
+  submitting={$quickCatalog.submitting}
+  on:close={quickCatalog.close}
+  on:submit={() => quickCatalog.submit(quickCatalogTarget)}
 />
 
 {#if docModalOpen && docModalRow}
