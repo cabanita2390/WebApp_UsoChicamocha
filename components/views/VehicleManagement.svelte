@@ -18,6 +18,7 @@
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
   import { normLower, normalizeBelongsTo, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
   import { createQuickCatalog } from '../../composables/useQuickCatalog.js';
+  import { createSoftDeleteRestore } from '../../composables/useSoftDeleteRestore.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -27,9 +28,11 @@
   let errorMessage = "";
 
   // Soft-delete recovery
-  let softDeletedVehicleToRestore = null;
-  let showSoftDeletedModal = false;
-  let isRestoringVehicle = false;
+  const softDeleteRestore = createSoftDeleteRestore({
+    restore: (id) => data.restoreVehicle(id),
+    refetch: () => data.fetchVehicles(),
+    entityLabel: 'Vehículo',
+  });
 
   let showCvModal = false;
   let isCvLoading = false;
@@ -346,8 +349,7 @@
       addNotification({ id: Date.now(), text: "Vehículo creado con éxito." + docExtra });
     } catch (e) {
       if (e.status === 409 && e.body?.softDeletedVehicle) {
-        softDeletedVehicleToRestore = e.body.softDeletedVehicle;
-        showSoftDeletedModal = true;
+        softDeleteRestore.trigger(e.body.softDeletedVehicle);
         errorMessage = e.body.error || e.message || "Vehículo eliminado detectado";
       } else {
         errorMessage = e.message || "Error al crear vehículo.";
@@ -358,33 +360,25 @@
   }
 
   async function handleRestoreVehicle() {
-    if (!softDeletedVehicleToRestore?.id) return;
-    isRestoringVehicle = true;
     try {
-      const restored = await data.restoreVehicle(softDeletedVehicleToRestore.id);
-      showSoftDeletedModal = false;
-      softDeletedVehicleToRestore = null;
+      await softDeleteRestore.confirm(() => {
+        newVehicle = { ...initialVehicleState };
+        docSoatVencimiento = "";
+        docTecnoVencimiento = "";
+        docTarjetaPropiedadFile = null;
+        docExtintorMes = "";
+        docSoatFile = null;
+        docTecnoFile = null;
+        docExtintorFile = null;
+      });
       errorMessage = "";
-      newVehicle = { ...initialVehicleState };
-      docSoatVencimiento = "";
-      docTecnoVencimiento = "";
-      docTarjetaPropiedadFile = null;
-      docExtintorMes = "";
-      docSoatFile = null;
-      docTecnoFile = null;
-      docExtintorFile = null;
-      data.fetchVehicles();
-      addNotification({ id: Date.now(), text: "Vehículo restaurado exitosamente." });
     } catch (e) {
       errorMessage = "Error al restaurar vehículo: " + (e.message || "desconocido");
-    } finally {
-      isRestoringVehicle = false;
     }
   }
 
   function handleCreateDifferent() {
-    showSoftDeletedModal = false;
-    softDeletedVehicleToRestore = null;
+    softDeleteRestore.cancel();
     errorMessage = "✏️ Por favor, cambia la placa en el formulario de arriba";
   }
 
@@ -515,7 +509,7 @@
   function handleKeydown(event) {
     if (event.key !== "Escape") return;
     if (vehicleToDelete) vehicleToDelete = null;
-    else if (showSoftDeletedModal) showSoftDeletedModal = false;
+    else if ($softDeleteRestore.show) softDeleteRestore.cancel();
   }
 </script>
 
@@ -829,10 +823,10 @@
   {/key}
 {/if}
 
-{#if showSoftDeletedModal && softDeletedVehicleToRestore}
+{#if $softDeleteRestore.show && $softDeleteRestore.pending}
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <div class="modal-overlay" role="presentation" on:click={() => (showSoftDeletedModal = false)}>
+  <div class="modal-overlay" role="presentation" on:click={softDeleteRestore.cancel}>
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
@@ -840,9 +834,9 @@
       <p>{errorMessage}</p>
 
       <div class="soft-delete-info">
-        <p><strong>Placa:</strong> {softDeletedVehicleToRestore.placa}</p>
-        <p><strong>Marca:</strong> {softDeletedVehicleToRestore.marca}</p>
-        <p><strong>Tipo:</strong> {softDeletedVehicleToRestore.tipoVehiculo}</p>
+        <p><strong>Placa:</strong> {$softDeleteRestore.pending.placa}</p>
+        <p><strong>Marca:</strong> {$softDeleteRestore.pending.marca}</p>
+        <p><strong>Tipo:</strong> {$softDeleteRestore.pending.tipoVehiculo}</p>
       </div>
 
       <p style="margin-top: 12px; font-size: 12px; color: #606060;">¿Qué deseas hacer?</p>
@@ -850,8 +844,8 @@
       <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
         <button
           type="button"
-          on:click={() => (showSoftDeletedModal = false)}
-          disabled={isRestoringVehicle}
+          on:click={softDeleteRestore.cancel}
+          disabled={$softDeleteRestore.restoring}
           style="padding: 6px 12px; background: #f0f0f0; border: 1px solid #c0c0c0; cursor: pointer; border-radius: 3px;"
         >
           Cancelar
@@ -859,7 +853,7 @@
         <button
           type="button"
           on:click={handleCreateDifferent}
-          disabled={isRestoringVehicle}
+          disabled={$softDeleteRestore.restoring}
           style="padding: 6px 12px; background: #e8e8e8; border: 1px solid #b0b0b0; cursor: pointer; border-radius: 3px;"
         >
           Crear con otra placa
@@ -867,10 +861,10 @@
         <button
           type="button"
           on:click={handleRestoreVehicle}
-          disabled={isRestoringVehicle}
+          disabled={$softDeleteRestore.restoring}
           style="padding: 6px 12px; background: #5cb85c; color: white; border: 1px solid #4cae4c; cursor: pointer; border-radius: 3px; font-weight: bold;"
         >
-          {isRestoringVehicle ? "Restaurando..." : "Restaurar Vehículo"}
+          {$softDeleteRestore.restoring ? "Restaurando..." : "Restaurar Vehículo"}
         </button>
       </div>
     </div>
