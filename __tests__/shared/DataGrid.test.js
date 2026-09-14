@@ -450,6 +450,165 @@ describe('DataGrid', () => {
   });
 
   /**
+   * @description Tests de caracterización (caso 6 de la auditoría de deuda
+   * técnica): congelan el comportamiento ACTUAL de cada uno de los ~17 flags
+   * de acción de meta ANTES de extraerlos a componentes propios, para poder
+   * migrar uno por uno sin cambiar comportamiento por accidente.
+   */
+  describe('caracterización de flags de acción (antes de extraer a componentes)', () => {
+    function renderWithMeta(metaFlag, data = mockData) {
+      const columns = [{ id: 'actions', header: '', meta: { [metaFlag]: true } }];
+      const mockDispatch = vi.fn();
+      const component = render(DataGrid, { props: { columns, data, showPagination: false } });
+      component.component.$on('action', (event) => mockDispatch(event.detail));
+      return { mockDispatch };
+    }
+
+    it('isExecuteAction: muestra "Ejecutar" y despacha type "execute" cuando la orden no está completada', async () => {
+      const { mockDispatch } = renderWithMeta('isExecuteAction', [{ id: 1, order: { status: 'Pending' } }]);
+      await tick();
+      const btn = screen.getByText('Ejecutar');
+      await fireEvent.click(btn);
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'execute', data: { id: 1, order: { status: 'Pending' } } });
+    });
+
+    it('isExecuteAction: muestra "EJECUTADA" (sin botón) cuando order.status es Completada o Done', async () => {
+      renderWithMeta('isExecuteAction', [
+        { id: 1, order: { status: 'Completada' } },
+        { id: 2, order: { status: 'Done' } },
+      ]);
+      await tick();
+      expect(screen.getAllByText('EJECUTADA').length).toBe(2);
+      expect(screen.queryByText('Ejecutar')).toBeNull();
+    });
+
+    it('isCvAction: "Ver Hoja de Vida" despacha type "cv"', async () => {
+      const { mockDispatch } = renderWithMeta('isCvAction', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Ver Hoja de Vida'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'cv', data: { id: 1 } });
+    });
+
+    it('isDocHistoryAction: "Historial docs" despacha type "docHistory"', async () => {
+      const { mockDispatch } = renderWithMeta('isDocHistoryAction', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Historial docs'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'docHistory', data: { id: 1 } });
+    });
+
+    it('isViewMotorOilHistoryAction: "Ver historial motor" despacha type "viewMotorOilHistory"', async () => {
+      const { mockDispatch } = renderWithMeta('isViewMotorOilHistoryAction', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Ver historial motor'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'viewMotorOilHistory', data: { id: 1 } });
+    });
+
+    it('isViewHydraulicOilHistoryAction: "Ver historial hidráulico" despacha type "viewHydraulicOilHistory"', async () => {
+      const { mockDispatch } = renderWithMeta('isViewHydraulicOilHistoryAction', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Ver historial hidráulico'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'viewHydraulicOilHistory', data: { id: 1 } });
+    });
+
+    it('isLicenseDocAction: con licenseDocumentUrl muestra "Documento" y despacha view_license_doc', async () => {
+      const { mockDispatch } = renderWithMeta('isLicenseDocAction', [{ id: 1, licenseDocumentUrl: 'http://x/doc.pdf' }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Documento'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'view_license_doc', data: { id: 1, licenseDocumentUrl: 'http://x/doc.pdf' } });
+    });
+
+    it('isLicenseDocAction: sin licenseDocumentUrl muestra "—" y ningún botón', async () => {
+      renderWithMeta('isLicenseDocAction', [{ id: 1 }]);
+      await tick();
+      expect(screen.getByText('—')).toBeTruthy();
+      expect(screen.queryByText('Documento')).toBeNull();
+    });
+
+    it('isFacturaAction: con urlFactura muestra "Factura" y despacha view_factura', async () => {
+      const { mockDispatch } = renderWithMeta('isFacturaAction', [{ id: 1, urlFactura: 'http://x/f.pdf' }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Factura'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'view_factura', data: { id: 1, urlFactura: 'http://x/f.pdf' } });
+    });
+
+    it('isFacturaAction: sin urlFactura muestra "—"', async () => {
+      renderWithMeta('isFacturaAction', [{ id: 1 }]);
+      await tick();
+      expect(screen.getByText('—')).toBeTruthy();
+      expect(screen.queryByText('Factura')).toBeNull();
+    });
+
+    it('isReintegroAction: con saldo pendiente (>0.0001) muestra "Reintegrar" y despacha reintegro', async () => {
+      const { mockDispatch } = renderWithMeta('isReintegroAction', [{ id: 1, cantidadGalones: 10, cantidadReintegrada: 2 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Reintegrar'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'reintegro', data: { id: 1, cantidadGalones: 10, cantidadReintegrada: 2 } });
+    });
+
+    it('isReintegroAction: sin saldo pendiente muestra "Reintegrado" (sin botón)', async () => {
+      renderWithMeta('isReintegroAction', [{ id: 1, cantidadGalones: 10, cantidadReintegrada: 10 }]);
+      await tick();
+      expect(screen.getByText('Reintegrado')).toBeTruthy();
+      expect(screen.queryByText('Reintegrar')).toBeNull();
+    });
+
+    it('isImageAction: "Ver" despacha type "view_images"', async () => {
+      const { mockDispatch } = renderWithMeta('isImageAction', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Ver'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'view_images', data: { id: 1 } });
+    });
+
+    it('isUpdateDocsAction: "Actualizar Docs" despacha type "update_docs"', async () => {
+      const { mockDispatch } = renderWithMeta('isUpdateDocsAction', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Actualizar Docs'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'update_docs', data: { id: 1 } });
+    });
+
+    it('isMonitoringDocsAction: "Actualizar Documentos" despacha type "monitoring_update_docs"', async () => {
+      const { mockDispatch } = renderWithMeta('isMonitoringDocsAction', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Actualizar Documentos'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'monitoring_update_docs', data: { id: 1 } });
+    });
+
+    it('isConsolidadoMaqActions: "Corregir Horómetro" despacha type "edit_hourmeter"', async () => {
+      const { mockDispatch } = renderWithMeta('isConsolidadoMaqActions', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Corregir Horómetro'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'edit_hourmeter', data: { id: 1 } });
+    });
+
+    it('isConsolidadoVehicleActions: dos botones — "Corregir Km" (edit_km) y "Ver historial aceite" (monitoring_oil_history)', async () => {
+      const { mockDispatch } = renderWithMeta('isConsolidadoVehicleActions', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Corregir Km'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'edit_km', data: { id: 1 } });
+      await fireEvent.click(screen.getByText('Ver historial aceite'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'monitoring_oil_history', data: { id: 1 } });
+    });
+
+    it('isConsolidadoMotoActions: dos botones — "Corregir Km" (edit_km) y "Ver historial aceite" (monitoring_oil_history)', async () => {
+      const { mockDispatch } = renderWithMeta('isConsolidadoMotoActions', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Corregir Km'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'edit_km', data: { id: 1 } });
+      await fireEvent.click(screen.getByText('Ver historial aceite'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'monitoring_oil_history', data: { id: 1 } });
+    });
+
+    it('isMonitoringOilAction: dos botones — "Registrar aceite" (monitoring_register_oil) y "Ver historial" (monitoring_oil_history)', async () => {
+      const { mockDispatch } = renderWithMeta('isMonitoringOilAction', [{ id: 1 }]);
+      await tick();
+      await fireEvent.click(screen.getByText('Registrar aceite'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'monitoring_register_oil', data: { id: 1 } });
+      await fireEvent.click(screen.getByText('Ver historial'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'monitoring_oil_history', data: { id: 1 } });
+    });
+  });
+
+  /**
    * @test Maneja clases de celda condicionales.
    * Verifica que se manejen clases de celda condicionales para orígenes y condiciones.
    */

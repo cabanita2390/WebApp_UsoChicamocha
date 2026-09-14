@@ -9,6 +9,22 @@
     getSortedRowModel,
   } from "@tanstack/svelte-table";
   import { getStatusTailwindClass } from "../../config/table-definitions.js";
+  import EditDeleteActionCell from "./data-grid-cells/EditDeleteActionCell.svelte";
+  import ExecuteActionCell from "./data-grid-cells/ExecuteActionCell.svelte";
+  import CvActionCell from "./data-grid-cells/CvActionCell.svelte";
+  import DocHistoryActionCell from "./data-grid-cells/DocHistoryActionCell.svelte";
+  import ViewHistoryActionCell from "./data-grid-cells/ViewHistoryActionCell.svelte";
+  import ViewMotorOilHistoryActionCell from "./data-grid-cells/ViewMotorOilHistoryActionCell.svelte";
+  import ViewHydraulicOilHistoryActionCell from "./data-grid-cells/ViewHydraulicOilHistoryActionCell.svelte";
+  import LicenseDocActionCell from "./data-grid-cells/LicenseDocActionCell.svelte";
+  import FacturaActionCell from "./data-grid-cells/FacturaActionCell.svelte";
+  import ReintegroActionCell from "./data-grid-cells/ReintegroActionCell.svelte";
+  import ImageActionCell from "./data-grid-cells/ImageActionCell.svelte";
+  import ConsolidadoAssetActionsCell from "./data-grid-cells/ConsolidadoAssetActionsCell.svelte";
+  import UpdateDocsActionCell from "./data-grid-cells/UpdateDocsActionCell.svelte";
+  import ConsolidadoMaqActionsCell from "./data-grid-cells/ConsolidadoMaqActionsCell.svelte";
+  import MonitoringDocsActionCell from "./data-grid-cells/MonitoringDocsActionCell.svelte";
+  import MonitoringOilActionCell from "./data-grid-cells/MonitoringOilActionCell.svelte";
 
   export let columns = [];
   export let data = [];
@@ -361,215 +377,39 @@
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
-                  <div class="actions-cell">
-                    <button
-                      class="btn-action btn-edit"
-                      on:click={() => handleAction("edit", row.original)}
-                      >Editar</button
-                    >
-                    {#if showDeleteButton}
-                      <button
-                        class="btn-action btn-delete"
-                        on:click={() => handleAction("delete", row.original)}
-                        >Eliminar</button
-                      >
-                    {/if}
-                  </div>
+                  <EditDeleteActionCell row={row.original} {showDeleteButton} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isExecuteAction}
-                  <div class="actions-cell">
-                    {#if row.original.order?.status !== "Completada" && row.original.order?.status !== "Done"}
-                      <button
-                        class="btn-action btn-execute"
-                        on:click={() => handleAction("execute", row.original)}
-                        >Ejecutar</button
-                      >
-                    {:else}
-                      <span class="status-text executed">EJECUTADA</span>
-                    {/if}
-                  </div>
+                  <ExecuteActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isCvAction}
-                  <div class="actions-cell">
-                    <button
-                      class="btn-action btn-cv"
-                      on:click={() => handleAction("cv", row.original)}
-                    >
-                      Ver Hoja de Vida
-                    </button>
-                  </div>
+                  <CvActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isDocHistoryAction}
-                  <div class="actions-cell">
-                    <button
-                      class="btn-action btn-doc-history"
-                      on:click={() => handleAction("docHistory", row.original)}
-                    >
-                      Historial docs
-                    </button>
-                  </div>
+                  <DocHistoryActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isViewHistoryAction}
-                  <div class="actions-cell">
-                    <button
-                      class="btn-action btn-view-history"
-                      on:click={() => handleAction("viewHistory", row.original)}
-                    >
-                      Ver historial
-                    </button>
-                  </div>
+                  <ViewHistoryActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isViewMotorOilHistoryAction}
-                  <div class="actions-cell">
-                    <button
-                      class="btn-action btn-view-history"
-                      on:click={() => handleAction("viewMotorOilHistory", row.original)}
-                    >
-                      Ver historial motor
-                    </button>
-                  </div>
+                  <ViewMotorOilHistoryActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isViewHydraulicOilHistoryAction}
-                  <div class="actions-cell">
-                    <button
-                      class="btn-action btn-view-history"
-                      on:click={() => handleAction("viewHydraulicOilHistory", row.original)}
-                    >
-                      Ver historial hidráulico
-                    </button>
-                  </div>
+                  <ViewHydraulicOilHistoryActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isLicenseDocAction}
-                  <div class="license-doc-cell">
-                    {#if row.original.licenseDocumentUrl}
-                      <button
-                        class="btn-action btn-view-images btn-license-doc"
-                        on:click={() => handleAction("view_license_doc", row.original)}
-                      >
-                        Documento
-                      </button>
-                    {:else}
-                      <span class="license-doc-cell__empty">—</span>
-                    {/if}
-                  </div>
+                  <LicenseDocActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isFacturaAction}
-                  <div class="license-doc-cell">
-                    {#if row.original.urlFactura}
-                      <button
-                        class="btn-action btn-view-images btn-license-doc"
-                        on:click={() => handleAction("view_factura", row.original)}
-                      >
-                        Factura
-                      </button>
-                    {:else}
-                      <span class="license-doc-cell__empty">—</span>
-                    {/if}
-                  </div>
+                  <FacturaActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isReintegroAction}
-                  <div class="license-doc-cell">
-                    {#if Number(row.original.cantidadGalones) - Number(row.original.cantidadReintegrada ?? 0) > 0.0001}
-                      <button
-                        class="btn-action btn-view-images btn-license-doc"
-                        on:click={() => handleAction("reintegro", row.original)}
-                      >
-                        Reintegrar
-                      </button>
-                    {:else}
-                      <span class="license-doc-cell__empty">Reintegrado</span>
-                    {/if}
-                  </div>
+                  <ReintegroActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isImageAction}
-                  <div class="actions-cell">
-                    <button
-                      class="btn-action btn-view-images"
-                      on:click={() => handleAction("view_images", row.original)}
-                    >
-                      Ver
-                    </button>
-                  </div>
+                  <ImageActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isConsolidadoVehicleActions}
-                  <div class="actions-cell actions-cell-stack">
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact"
-                      title="Corregir el kilometraje actual"
-                      on:click={() => handleAction("edit_km", row.original)}
-                    >
-                      Corregir Km
-                    </button>
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact mon-action-text--hist"
-                      title="Ver historial de cambios de aceite"
-                      on:click={() => handleAction("monitoring_oil_history", row.original)}
-                    >
-                      Ver historial aceite
-                    </button>
-                  </div>
+                  <ConsolidadoAssetActionsCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isUpdateDocsAction}
-                  <div class="actions-cell">
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact"
-                      title="Actualizar fechas y archivos de documentación"
-                      on:click={() => handleAction("update_docs", row.original)}
-                    >
-                      Actualizar Docs
-                    </button>
-                  </div>
+                  <UpdateDocsActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isConsolidadoMotoActions}
-                  <div class="actions-cell actions-cell-stack">
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact"
-                      title="Corregir el kilometraje actual"
-                      on:click={() => handleAction("edit_km", row.original)}
-                    >
-                      Corregir Km
-                    </button>
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact mon-action-text--hist"
-                      title="Ver historial de cambios de aceite"
-                      on:click={() => handleAction("monitoring_oil_history", row.original)}
-                    >
-                      Ver historial aceite
-                    </button>
-                  </div>
+                  <ConsolidadoAssetActionsCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isConsolidadoMaqActions}
-                  <div class="actions-cell">
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact"
-                      title="Corregir el valor del horómetro de la última inspección"
-                      on:click={() => handleAction("edit_hourmeter", row.original)}
-                    >
-                      Corregir Horómetro
-                    </button>
-                  </div>
+                  <ConsolidadoMaqActionsCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isMonitoringDocsAction}
-                  <div class="actions-cell">
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact"
-                      title="Actualizar fechas y archivos de documentación (SOAT, tecnomecánica, tarjeta de propiedad, extintor)"
-                      on:click={() => handleAction("monitoring_update_docs", row.original)}
-                    >
-                      Actualizar Documentos
-                    </button>
-                  </div>
+                  <MonitoringDocsActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isMonitoringOilAction}
-                  <div class="actions-cell actions-cell-stack">
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact"
-                      title="Registrar cambio de aceite"
-                      on:click={() => handleAction("monitoring_register_oil", row.original)}
-                    >
-                      Registrar aceite
-                    </button>
-                    <button
-                      type="button"
-                      class="mon-action-text mon-action-text--compact mon-action-text--hist"
-                      title="Ver historial de cambios de aceite"
-                      on:click={() => handleAction("monitoring_oil_history", row.original)}
-                    >
-                      Ver historial
-                    </button>
-                  </div>
+                  <MonitoringOilActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isPlainMonitoringDate}
                   {@const raw = cell.getContext().getValue()}
                   <span class="mon-plain-date">{formatMonitoringDateCell(raw)}</span>
@@ -714,33 +554,37 @@
 </div>
 
 <style>
-  .btn-cv {
+  /* Estas reglas son :global porque el markup que las usa se movió a
+     components/shared/data-grid-cells/*.svelte (caso 6 de la auditoría) —
+     sin :global, el CSS scoping de Svelte las descartaría por no encontrar
+     ningún elemento con esa clase dentro de DataGrid.svelte mismo. */
+  :global(.btn-cv) {
     background-color: #c8e6c9;
     font-weight: bold;
   }
 
-  .btn-view-images {
+  :global(.btn-view-images) {
     background-color: #d1c4e9;
   }
-  .license-doc-cell {
+  :global(.license-doc-cell) {
     display: flex;
     justify-content: center;
     padding: 0 2px;
   }
-  .license-doc-cell__empty {
+  :global(.license-doc-cell__empty) {
     font-size: 10px;
     color: #888;
   }
 
   /** Varias acciones de monitoreo/consolidado en una sola fila (lateral), para no alargar la altura de la fila. */
-  .actions-cell-stack {
+  :global(.actions-cell-stack) {
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
     gap: 4px;
   }
-  .actions-cell-stack .mon-action-text {
+  :global(.actions-cell-stack .mon-action-text) {
     flex: 0 0 auto;
   }
 
@@ -751,7 +595,7 @@
   /**
    * Acciones de monitoreo: texto neutro (sin colores de semáforo) para no confundir con celdas de estado.
    */
-  .mon-action-text {
+  :global(.mon-action-text) {
     display: inline-block;
     width: auto;
     max-width: 100%;
@@ -769,24 +613,24 @@
     border-radius: 0;
     cursor: pointer;
   }
-  .mon-action-text--compact {
+  :global(.mon-action-text--compact) {
     padding: 1px 6px;
     font-size: 10px;
     white-space: nowrap;
   }
-  .mon-action-text--hist {
+  :global(.mon-action-text--hist) {
     background: linear-gradient(to bottom, #d8eaff 0%, #b8d4f8 100%);
     color: #1a3a6e;
     border-color: #6a90c0;
   }
-  .mon-action-text--hist:hover {
+  :global(.mon-action-text--hist:hover) {
     background: linear-gradient(to bottom, #e8f2ff 0%, #c8deff 100%);
   }
-  .mon-action-text:hover {
+  :global(.mon-action-text:hover) {
     background: linear-gradient(to bottom, #fafafa 0%, #e4e4e4 100%);
     border-color: #606060;
   }
-  .mon-action-text:active {
+  :global(.mon-action-text:active) {
     border-style: inset;
   }
 
@@ -929,12 +773,21 @@
     font-size: 8px;
     margin-left: 4px;
   }
-  .actions-cell {
+  :global(.actions-cell) {
     display: flex;
     gap: 4px;
     justify-content: center;
   }
-  .btn-action,
+  :global(.btn-action) {
+    padding: 2px 8px;
+    border: 1px outset #c0c0c0;
+    cursor: pointer;
+    font-size: 10px;
+    margin: 0;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-family: inherit;
+  }
   .status-btn {
     padding: 2px 8px;
     border: 1px outset #c0c0c0;
@@ -945,10 +798,10 @@
     white-space: nowrap;
     font-family: inherit;
   }
-  .btn-edit {
+  :global(.btn-edit) {
     background-color: #f0f0f0;
   }
-  .btn-delete {
+  :global(.btn-delete) {
     background-color: #ffbaba;
   }
   .dismiss-btn {
@@ -963,19 +816,15 @@
   }
   .inv-photo-link { color: #0050a0; text-decoration: underline; font-size: 10px; cursor: pointer; }
 
-  .btn-execute {
+  :global(.btn-execute) {
     background-color: #add8e6;
     font-weight: bold;
   }
-  .btn-cv {
-    background-color: #c8e6c9;
-    font-weight: bold;
-  }
-  .btn-doc-history {
+  :global(.btn-doc-history) {
     background-color: #d1c4e9;
     font-weight: bold;
   }
-  .btn-view-history {
+  :global(.btn-view-history) {
     background-color: #b3e5fc;
     font-weight: bold;
   }
@@ -989,11 +838,11 @@
     text-align: center;
   }
 
-  .status-text {
+  :global(.status-text) {
     font-weight: bold;
   }
 
-  .executed {
+  :global(.executed) {
     color: #2e7d32;
     font-size: 10px;
     text-align: center;
