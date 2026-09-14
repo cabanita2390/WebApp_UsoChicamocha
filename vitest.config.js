@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [svelte({ hot: !process.env.VITEST })],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': resolve(__dirname, '.'),
     },
   },
   test: {

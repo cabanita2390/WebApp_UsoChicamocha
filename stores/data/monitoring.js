@@ -1,4 +1,4 @@
-import { normalizePlaca } from '../../src/lib/textFormat.js';
+import { normalizePlaca } from '../../lib/textFormat.js';
 
 export function createMonitoringActions({ update, get, subscribe, setLoading, setError, fetchAll, fetchPaginated, fetchWithAuth }) {
     return {
