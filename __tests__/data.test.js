@@ -217,6 +217,60 @@ describe('data store', () => {
     });
   });
 
+  /**
+   * @description Caso 4 de la auditoría de deuda técnica del frontend:
+   * useWebSocketNotifications.js dispara fetches en segundo plano para ~11
+   * dominios (machines, vehicles, users, etc.) sin ninguna guarda contra el
+   * isLoading/error global — antes de este fix, un fetch de background de
+   * "machines" podía apagar el spinner (o mostrar un error) de una vista de
+   * "vehicles" completamente ajena. Estos tests fijan que cada uno de esos
+   * dominios ahora tiene su propio isLoading/error, aislado del resto.
+   */
+  describe('isLoading/error por dominio — aislamiento entre fetches concurrentes', () => {
+    it('un error en fetchMachines no toca isLoadingVehicles/errorVehicles ni el isLoading/error global', async () => {
+      fetchWithAuth.mockRejectedValue(new Error('Machines down'));
+
+      await expect(data.fetchMachines()).rejects.toThrow('Machines down');
+
+      const state = get(data);
+      expect(state.isLoadingMachines).toBe(false);
+      expect(state.errorMachines).toBe('Machines down');
+      expect(state.isLoadingVehicles).toBe(false);
+      expect(state.errorVehicles).toBeNull();
+      expect(state.isLoading).toBe(false);
+      expect(state.error).toBeNull();
+    });
+
+    it('fetchVehicles y fetchMachines en vuelo a la vez no pisan el isLoading del otro dominio', async () => {
+      let resolveVehicles, resolveMachines;
+      fetchWithAuth.mockImplementation((endpoint) => {
+        if (endpoint === 'vehicle') return new Promise((res) => { resolveVehicles = res; });
+        if (endpoint === 'machine') return new Promise((res) => { resolveMachines = res; });
+        throw new Error(`unexpected endpoint ${endpoint}`);
+      });
+
+      const vehiclesRequest = data.fetchVehicles();
+      const machinesRequest = data.fetchMachines();
+
+      expect(get(data).isLoadingVehicles).toBe(true);
+      expect(get(data).isLoadingMachines).toBe(true);
+
+      resolveMachines([{ id: 1, name: 'Excavadora' }]);
+      await machinesRequest;
+
+      // El fetch de machines ya terminó, pero vehicles sigue en vuelo — su
+      // propio flag debe seguir en true (antes del fix, ambos compartían un
+      // único isLoading global y esto se habría apagado prematuramente).
+      expect(get(data).isLoadingMachines).toBe(false);
+      expect(get(data).isLoadingVehicles).toBe(true);
+
+      resolveVehicles([{ id: 1, placa: 'ABC123' }]);
+      await vehiclesRequest;
+
+      expect(get(data).isLoadingVehicles).toBe(false);
+    });
+  });
+
   describe('fetchRefuelingReport — orden de respuestas', () => {
     it('descarta una respuesta vieja que resuelve después de una más nueva', async () => {
       let resolveOld, resolveNew;

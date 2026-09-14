@@ -16,8 +16,8 @@
 
   $: distritoMachines = $data.consolidated.distrito;
   $: asociacionMachines = $data.consolidated.asociacion;
-  $: isLoading = $data.isLoading;
-  $: errorMessage = $data.error;
+  $: isLoading = $data.isLoadingConsolidado;
+  $: errorMessage = $data.errorConsolidado;
   let isExporting = false;
 
   // --- modal corregir horómetro ---

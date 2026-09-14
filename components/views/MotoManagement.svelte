@@ -239,7 +239,7 @@
   $: locations = Array.isArray($data.locations) ? $data.locations : [];
   $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
   $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
-  $: isLoading = $data.isLoading;
+  $: isLoading = $data.isLoadingMotos;
   $: motoTipoId =
     (types || []).find((t) => String(t?.name ?? t?.nombreTipo ?? "").toUpperCase() === "MOTOCICLETA")?.id ?? null;
 

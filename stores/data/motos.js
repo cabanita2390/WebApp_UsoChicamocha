@@ -2,7 +2,7 @@ export function createMotoActions({ update, setLoading, setError, unwrapEntityLi
     return {
         /** CRUD motocicletas — GET/POST/PUT/DELETE `/api/v1/moto` (tipo MOTOCICLETA forzado en servidor). */
         fetchMotos: async () => {
-            setLoading(true);
+            setLoading(true, 'isLoadingMotos');
             try {
                 const result = await fetchWithAuth('moto');
                 const list = unwrapEntityList(result);
@@ -12,13 +12,13 @@ export function createMotoActions({ update, setLoading, setError, unwrapEntityLi
                     return {
                         ...s,
                         motos: motosEnriched,
-                        isLoading: false,
-                        error: null,
+                        isLoadingMotos: false,
+                        errorMotos: null,
                     };
                 });
                 return motosEnriched;
             } catch (err) {
-                setError(err.message);
+                setError(err.message, { loadingKey: 'isLoadingMotos', errorKey: 'errorMotos' });
                 throw err;
             }
         },

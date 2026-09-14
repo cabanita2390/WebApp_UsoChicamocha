@@ -275,7 +275,7 @@
     return true;
   });
   $: locations = Array.isArray($data.locations) ? $data.locations : [];
-  $: isLoading = $data.isLoading;
+  $: isLoading = $data.isLoadingVehicles;
 
   onMount(async () => {
     try {

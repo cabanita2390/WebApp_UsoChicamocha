@@ -69,8 +69,8 @@ describe('Consolidado', () => {
     // Estado por defecto del store simulado.
     mockDataStore = {
       consolidated: { distrito: [], asociacion: [] },
-      isLoading: false,
-      error: null,
+      isLoadingConsolidado: false,
+      errorConsolidado: null,
     };
 
     // Se simula la función `subscribe` del store. Al suscribirse, el componente
@@ -95,7 +95,7 @@ describe('Consolidado', () => {
    * cuando `isLoading` es `true` y aún no hay datos.
    */
   it('renders loading state when loading and no data', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingConsolidado = true;
     mockDataStore.consolidated = { distrito: [], asociacion: [] };
 
     render(Consolidado);
@@ -110,7 +110,7 @@ describe('Consolidado', () => {
    * cuando la propiedad `error` del store tiene un valor.
    */
   it('renders error message when there is an error', async () => {
-    mockDataStore.error = 'Test error message';
+    mockDataStore.errorConsolidado = 'Test error message';
 
     render(Consolidado);
     await tick();
@@ -188,7 +188,7 @@ describe('Consolidado', () => {
    * aparece cuando `isLoading` es `false`.
    */
   it('does not show loader when not loading', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingConsolidado = false;
 
     render(Consolidado);
     await tick();
@@ -203,7 +203,7 @@ describe('Consolidado', () => {
    * renderiza si la propiedad `error` en el store es `null`.
    */
   it('does not show error when there is no error', async () => {
-    mockDataStore.error = null;
+    mockDataStore.errorConsolidado = null;
 
     render(Consolidado);
     await tick();

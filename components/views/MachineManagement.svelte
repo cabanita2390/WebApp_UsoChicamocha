@@ -54,7 +54,7 @@
   let curriculumData = null;
 
   $: machines = $data.machines;
-  $: isLoading = $data.isLoading;
+  $: isLoading = $data.isLoadingMachines;
   $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
   $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
 

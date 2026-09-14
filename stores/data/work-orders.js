@@ -6,7 +6,7 @@
 export function createWorkOrderActions({ get, subscribe, fetchPaginated, fetchWithAuth, self }) {
     return {
         // Órdenes de Trabajo
-        fetchWorkOrders: (page = 0, size = 20) => fetchPaginated('workOrders', 'order/all', page, size),
+        fetchWorkOrders: (page = 0, size = 20) => fetchPaginated('workOrders', 'order/all', page, size, { loadingKey: 'isLoadingWorkOrders', errorKey: 'errorWorkOrders' }),
         createWorkOrder: async (newWorkOrder) => {
             await fetchWithAuth('order', { method: 'POST', body: JSON.stringify(newWorkOrder) });
             const currentState = get({ subscribe });
@@ -19,7 +19,7 @@ export function createWorkOrderActions({ get, subscribe, fetchPaginated, fetchWi
         fetchVehicleWorkOrders: (page = 0, size = 20, soloMotos = null) => {
             const key = soloMotos === true ? 'motoWorkOrders' : 'vehicleWorkOrders';
             const extraQuery = soloMotos === null ? '' : `&soloMotos=${soloMotos}`;
-            return fetchPaginated(key, 'order/vehicle/all', page, size, extraQuery);
+            return fetchPaginated(key, 'order/vehicle/all', page, size, { extraQuery });
         },
         createVehicleWorkOrder: async (payload) => {
             await fetchWithAuth('order/vehicle', { method: 'POST', body: JSON.stringify(payload) });

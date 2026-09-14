@@ -2,7 +2,7 @@ export function createVehicleActions({ update, setLoading, setError, unwrapEntit
     return {
         // Gestión de Vehículos (CRUD)
         fetchVehicles: async () => {
-            setLoading(true);
+            setLoading(true, 'isLoadingVehicles');
             try {
                 const result = await fetchWithAuth('vehicle');
                 const list = unwrapEntityList(result);
@@ -12,13 +12,13 @@ export function createVehicleActions({ update, setLoading, setError, unwrapEntit
                     return {
                         ...s,
                         vehicles: vehiclesEnriched,
-                        isLoading: false,
-                        error: null,
+                        isLoadingVehicles: false,
+                        errorVehicles: null,
                     };
                 });
                 return vehiclesEnriched;
             } catch (err) {
-                setError(err.message);
+                setError(err.message, { loadingKey: 'isLoadingVehicles', errorKey: 'errorVehicles' });
                 throw err;
             }
         },
