@@ -1,6 +1,6 @@
 <script>
   import { pop } from 'svelte-spa-router';
-  import { createVehicleOilHistoryColumns } from '../../config/table-definitions.js';
+  import { createVehicleOilHistoryColumns, formatDate } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
   import { auth } from '../../stores/auth.js';
   import { addNotification } from '../../stores/ui.js';
@@ -54,16 +54,6 @@
   function formatKm(v) {
     if (v == null) return 'N/A';
     return new Intl.NumberFormat('es-CO').format(v);
-  }
-
-  function formatDate(raw) {
-    if (!raw) return 'N/A';
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return String(raw);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
   }
 
   // ---- Editar/Eliminar un registro del historial ("en caso de error") ----
