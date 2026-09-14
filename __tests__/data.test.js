@@ -218,6 +218,29 @@ describe('data store', () => {
   });
 
   /**
+   * @description Bug real encontrado probando en navegador tras el fix del
+   * caso 3 (paginación de WorkOrdersTabbed): createVehicleWorkOrder refrescaba
+   * `vehicleWorkOrders` SIN el filtro soloMotos tras crear una orden. Como
+   * WorkOrdersTabbed ahora pide esa misma clave YA filtrada al cambiar de
+   * pestaña, ese refresco sin filtro competía en carrera y podía pisar el
+   * resultado filtrado con datos mezclados (vehículos + motos) — visible en
+   * la pestaña "Vehículos" mostrando motos que no debían estar ahí.
+   */
+  describe('createVehicleWorkOrder', () => {
+    it('no dispara un refetch sin filtro de vehicleWorkOrders (evita pisar el resultado filtrado por soloMotos)', async () => {
+      fetchWithAuth.mockResolvedValue({ id: 1 });
+
+      await data.createVehicleWorkOrder({ description: 'test' });
+
+      expect(fetchWithAuth).toHaveBeenCalledTimes(1);
+      expect(fetchWithAuth).toHaveBeenCalledWith('order/vehicle', {
+        method: 'POST',
+        body: JSON.stringify({ description: 'test' }),
+      });
+    });
+  });
+
+  /**
    * @description Caso 4 de la auditoría de deuda técnica del frontend:
    * useWebSocketNotifications.js dispara fetches en segundo plano para ~11
    * dominios (machines, vehicles, users, etc.) sin ninguna guarda contra el

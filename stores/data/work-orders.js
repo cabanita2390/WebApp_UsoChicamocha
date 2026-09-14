@@ -21,10 +21,14 @@ export function createWorkOrderActions({ get, subscribe, fetchPaginated, fetchWi
             const extraQuery = soloMotos === null ? '' : `&soloMotos=${soloMotos}`;
             return fetchPaginated(key, 'order/vehicle/all', page, size, { extraQuery });
         },
+        // No refresca vehicleWorkOrders tras crear: esta acción se dispara desde
+        // Inspecciones de Vehículos (no desde WorkOrdersTabbed), y un refresco sin
+        // filtro aquí competía en carrera contra el fetch filtrado por soloMotos
+        // de WorkOrdersTabbed, además de poder dejar datos sin filtrar en el store
+        // que bloqueaban el fetch filtrado al entrar luego a esa pestaña (bug real
+        // detectado probando en navegador — ver App.svelte routeLoaded).
         createVehicleWorkOrder: async (payload) => {
             await fetchWithAuth('order/vehicle', { method: 'POST', body: JSON.stringify(payload) });
-            const currentState = get({ subscribe });
-            self.fetchVehicleWorkOrders(currentState.vehicleWorkOrders.currentPage, currentState.vehicleWorkOrders.pageSize);
         },
         executeWorkOrder: async (executionData) => {
             await fetchWithAuth('results/execute', { method: 'POST', body: JSON.stringify(executionData) });
