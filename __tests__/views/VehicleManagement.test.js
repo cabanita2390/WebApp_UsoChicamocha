@@ -89,7 +89,7 @@ describe('VehicleManagement', () => {
         { id: 4, codigo: 'GAS', nombre: 'Gas natural vehicular', unidadMedida: 'M3' },
       ],
       fuelAssetConfig: [],
-      isLoading: false,
+      isLoadingVehicles: false,
       error: null,
     };
 
@@ -109,7 +109,7 @@ describe('VehicleManagement', () => {
   });
 
   it('muestra el estado de carga cuando está cargando', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingVehicles = true;
     mockDataStore.vehicles = [];
 
     render(VehicleManagement);
@@ -180,7 +180,7 @@ describe('VehicleManagement', () => {
 
   it('muestra el formulario aunque el store reporte error', async () => {
     mockDataStore.vehicles = [];
-    mockDataStore.error = 'No se pudo cargar vehículos';
+    mockDataStore.errorVehicles = 'No se pudo cargar vehículos';
 
     render(VehicleManagement);
     await tick();

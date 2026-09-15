@@ -1,4 +1,4 @@
-import { normalizeTitleWords, normalizeUpperToken } from '../../src/lib/textFormat.js';
+import { normalizeTitleWords, normalizeUpperToken } from '../../lib/textFormat.js';
 
 export function createCatalogActions({ update, setLoading, setError, fetchAll, unwrapEntityList, enrichVehicleUbicacionRow, fetchWithAuth }) {
     return {

@@ -23,12 +23,16 @@ export function startAutoRefresh() {
         // Check conditions:
         // 1. Enabled
         // 2. Authenticated
-        // 3. Not currently loading data
-        // 4. ONLY on Dashboard/Inspections view ('/' or empty)
+        // 3. Not currently loading data (isLoading por dominio — no el global,
+        //    que ya no lo tocan estos fetches; ver stores/data/core.js caso 4)
+        // 4. ONLY on Dashboard/Inspections view ('/' o vacío) o Inventario
         const isDashboard = $location === '/' || $location === '' || $location === '#/';
         const isInventory = $location === '/inventory';
+        const isBusy = isDashboard
+            ? ($data.isLoadingDashboard || $data.isLoadingVehicleInspections || $data.isLoadingMotoInspections)
+            : ($data.isLoadingVehicles || $data.isLoadingMotos);
 
-        if ($isEnabled && $auth.isAuthenticated && !$data.isLoading && (isDashboard || isInventory)) {
+        if ($isEnabled && $auth.isAuthenticated && !isBusy && (isDashboard || isInventory)) {
              isAutoRefreshActive.set(true);
              try {
                  if (isDashboard) {
