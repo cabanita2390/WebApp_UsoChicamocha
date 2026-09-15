@@ -34,15 +34,15 @@
   const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
   /**
-   * A diferencia de otros módulos (SOAT/tecnomecánica/facturas), cuya rutaArchivo ya
-   * viene con el prefijo "/uploads/..." puesto por el backend, EvidenciaStorageService
-   * de Subestaciones devuelve la ruta relativa a la raíz de uploads SIN ese prefijo
-   * (ej. "subestaciones/ejecuciones/35/xxx.jpg") — hay que agregarlo acá antes de
-   * resolver la URL, si no el navegador pide la imagen sin "/uploads/" y el backend
-   * responde 403 (mismo patrón que urlEvidencia() en DetalleScreen.kt del móvil).
+   * Desde V40, EvidenciaStorageService (backend) guarda rutaArchivo con el prefijo
+   * "/uploads/" incluido, igual que los demás módulos (SOAT/tecnomecánica/facturas) —
+   * antes no lo traía, y el navegador pedía la imagen sin "/uploads/" (403). Se acepta
+   * cualquiera de los dos formatos por si queda evidencia vieja sin migrar en algún
+   * ambiente (mismo patrón que urlEvidencia() en DetalleScreen.kt del móvil).
    */
   function urlEvidencia(rutaArchivo) {
-    return getFileUrl(`/uploads/${rutaArchivo}`);
+    const ruta = rutaArchivo.startsWith("/uploads/") ? rutaArchivo : `/uploads/${rutaArchivo}`;
+    return getFileUrl(ruta);
   }
 
   function abrirGaleria() {
