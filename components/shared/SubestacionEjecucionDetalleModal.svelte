@@ -33,9 +33,21 @@
 
   const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
+  /**
+   * A diferencia de otros módulos (SOAT/tecnomecánica/facturas), cuya rutaArchivo ya
+   * viene con el prefijo "/uploads/..." puesto por el backend, EvidenciaStorageService
+   * de Subestaciones devuelve la ruta relativa a la raíz de uploads SIN ese prefijo
+   * (ej. "subestaciones/ejecuciones/35/xxx.jpg") — hay que agregarlo acá antes de
+   * resolver la URL, si no el navegador pide la imagen sin "/uploads/" y el backend
+   * responde 403 (mismo patrón que urlEvidencia() en DetalleScreen.kt del móvil).
+   */
+  function urlEvidencia(rutaArchivo) {
+    return getFileUrl(`/uploads/${rutaArchivo}`);
+  }
+
   function abrirGaleria() {
     const urls = (ejecucion?.evidencias ?? []).map((ev) => ({
-      url: getFileUrl(ev.rutaArchivo),
+      url: urlEvidencia(ev.rutaArchivo),
       name: ev.nombreOriginal,
     }));
     ui.openImageModal();
@@ -91,7 +103,7 @@
               <!-- svelte-ignore a11y-no-static-element-interactions -->
               <!-- svelte-ignore a11y-click-events-have-key-events -->
               <div class="thumb" role="button" tabindex="0" on:click={abrirGaleria} title={ev.nombreOriginal}>
-                <img src={getFileUrl(ev.rutaArchivo)} alt={ev.nombreOriginal} loading="lazy" />
+                <img src={urlEvidencia(ev.rutaArchivo)} alt={ev.nombreOriginal} loading="lazy" />
               </div>
             {/each}
           </div>
