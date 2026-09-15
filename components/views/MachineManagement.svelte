@@ -15,6 +15,7 @@
   import { download } from '../../stores/api.js';
   import { formatMachinePayload } from '@/lib/textFormat.js';
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
+  import { normalizeBelongsTo } from '@/lib/assetUtils.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -53,7 +54,7 @@
   let curriculumData = null;
 
   $: machines = $data.machines;
-  $: isLoading = $data.isLoading;
+  $: isLoading = $data.isLoadingMachines;
   $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
   $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
 
@@ -77,14 +78,6 @@
   onDestroy(() => {
     clearTimeout(deleteMachineTimer);
   });
-
-  function normalizeBelongsTo(value) {
-    if (!value) return 'Distrito';
-    const trimmed = String(value).trim().toLowerCase();
-    if (trimmed === 'asociacion') return 'Asociación';
-    if (trimmed === 'asociación') return 'Asociación';
-    return 'Distrito';
-  }
 
   /** Opcional: si no eligieron combustible + consumo estándar, no se guarda nada. */
   async function guardarFuelConfigMaquina(machineId, fuelConfig) {

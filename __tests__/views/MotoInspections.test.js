@@ -48,8 +48,8 @@ describe('MotoInspections', () => {
 
     mockDataStore = {
       motoInspections: [],
-      isLoading: false,
-      error: null,
+      isLoadingMotoInspections: false,
+      errorMotoInspections: null,
     };
 
     data.subscribe.mockImplementation((callback) => {
@@ -59,7 +59,7 @@ describe('MotoInspections', () => {
   });
 
   it('muestra el loader cuando está cargando y no hay datos', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingMotoInspections = true;
     mockDataStore.motoInspections = [];
 
     render(MotoInspections);
@@ -123,8 +123,8 @@ describe('MotoInspections', () => {
 
   it('muestra mensaje de error cuando existe', async () => {
     mockDataStore.motoInspections = [];
-    mockDataStore.isLoading = false;
-    mockDataStore.error = 'Error de conexión';
+    mockDataStore.isLoadingMotoInspections = false;
+    mockDataStore.errorMotoInspections = 'Error de conexión';
 
     render(MotoInspections);
     await tick();

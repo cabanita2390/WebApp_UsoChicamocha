@@ -2,7 +2,7 @@ export function createConsolidadoActions({ update, setLoading, setError, fetchWi
     return {
         // Consolidado
         fetchConsolidadoData: async () => {
-            setLoading(true);
+            setLoading(true, 'isLoadingConsolidado');
             try {
                 console.log('\ud83d\udcca [CONSOLIDADO] Refrescando datos del consolidado...');
                 const result = await fetchWithAuth('oil-changes/consolidated', { version: null });
@@ -17,11 +17,11 @@ export function createConsolidadoActions({ update, setLoading, setError, fetchWi
                     asociacion: dataToStore.filter((item) => norm(item?.machine?.belongsTo) === 'asociacion'),
                 };
                 console.log('\u2705 [CONSOLIDADO] Datos refrescados:', consolidatedData);
-                update(s => ({ ...s, consolidated: consolidatedData, isLoading: false, error: null }));
+                update(s => ({ ...s, consolidated: consolidatedData, isLoadingConsolidado: false, errorConsolidado: null }));
                 return consolidatedData;
             } catch (err) {
                 console.error('\u274c [CONSOLIDADO] Error al refrescar:', err.message);
-                setError(err.message);
+                setError(err.message, { loadingKey: 'isLoadingConsolidado', errorKey: 'errorConsolidado' });
                 throw err;
             }
         },

@@ -113,6 +113,16 @@ Este documento describe qué se prueba en los archivos de tests unitarios para l
 - Todos los códigos de estado HTTP comunes
 - Parsing de respuestas JSON
 
+## __tests__/fuelFilters.test.js
+
+**Alcance**: Pruebas del store `stores/fuelFilters.js` (filtros compartidos del módulo de combustible).
+
+**Funciones probadas**:
+- `defaultFuelDateRange()`: devuelve el primer día del mes actual como inicio y hoy como fin.
+- `fuelDateRange`: arranca ya con ese rango por defecto (no vacío), para que los inputs de fecha muestren de entrada las fechas realmente usadas al filtrar.
+- `resetFuelDateRange()`: vuelve al rango por defecto tras haber sido modificado.
+- `fuelActiveTab`: arranca en `"dashboard"`.
+
 ## Cobertura General
 
 ### Estados y Escenarios

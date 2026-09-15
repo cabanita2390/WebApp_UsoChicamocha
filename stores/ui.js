@@ -1,5 +1,5 @@
 import { writable, get, derived } from 'svelte/store';
-import { sortAlertsBySeverity } from '../utils/alertSeverity.js';
+import { sortAlertsBySeverity } from '../lib/alertSeverity.js';
 
 // --- Stores de Notificaciones (en memoria, no persistir) ---
 export const notificationCount = writable(0);

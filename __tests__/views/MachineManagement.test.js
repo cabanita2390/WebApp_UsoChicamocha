@@ -86,7 +86,7 @@ describe('MachineManagement', () => {
     // Configurar store de datos simulado
     mockDataStore = {
       machines: [],
-      isLoading: false,
+      isLoadingMachines: false,
       fuelTypes: [
         { id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' },
         { id: 4, codigo: 'GAS', nombre: 'Gas natural vehicular', unidadMedida: 'M3' },
@@ -108,7 +108,7 @@ describe('MachineManagement', () => {
   });
 
   it('renders loading state when loading and no machines', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingMachines = true;
     mockDataStore.machines = [];
 
     render(MachineManagement);
@@ -120,7 +120,7 @@ describe('MachineManagement', () => {
   });
 
   it('renders machine management interface when not loading', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [{ id: 1, name: 'Machine 1' }];
 
     render(MachineManagement);
@@ -132,7 +132,7 @@ describe('MachineManagement', () => {
   });
 
   it('calls fetchMachines when refresh button is clicked', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [{ id: 1, name: 'Machine 1' }];
 
     render(MachineManagement);
@@ -146,7 +146,7 @@ describe('MachineManagement', () => {
   });
 
   it('creates new machine successfully', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
     data.createMachine.mockResolvedValue();
 
@@ -232,7 +232,7 @@ describe('MachineManagement', () => {
   });
 
   it('handles machine creation failure', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
     data.createMachine.mockRejectedValue(new Error('Creation failed'));
 
@@ -255,7 +255,7 @@ describe('MachineManagement', () => {
   });
 
   it('opens delete confirmation modal', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [{ id: 1, name: 'Machine 1', model: 'Model 1' }];
 
     render(MachineManagement);
@@ -269,7 +269,7 @@ describe('MachineManagement', () => {
   });
 
   it('handles belongsTo selection', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
 
     render(MachineManagement);
@@ -283,7 +283,7 @@ describe('MachineManagement', () => {
   });
 
   it('validates required fields', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
 
     render(MachineManagement);
@@ -298,7 +298,7 @@ describe('MachineManagement', () => {
   });
 
   it('resets form after successful creation', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
     data.createMachine.mockResolvedValue();
 

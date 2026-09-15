@@ -18,6 +18,7 @@
   import MotoCambioAceiteForm from "./components/views/MotoCambioAceiteForm.svelte";
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import FuelTabbed from "./components/views/FuelTabbed.svelte";
+  import SubestacionesTabbed from "./components/views/SubestacionesTabbed.svelte";
   import FuelHistory from "./components/views/FuelHistory.svelte";
   import FuelPerformanceHistory from "./components/views/FuelPerformanceHistory.svelte";
   import DocumentErrorModal from "./components/shared/DocumentErrorModal.svelte";
@@ -66,6 +67,7 @@
     "/fuel": FuelTabbed,
     "/fuel-history/:tipoElemento/:id": FuelHistory,
     "/fuel-performance-history/:tipoElemento/:id": FuelPerformanceHistory,
+    "/subestaciones": SubestacionesTabbed,
   };
 
   function handleActivateSound() {
@@ -226,8 +228,12 @@
       data.fetchMotos();
     } else if (location.includes("/work-orders")) {
       ui.setCurrentView("work-orders");
+      // Solo se precarga la pestaña por defecto (Maquinaria). Vehículos/Motos
+      // los pide WorkOrdersTabbed.svelte al cambiar de pestaña, ya filtrados
+      // por soloMotos — precargar aquí sin filtro corría en carrera contra ese
+      // fetch filtrado y, según el timing de red, terminaba pisándolo con datos
+      // sin filtrar (bug real detectado probando en navegador).
       data.fetchWorkOrders();
-      data.fetchVehicleWorkOrders();
     } else if (location.includes("/consolidado")) {
       ui.setCurrentView("consolidado");
       data.fetchConsolidadoData();

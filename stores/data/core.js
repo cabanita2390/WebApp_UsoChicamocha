@@ -18,6 +18,7 @@ export const initialState = {
     /** Lista completa de inspecciones vehículo (API devuelve array, no página Spring). */
     vehicleInspectionsFull: [],
     vehicleWorkOrders: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
+    motoWorkOrders: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
     motoInspections: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
     // Gestión Administrativa
     vehicles: [],
@@ -53,8 +54,32 @@ export const initialState = {
     fuelPerformanceHistory: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
     fuelDistribution: null,
     fuelAssetConfig: [],
+    // Subestaciones (mantenimiento Civil) — reporte de solo lectura, reusa el
+    // isLoading/error global (igual que fuel/catalog/oils): no lo refresca
+    // useWebSocketNotifications.js en segundo plano.
+    substationEstaciones: [],
+    substationActividades: [],
+    substationIndicadoresPorEstacion: [],
+    substationResumenPorActividad: [],
+    substationEjecuciones: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
     isLoading: false,
-    error: null
+    error: null,
+    // isLoading/error por dominio — solo para los dominios que
+    // useWebSocketNotifications.js puede refrescar en segundo plano (ver nota en
+    // createCore más abajo). El resto de dominios (fuel, catalog, oils,
+    // vehicle-maintenance, órdenes de vehículo/moto) sigue usando el global de
+    // arriba porque no tienen ese riesgo de contaminación cruzada.
+    isLoadingDashboard: false, errorDashboard: null,
+    isLoadingMachines: false, errorMachines: null,
+    isLoadingUsers: false, errorUsers: null,
+    isLoadingWorkOrders: false, errorWorkOrders: null,
+    isLoadingConsolidado: false, errorConsolidado: null,
+    isLoadingVehicleInspections: false, errorVehicleInspections: null,
+    isLoadingVehicles: false, errorVehicles: null,
+    isLoadingVehicleMonitoring: false, errorVehicleMonitoring: null,
+    isLoadingMotoInspections: false, errorMotoInspections: null,
+    isLoadingMotos: false, errorMotos: null,
+    isLoadingMotoMonitoring: false, errorMotoMonitoring: null,
 };
 
 /** Respuestas que deben guardarse como array (evita .filter is not a function si el API envía página u objeto). */
@@ -67,6 +92,10 @@ export const STORE_ARRAY_KEYS = new Set([
     'vehicleBrands',
     'vehicleTypes',
     'vehicleInspectionsFull',
+    'substationEstaciones',
+    'substationActividades',
+    'substationIndicadoresPorEstacion',
+    'substationResumenPorActividad',
 ]);
 
 /** Convierte cuerpo JSON a lista (array plano, Spring `content`, o `data`). */
@@ -141,37 +170,47 @@ export function enrichVehicleUbicacionRow(row, locations) {
  * Cada módulo de dominio recibe el objeto que esto devuelve como sus `deps`.
  */
 export function createCore({ update, get, subscribe, fetchWithAuth }) {
-    const setLoading = (isLoading) => update(s => ({ ...s, isLoading }));
-    const setError = (error) => update(s => ({ ...s, error, isLoading: false }));
+    /**
+     * `loadingKey`/`errorKey` por defecto apuntan al `isLoading`/`error` global
+     * (comportamiento sin cambios para todo dominio que no pasa un dominio
+     * propio). Solo los dominios que puede disparar useWebSocketNotifications.js
+     * en segundo plano (dashboard, machines, users, workOrders, consolidado,
+     * vehicleInspections, vehicles, vehicleMonitoring, motoInspections, motos,
+     * motoMonitoring) pasan su propio par para no pisar el spinner/error de una
+     * vista no relacionada — ver stores/data/monitoring.js, vehicles.js, etc.
+     */
+    const setLoading = (isLoading, loadingKey = 'isLoading') => update(s => ({ ...s, [loadingKey]: isLoading }));
+    const setError = (error, { loadingKey = 'isLoading', errorKey = 'error' } = {}) =>
+        update(s => ({ ...s, [errorKey]: error, [loadingKey]: false }));
 
-    async function fetchAll(key, endpoint) {
-        setLoading(true);
+    async function fetchAll(key, endpoint, { loadingKey = 'isLoading', errorKey = 'error' } = {}) {
+        setLoading(true, loadingKey);
         try {
             const result = await fetchWithAuth(endpoint);
             let dataToStore = result?.content ?? result?.users ?? result;
             if (STORE_ARRAY_KEYS.has(key)) {
                 dataToStore = unwrapEntityList(dataToStore);
             }
-            update(s => ({ ...s, [key]: dataToStore, isLoading: false, error: null }));
+            update(s => ({ ...s, [key]: dataToStore, [loadingKey]: false, [errorKey]: null }));
             return dataToStore;
         } catch (err) {
-            setError(err.message);
+            setError(err.message, { loadingKey, errorKey });
             throw err;
         }
     }
 
-    async function fetchPaginated(key, endpoint, page, size) {
-        setLoading(true);
+    async function fetchPaginated(key, endpoint, page, size, { extraQuery = '', loadingKey = 'isLoading', errorKey = 'error' } = {}) {
+        setLoading(true, loadingKey);
         try {
-            const result = await fetchWithAuth(`${endpoint}?page=${page}&size=${size}`);
+            const result = await fetchWithAuth(`${endpoint}?page=${page}&size=${size}${extraQuery}`);
             const paginatedData = {
                 data: result.content, totalPages: result.totalPages, totalElements: result.totalElements,
                 currentPage: result.number, pageSize: result.size
             };
-            update(s => ({ ...s, [key]: paginatedData, isLoading: false, error: null }));
+            update(s => ({ ...s, [key]: paginatedData, [loadingKey]: false, [errorKey]: null }));
             return paginatedData;
         } catch (err) {
-            setError(err.message);
+            setError(err.message, { loadingKey, errorKey });
             throw err;
         }
     }

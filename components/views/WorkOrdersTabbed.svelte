@@ -11,31 +11,16 @@
   ];
   let activeTab = 'maquinaria';
 
-  $: motoTypeIds = new Set(
-    $data.vehicleTypes
-      .filter(t => String(t?.name ?? '').toLowerCase().includes('moto'))
-      .map(t => t.id)
-  );
-
-  function isMoto(row) {
-    const v = row?.vehicle;
-    if (v?.idTipoVehiculo != null && motoTypeIds.size > 0) {
-      return motoTypeIds.has(v.idTipoVehiculo);
-    }
-    return String(v?.tipoVehiculo ?? '').toLowerCase().includes('moto');
-  }
-
-  $: vehicleOrders = $data.vehicleWorkOrders;
-  $: vehiculosData = { ...vehicleOrders, data: (vehicleOrders.data ?? []).filter(r => !isMoto(r)) };
-  $: motosData     = { ...vehicleOrders, data: (vehicleOrders.data ?? []).filter(r => isMoto(r)) };
-
   function handleTabChange(event) {
     activeTab = event.detail;
     if (activeTab === 'maquinaria' && $data.workOrders.data.length === 0) {
       data.fetchWorkOrders();
     }
-    if ((activeTab === 'vehiculos' || activeTab === 'motos') && vehicleOrders.data.length === 0) {
-      data.fetchVehicleWorkOrders();
+    if (activeTab === 'vehiculos' && $data.vehicleWorkOrders.data.length === 0) {
+      data.fetchVehicleWorkOrders(0, 20, false);
+    }
+    if (activeTab === 'motos' && $data.motoWorkOrders.data.length === 0) {
+      data.fetchVehicleWorkOrders(0, 20, true);
     }
   }
 </script>
@@ -45,9 +30,9 @@
     {#if activeTab === 'maquinaria'}
       <WorkOrderManagement />
     {:else if activeTab === 'vehiculos'}
-      <VehicleOrderManagement overrideData={vehiculosData} />
+      <VehicleOrderManagement soloMotos={false} />
     {:else if activeTab === 'motos'}
-      <VehicleOrderManagement overrideData={motosData} soloMotos={true} />
+      <VehicleOrderManagement soloMotos={true} />
     {/if}
   </TabPanel>
 </div>

@@ -1,7 +1,7 @@
 export function createDashboardActions({ fetchPaginated, fetchWithAuth, BASE_URL }) {
     return {
         // Dashboard
-        fetchDashboardData: (page = 0, size = 20) => fetchPaginated('dashboard', 'inspection', page, size),
+        fetchDashboardData: (page = 0, size = 20) => fetchPaginated('dashboard', 'inspection', page, size, { loadingKey: 'isLoadingDashboard', errorKey: 'errorDashboard' }),
         fetchInspectionImages: async (inspectionId) => {
             try {
                 // 1. Llama a la API con auth

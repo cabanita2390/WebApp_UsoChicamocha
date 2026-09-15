@@ -16,8 +16,8 @@
 
   const unsubscribe = data.subscribe(storeValue => {
     users = storeValue.users || [];
-    isLoading = storeValue.isLoading;
-    serverError = storeValue.error || "";
+    isLoading = storeValue.isLoadingUsers;
+    serverError = storeValue.errorUsers || "";
 
    
   });
