@@ -25,6 +25,7 @@
   import ConsolidadoMaqActionsCell from "./data-grid-cells/ConsolidadoMaqActionsCell.svelte";
   import MonitoringDocsActionCell from "./data-grid-cells/MonitoringDocsActionCell.svelte";
   import MonitoringOilActionCell from "./data-grid-cells/MonitoringOilActionCell.svelte";
+  import VerDetalleActionCell from "./data-grid-cells/VerDetalleActionCell.svelte";
 
   export let columns = [];
   export let data = [];
@@ -373,7 +374,8 @@
                   cell.column.columnDef.meta?.isReintegroAction ||
                   cell.column.columnDef.meta?.isViewHistoryAction ||
                   cell.column.columnDef.meta?.isViewMotorOilHistoryAction ||
-                  cell.column.columnDef.meta?.isViewHydraulicOilHistoryAction}
+                  cell.column.columnDef.meta?.isViewHydraulicOilHistoryAction ||
+                  cell.column.columnDef.meta?.isVerDetalleAction}
                 class={cell.column.columnDef.meta?.cellClass || ""}
               >
                 {#if cell.column.columnDef.meta?.isAction}
@@ -398,6 +400,8 @@
                   <ReintegroActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isImageAction}
                   <ImageActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
+                {:else if cell.column.columnDef.meta?.isVerDetalleAction}
+                  <VerDetalleActionCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isConsolidadoVehicleActions}
                   <ConsolidadoAssetActionsCell row={row.original} on:action={(e) => handleAction(e.detail.type, e.detail.data)} />
                 {:else if cell.column.columnDef.meta?.isUpdateDocsAction}
@@ -496,6 +500,13 @@
                   >
                     {cellValue}
                   </button>
+                {:else if cell.column.columnDef.meta?.isTextBadge}
+                  {@const badge = cell.column.columnDef.meta.getBadge(row.original)}
+                  {#if badge}
+                    <span class="badge-cell {getStatusCellClass(badge.color)}">{badge.label}</span>
+                  {:else}
+                    {cell.getContext().getValue()}
+                  {/if}
                 {:else}
                   <svelte:component
                     this={flexRender(
@@ -1085,5 +1096,20 @@
     background-color: #f5f5f5;
     color: #424242;
     border-left: 3px solid #616161;
+  }
+
+  /* Badge de texto genérico (no clicable, a diferencia de .status-cell-btn) —
+     reusa los mismos 4 colores de arriba para cualquier columna cuyo valor no
+     sea numérico (ej. "Conforme"/"Con hallazgos"/"Requiere intervención" en
+     Subestaciones), en vez de forzarlo dentro de isStatusCell (que siempre
+     formatea el valor como número). */
+  .badge-cell {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
   }
 </style>

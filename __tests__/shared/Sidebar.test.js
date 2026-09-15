@@ -16,6 +16,7 @@ const ADMIN_ITEM_TITLES = [
   'Consolidado de aceites y estado: Maquinaria · Vehículos · Motos',
   'Marcas de aceite del catálogo compartido',
   'Tanqueo, suministro, dashboard financiero, almacén, rendimiento y distribución',
+  'Mantenimiento de subestaciones (disciplina Civil): dashboard, resumen por actividad y ejecuciones/hallazgos',
 ];
 
 const ADMIN_ITEM_COUNT = ADMIN_ITEM_TITLES.length;
@@ -38,7 +39,7 @@ describe('Sidebar', () => {
       mockAuth('ADMIN');
     });
 
-    it('renderiza los 6 ítems de navegación visibles del sidebar', async () => {
+    it('renderiza los 7 ítems de navegación visibles del sidebar', async () => {
       const { default: SidebarAdmin } = await import('../../components/shared/Sidebar.svelte');
       const { container } = render(SidebarAdmin);
 

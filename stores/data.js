@@ -13,6 +13,7 @@ import { createVehicleActions } from './data/vehicles.js';
 import { createMotoActions } from './data/motos.js';
 import { createCatalogActions } from './data/catalog.js';
 import { createFuelActions } from './data/fuel.js';
+import { createSubstationActions } from './data/substation.js';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -47,6 +48,7 @@ function createDataStore() {
         createMotoActions(core),
         createCatalogActions(core),
         createFuelActions({ ...core, self }),
+        createSubstationActions(core),
     );
 
     return {

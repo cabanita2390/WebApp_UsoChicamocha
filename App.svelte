@@ -18,6 +18,7 @@
   import MotoCambioAceiteForm from "./components/views/MotoCambioAceiteForm.svelte";
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import FuelTabbed from "./components/views/FuelTabbed.svelte";
+  import SubestacionesTabbed from "./components/views/SubestacionesTabbed.svelte";
   import FuelHistory from "./components/views/FuelHistory.svelte";
   import FuelPerformanceHistory from "./components/views/FuelPerformanceHistory.svelte";
   import DocumentErrorModal from "./components/shared/DocumentErrorModal.svelte";
@@ -66,6 +67,7 @@
     "/fuel": FuelTabbed,
     "/fuel-history/:tipoElemento/:id": FuelHistory,
     "/fuel-performance-history/:tipoElemento/:id": FuelPerformanceHistory,
+    "/subestaciones": SubestacionesTabbed,
   };
 
   function handleActivateSound() {
