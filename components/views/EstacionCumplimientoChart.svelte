@@ -24,6 +24,13 @@
     (a, b) => (Number(a.porcentajeCumplimiento) || 0) - (Number(b.porcentajeCumplimiento) || 0),
   );
 
+  // Ancho mínimo SOLO visual/interactivo: un valor real de 0% dibuja una barra de
+  // ancho cero — no se ve nada y, más grave, ECharts no le asigna ningún área
+  // dibujada, así que esa fila queda muerta al mouse (sin tooltip, sin hover). El
+  // texto y el tooltip siempre muestran el valor real (realValor), nunca el que se
+  // infla acá solo para que la barra se pueda ver/tocar.
+  const ANCHO_MINIMO_VISUAL = 1.5;
+
   function construirOpcion(lista) {
     if (!lista.length) return null;
     const nombres = lista.map((e) => e.estacionNombre);
@@ -40,16 +47,20 @@
         axisLabel: { color: "#52514e", fontSize: 11.5 },
         axisTick: { show: false },
       },
-      tooltip: { trigger: "item", formatter: (p) => `${p.name}: <strong>${p.value}%</strong>` },
+      tooltip: { trigger: "item", formatter: (p) => `${p.name}: <strong>${p.data.realValor}%</strong>` },
       series: [
         {
           type: "bar",
-          data: valores.map((v, i) => ({ value: v, itemStyle: { color: colores[i], borderRadius: [0, 4, 4, 0] } })),
+          data: valores.map((v, i) => ({
+            value: Math.max(v, ANCHO_MINIMO_VISUAL),
+            realValor: v,
+            itemStyle: { color: colores[i], borderRadius: [0, 4, 4, 0] },
+          })),
           barWidth: 14,
           label: {
             show: true,
             position: "right",
-            formatter: (p) => `${p.value}%`,
+            formatter: (p) => `${p.data.realValor}%`,
             fontSize: 11.5,
             fontWeight: 700,
             color: "#0b0b0b",
