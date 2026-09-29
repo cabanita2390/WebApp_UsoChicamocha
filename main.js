@@ -1,6 +1,7 @@
 // CARGAR POLYFILLS PRIMERO - antes de cualquier otra importación
 import './lib/polyfills.js'
 import './styles/vehicle-modules.css'
+import './styles/subestaciones.css'
 
 import App from './App.svelte'
 
