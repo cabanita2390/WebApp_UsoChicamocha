@@ -11,3 +11,14 @@ export const cronogramaAnioInicial = writable(null);
 
 // Pestaña interna de Configuración (Estaciones / Actividades / Programación).
 export const configuracionTab = writable('est');
+
+// "⤢ Ampliar" del Cronograma: oculta el menú, el encabezado y las pestañas (MainLayout y
+// SubestacionesTabbed lo leen). Se apaga al salir del Cronograma.
+export const pantallaAmpliada = writable(false);
+
+// Filtro con el que abre la pestaña Ejecuciones cuando se llega desde el Cronograma
+// ("Ver ejecuciones de este mes →"): { estacionId, fechaInicio, fechaFin }. Se consume una vez.
+export const ejecucionesFiltroInicial = writable(null);
+
+// Estación cuyo detalle abre la pestaña Dashboard (Detalle por estación, P4). null = la tabla.
+export const detalleEstacionId = writable(null);

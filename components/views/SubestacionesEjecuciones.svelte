@@ -6,6 +6,8 @@
   import DataGrid from "../shared/DataGrid.svelte";
   import SubestacionEjecucionDetalleModal from "../shared/SubestacionEjecucionDetalleModal.svelte";
   import { createEjecucionesColumns } from "../../config/table-definitions/substation.js";
+  import { get } from "svelte/store";
+  import { ejecucionesFiltroInicial } from "../../stores/subestacionesFilters.js";
 
   const TIPOS_MANTENIMIENTO = [
     { value: "PREVENTIVO", label: "Preventivo" },
@@ -41,6 +43,17 @@
   }
 
   let filtros = filtrosVacios();
+  // Llegando desde el Cronograma ("Ver ejecuciones de este mes →"): estación + rango del mes.
+  const filtroInicial = get(ejecucionesFiltroInicial);
+  if (filtroInicial) {
+    filtros = {
+      ...filtros,
+      estacionId: filtroInicial.estacionId,
+      fechaInicio: filtroInicial.fechaInicio,
+      fechaFin: filtroInicial.fechaFin,
+    };
+    ejecucionesFiltroInicial.set(null);
+  }
   let pageSize = 20;
 
   $: isLoading = $data.isLoading;

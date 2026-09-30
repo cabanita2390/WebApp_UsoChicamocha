@@ -27,4 +27,13 @@ export const substationAdmin = {
         fetchWithAuth(`substation/cronograma?anio=${anio}${disciplina ? `&disciplina=${disciplina}` : ''}`),
     copiarAnio: (anioOrigen, anioDestino) =>
         fetchWithAuth('substation/cronograma/copiar', { method: 'POST', body: json({ anioOrigen, anioDestino }) }),
+    /** { anio, actividadId, estacionIds: [], meses: [1..12] } → { creadas, omitidasDuplicadas, omitidasMesCerrado, omitidasEstacionInactiva } */
+    asignar: (body) => fetchWithAuth('substation/cronograma/citas', { method: 'POST', body: json(body) }),
+    quitar: (citaId) => fetchWithAuth(`substation/cronograma/citas/${citaId}`, { method: 'DELETE' }),
+    restaurar: (citaId) => fetchWithAuth(`substation/cronograma/citas/${citaId}/restaurar`, { method: 'POST' }),
+    descartarBorrador: (anio) => fetchWithAuth(`substation/cronograma/borrador?anio=${anio}`, { method: 'DELETE' }),
+    resumenBorrador: (anio) => fetchWithAuth(`substation/cronograma/borrador/resumen?anio=${anio}`),
+    publicar: (anio) => fetchWithAuth(`substation/cronograma/publicar?anio=${anio}`, { method: 'POST' }),
+    deshacerPublicacion: (anio) =>
+        fetchWithAuth(`substation/cronograma/publicaciones/deshacer?anio=${anio}`, { method: 'POST' }),
 };

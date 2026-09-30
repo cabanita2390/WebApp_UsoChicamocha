@@ -4,7 +4,7 @@
   import SubestacionesResumenActividad from "./SubestacionesResumenActividad.svelte";
   import SubestacionesEjecuciones from "./SubestacionesEjecuciones.svelte";
   import CronogramaAnual from "./subestaciones/cronograma/CronogramaAnual.svelte";
-  import { subestacionesActiveTab } from "../../stores/subestacionesFilters.js";
+  import { subestacionesActiveTab, pantallaAmpliada } from "../../stores/subestacionesFilters.js";
 
   const tabs = [
     { id: "dashboard", label: "Dashboard de Estaciones" },
@@ -19,7 +19,7 @@
 </script>
 
 <div class="tabbed-wrap">
-  <TabPanel {tabs} activeTab={$subestacionesActiveTab} on:tabChange={handleTabChange}>
+  <TabPanel {tabs} activeTab={$subestacionesActiveTab} hideBar={$pantallaAmpliada} on:tabChange={handleTabChange}>
     {#if $subestacionesActiveTab === "dashboard"}
       <SubestacionesDashboard />
     {:else if $subestacionesActiveTab === "resumenActividad"}
