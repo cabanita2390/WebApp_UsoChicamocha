@@ -1,14 +1,5 @@
 import { formatLocalDate } from './helpers.js';
 
-/** Mismos umbrales que ya usa el Excel del ingeniero (hoja DASH_ESTACIONES). */
-export function semaforoCumplimientoColor(pct) {
-    const n = Number(pct);
-    if (Number.isNaN(n)) return 'gray';
-    if (n > 55) return 'green';
-    if (n >= 36) return 'yellow';
-    return 'red';
-}
-
 const RESULTADO_LABELS = {
     CONFORME: 'Conforme',
     CON_HALLAZGOS: 'Con hallazgos',
@@ -40,26 +31,6 @@ export function tipoActividadLabel(v) {
 export function estacionTipoLabel(v) {
     return v === 'BOMBEO' ? 'Bombeo' : v === 'COMPLEMENTARIA' ? 'Complementaria' : (v ?? '—');
 }
-
-/** Pestaña 1 — Dashboard de Estaciones. Espejo de la hoja DASH_ESTACIONES. */
-export const createEstacionesIndicadoresColumns = () => [
-    { header: 'Estación', accessorKey: 'estacionNombre', id: 'est_nombre', size: 200 },
-    { header: 'Tipo', accessorFn: (r) => estacionTipoLabel(r.estacionTipo), id: 'est_tipo', size: 120 },
-    { header: 'Programado', accessorKey: 'programado', id: 'est_programado', size: 100 },
-    { header: 'Cumple', accessorKey: 'cumple', id: 'est_cumple', size: 90 },
-    { header: 'No cumple', accessorKey: 'noCumple', id: 'est_no_cumple', size: 90 },
-    {
-        header: '% Cumplimiento',
-        accessorFn: (r) => `${r.porcentajeCumplimiento ?? 0}%`,
-        id: 'est_pct',
-        size: 130,
-        meta: {
-            isTextBadge: true,
-            getBadge: (row) => ({ label: `${row.porcentajeCumplimiento ?? 0}%`, color: semaforoCumplimientoColor(row.porcentajeCumplimiento) }),
-        },
-    },
-    { header: 'No programadas', accessorKey: 'ejecutadoNoProgramado', id: 'est_no_prog', size: 120 },
-];
 
 /** Pestaña 2 — Resumen por Actividad. Espejo de la hoja RESUMEN_ANUAL. */
 export const createResumenActividadColumns = () => [

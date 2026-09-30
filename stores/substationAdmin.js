@@ -22,6 +22,16 @@ export const substationAdmin = {
     cambiarEstadoActividad: (id, activa) =>
         fetchWithAuth(`substation/actividades/${id}/estado`, { method: 'PATCH', body: json({ activa }) }),
 
+    // Dashboard y Detalle por estación
+    /** Sin anio: el año actual del servidor. Cada fila trae anio, vencidas, ejecutadasVencidas, conHallazgos, hallazgosAbiertos. */
+    indicadoresPorEstacion: (anio) =>
+        fetchWithAuth(`substation/indicadores/por-estacion${anio ? `?anio=${anio}` : ''}`),
+    criticidad: (estacionId) => fetchWithAuth(`substation/indicadores/criticidad?estacionId=${estacionId}`),
+    /** Últimas ejecuciones de una estación (página de Spring: { content, totalElements, ... }). */
+    ultimasEjecuciones: (estacionId, size = 6) =>
+        fetchWithAuth(`substation/ejecuciones?estacionId=${estacionId}&page=0&size=${size}&sort=fecha,desc`),
+    obtenerEjecucion: (id) => fetchWithAuth(`substation/ejecuciones/${id}`),
+
     // Cronograma
     obtenerCronograma: (anio, disciplina) =>
         fetchWithAuth(`substation/cronograma?anio=${anio}${disciplina ? `&disciplina=${disciplina}` : ''}`),

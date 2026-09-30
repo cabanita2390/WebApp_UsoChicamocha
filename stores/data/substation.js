@@ -10,9 +10,6 @@ export function createSubstationActions({ fetchWithAuth, fetchAll, fetchPaginate
         fetchSubstationActividades: (disciplina = 'CIVIL') =>
             fetchAll('substationActividades', `substation/actividades?disciplina=${disciplina}`),
 
-        fetchSubstationIndicadoresPorEstacion: () =>
-            fetchAll('substationIndicadoresPorEstacion', 'substation/indicadores/por-estacion'),
-
         fetchSubstationResumenPorActividad: (disciplina = 'CIVIL') =>
             fetchAll('substationResumenPorActividad', `substation/indicadores/por-actividad?disciplina=${disciplina}`),
 

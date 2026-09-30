@@ -1,6 +1,6 @@
 <script>
   import TabPanel from "../shared/TabPanel.svelte";
-  import SubestacionesDashboard from "./SubestacionesDashboard.svelte";
+  import DashboardEstaciones from "./subestaciones/dashboard/DashboardEstaciones.svelte";
   import SubestacionesResumenActividad from "./SubestacionesResumenActividad.svelte";
   import SubestacionesEjecuciones from "./SubestacionesEjecuciones.svelte";
   import CronogramaAnual from "./subestaciones/cronograma/CronogramaAnual.svelte";
@@ -21,7 +21,7 @@
 <div class="tabbed-wrap">
   <TabPanel {tabs} activeTab={$subestacionesActiveTab} hideBar={$pantallaAmpliada} on:tabChange={handleTabChange}>
     {#if $subestacionesActiveTab === "dashboard"}
-      <SubestacionesDashboard />
+      <DashboardEstaciones />
     {:else if $subestacionesActiveTab === "resumenActividad"}
       <SubestacionesResumenActividad />
     {:else if $subestacionesActiveTab === "ejecuciones"}
