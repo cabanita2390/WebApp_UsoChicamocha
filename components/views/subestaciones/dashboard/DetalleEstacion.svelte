@@ -30,33 +30,42 @@
   let detalleCargando = false;
   let mostrarDetalle = false;
 
+  // Solo se aplica la respuesta de la última carga (cambios de año seguidos).
+  let secuencia = 0;
+
   async function cargar() {
+    const mia = ++secuencia;
+    const pedido = anio;
     cargando = true;
     errorCarga = "";
     try {
       const [indicadores, estaciones, actividades, crit, ult] = await Promise.all([
-        substationAdmin.indicadoresPorEstacion(anio),
+        substationAdmin.indicadoresPorEstacion(pedido),
         substationAdmin.listarEstaciones(),
         substationAdmin.listarActividades(),
         substationAdmin.criticidad(estacionId),
         substationAdmin.ultimasEjecuciones(estacionId),
       ]);
-      indicador = indicadores.find((i) => i.estacionId === estacionId) ?? null;
-      anio = indicador?.anio ?? anio;
+      const ind = indicadores.find((i) => i.estacionId === estacionId) ?? null;
+      const anioDatos = ind?.anio ?? pedido;
+      const cron = await substationAdmin.obtenerCronograma(anioDatos);
+      if (mia !== secuencia) return;
+      indicador = ind;
+      anio = anioDatos;
       estacion = estaciones.find((s) => s.id === estacionId) ?? null;
       actividadesPorId = new Map(actividades.map((a) => [a.id, a]));
       criticas = crit.slice(0, 5);
       ejecuciones = ult?.content ?? [];
-      const cron = await substationAdmin.obtenerCronograma(anio);
       hoy = { anioActual: cron.anioActual, mesActual: cron.mesActual };
       // Solo lo publicado (lo que ve el móvil), como el mockup.
       citas = cron.citas.filter((c) => c.estacionId === estacionId && c.estado === "PUBLICADA").sort((a, b) => a.mes - b.mes);
     } catch (e) {
+      if (mia !== secuencia) return;
       // Si ya hay datos en pantalla (cambio de año), se conservan y se avisa.
       if (estacion) flash(e.message, { error: true });
       else errorCarga = e.message;
     } finally {
-      cargando = false;
+      if (mia === secuencia) cargando = false;
     }
   }
   cargar();

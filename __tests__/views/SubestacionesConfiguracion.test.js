@@ -26,6 +26,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
 import SubestacionesConfiguracion from '../../components/views/subestaciones/SubestacionesConfiguracion.svelte';
 import { substationAdmin } from '../../stores/substationAdmin.js';
 import { configuracionTab, cronogramaAnioInicial, subestacionesActiveTab } from '../../stores/subestacionesFilters.js';
+import { subestacionesToast } from '../../stores/subestacionesToast.js';
 
 const ESTACIONES = [
   { id: 1, nombre: 'Ayalas', tipo: 'BOMBEO', frecuenciaBase: 'TRIMESTRAL', activa: true },
@@ -33,9 +34,9 @@ const ESTACIONES = [
 ];
 const ACTIVIDADES = [
   { id: 11, nombre: 'Pintura muros estaciones (segun estado)', nombreCorto: 'Pintura muros', disciplina: 'CIVIL',
-    capturaMovilHabilitada: true, citasPublicadasAnio: 12, activa: true },
+    capturaMovilHabilitada: true, citasPublicadasAnio: 12, enUso: true, activa: true },
   { id: 14, nombre: 'Inspección infraestructura presa', nombreCorto: null, disciplina: 'CIVIL',
-    capturaMovilHabilitada: false, citasPublicadasAnio: 0, activa: true },
+    capturaMovilHabilitada: false, citasPublicadasAnio: 0, enUso: false, activa: true },
 ];
 
 function cronograma(anio, citas) {
@@ -104,17 +105,19 @@ describe('SubestacionesConfiguracion', () => {
     await waitFor(() => expect(substationAdmin.listarEstaciones).toHaveBeenCalledTimes(2));
   });
 
-  it('desactivar una estación pide confirmación en dos pasos', async () => {
-    substationAdmin.cambiarEstadoEstacion.mockResolvedValue({});
+  it('desactivar una estación pide confirmación en dos pasos y avisa las citas futuras retiradas', async () => {
+    substationAdmin.cambiarEstadoEstacion.mockResolvedValue({ id: 1, activa: false, citasRetiradas: 3 });
     render(SubestacionesConfiguracion);
     await fireEvent.click(await screen.findByText('Ayalas'));
 
     await fireEvent.click(screen.getByText('Desactivar'));
     expect(substationAdmin.cambiarEstadoEstacion).not.toHaveBeenCalled();
-    expect(screen.getByText(/¿Confirmar\? Deja de aparecer en cronogramas futuros/)).toBeTruthy();
+    expect(screen.getByText(/¿Confirmar\? Sus citas de los próximos meses quedan en borrador/)).toBeTruthy();
 
     await fireEvent.click(screen.getByText('Confirmar'));
     await waitFor(() => expect(substationAdmin.cambiarEstadoEstacion).toHaveBeenCalledWith(1, false));
+    expect(get(subestacionesToast)?.text)
+      .toBe('Estación desactivada · 3 cita(s) futura(s) quedan en borrador para quitarse al publicar');
   });
 
   it('una estación inactiva se reactiva en un solo paso', async () => {
@@ -124,6 +127,20 @@ describe('SubestacionesConfiguracion', () => {
 
     await fireEvent.click(screen.getByText('Reactivar'));
     await waitFor(() => expect(substationAdmin.cambiarEstadoEstacion).toHaveBeenCalledWith(2, true));
+  });
+
+  it('actividad en uso: la disciplina queda bloqueada; sin uso se puede cambiar', async () => {
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('tab', { name: 'Actividades' }));
+
+    await fireEvent.click(screen.getByText('Pintura muros estaciones (segun estado)'));
+    expect(screen.getByLabelText(/Disciplina/).disabled).toBe(true);
+    expect(screen.getByText(/No se puede cambiar: la actividad ya tiene citas o ejecuciones/)).toBeTruthy();
+    await fireEvent.click(screen.getByLabelText('Cerrar'));
+
+    await fireEvent.click(screen.getByText('Inspección infraestructura presa'));
+    expect(screen.getByLabelText(/Disciplina/).disabled).toBe(false);
   });
 
   it('actividad: un nombre corto de más de 24 caracteres deshabilita Guardar', async () => {

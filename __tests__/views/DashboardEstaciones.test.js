@@ -152,4 +152,25 @@ describe('DashboardEstaciones', () => {
     await fireEvent.click(screen.getByText('Reintentar'));
     expect(await screen.findByText('Ayalas')).toBeTruthy();
   });
+
+  it('detalle: al cambiar de año dos veces seguidas solo se aplica la última respuesta', async () => {
+    detalleEstacionId.set(1);
+    render(DashboardEstaciones);
+    expect(await screen.findByText('Cumplimiento 2026')).toBeTruthy();
+
+    let responder2025;
+    const actual = substationAdmin.indicadoresPorEstacion.getMockImplementation();
+    substationAdmin.indicadoresPorEstacion.mockImplementation((anio) =>
+      anio === 2025 ? new Promise((r) => { responder2025 = r; }) : actual(anio));
+    const select = screen.getByLabelText('Año');
+    await fireEvent.change(select, { target: { value: '2025' } });
+    await fireEvent.change(select, { target: { value: '2026' } });
+    await waitFor(() => expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(2026));
+
+    // La respuesta lenta de 2025 llega al final: no debe pisar la de 2026.
+    responder2025([ind(1, 'Ayalas', { anio: 2025, porcentajeCumplimiento: 10.0 })]);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.getByText('Cumplimiento 2026')).toBeTruthy();
+    expect(screen.queryByText('10%')).toBeNull();
+  });
 });

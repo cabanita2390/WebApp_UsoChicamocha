@@ -26,6 +26,7 @@ import { substationAdmin } from '../../stores/substationAdmin.js';
 import {
   cronogramaAnioInicial, subestacionesActiveTab, ejecucionesFiltroInicial, detalleEstacionId,
 } from '../../stores/subestacionesFilters.js';
+import { subestacionesToast } from '../../stores/subestacionesToast.js';
 
 const ESTACIONES = [
   { id: 1, nombre: 'Ayalas', tipo: 'BOMBEO', frecuenciaBase: 'TRIMESTRAL', activa: true },
@@ -214,5 +215,48 @@ describe('CronogramaAnual', () => {
     expect(celdaFeb.getAttribute('aria-label')).toBe('Ayalas · Febrero · 1 cita');
     await fireEvent.keyDown(celdaFeb, { key: 'Enter' });
     expect(screen.getByText('Febrero 2026 · 1 actividad')).toBeTruthy();
+  });
+
+  it('la búsqueda también filtra el total de la grilla y el conteo de la cabecera', async () => {
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    expect(screen.getByText(/2 estaciones · 3 citas en 2026/)).toBeTruthy();
+
+    await fireEvent.input(screen.getByPlaceholderText('Buscar estación…'), { target: { value: 'clan' } });
+    expect(screen.getByText(/1 estaciones · 1 citas en 2026/)).toBeTruthy();
+    expect(container.querySelector('.pie-total').textContent).toBe('1');
+  });
+
+  it('al cambiar de año dos veces seguidas solo se aplica la última respuesta', async () => {
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+
+    let responder2027;
+    substationAdmin.obtenerCronograma.mockImplementation((anio) =>
+      anio === 2027
+        ? new Promise((r) => { responder2027 = r; })
+        : Promise.resolve(cronograma()));
+    const select = screen.getByLabelText('Año');
+    await fireEvent.change(select, { target: { value: '2027' } });
+    await fireEvent.change(select, { target: { value: '2026' } });
+    await waitFor(() => expect(container.querySelector('.pie-total').textContent).toBe('3'));
+
+    // La respuesta lenta de 2027 llega después: no debe pisar la de 2026.
+    responder2027(cronograma({ anio: 2027, citas: [cita(900, 1, 10, 5)] }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(container.querySelector('.pie-total').textContent).toBe('3');
+    expect((select).value).toBe('2026');
+  });
+
+  it('descartar avisa cuántas citas se conservaron por tener ejecución', async () => {
+    substationAdmin.obtenerCronograma.mockResolvedValue(cronograma({ borrador: { altas: 1, bajas: 0 },
+      citas: [cita(200, 1, 10, 11, { estado: 'BORRADOR' })] }));
+    substationAdmin.descartarBorrador.mockResolvedValue({ altasDescartadas: 0, retirosAnulados: 0, conservadasConEjecucion: 1 });
+    render(CronogramaAnual);
+
+    await fireEvent.click(await screen.findByText('Descartar'));
+    await fireEvent.click(screen.getByText('Sí, descartar'));
+    await waitFor(() => expect(get(subestacionesToast)?.text)
+      .toBe('Borrador descartado · 1 cita(s) se conservan porque ya tienen ejecución registrada'));
   });
 });

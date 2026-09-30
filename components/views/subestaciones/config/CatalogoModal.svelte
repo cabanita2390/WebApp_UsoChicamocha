@@ -33,8 +33,10 @@
         ? "Estación inactiva: no aparece en consultas nuevas ni en la copia de cronograma."
         : "Actividad inactiva: no se puede asignar ni aparece en la copia de cronograma.")
     : confirmar
-      ? "¿Confirmar? Deja de aparecer en cronogramas futuros. Su historial se conserva."
+      ? "¿Confirmar? Sus citas de los próximos meses quedan en borrador para quitarse al publicar. Su historial se conserva."
       : `Desactivar oculta ${sustantivo} de cronogramas futuros. No borra datos.`;
+  // Una actividad con citas o ejecuciones no puede cambiar de disciplina (el backend responde 409).
+  $: disciplinaBloqueada = !esEst && editando && registro?.enUso === true;
   $: invalido = !f.nombre.trim() || (!esEst && f.nombreCorto.trim().length > 24);
 
   function cerrar() {
@@ -67,10 +69,16 @@
     guardando = true;
     error = "";
     try {
-      esEst
+      const r = esEst
         ? await substationAdmin.cambiarEstadoEstacion(registro.id, activa)
         : await substationAdmin.cambiarEstadoActividad(registro.id, activa);
-      if (!activa) flash(esEst ? "Estación desactivada" : "Actividad desactivada");
+      if (!activa) {
+        const n = r?.citasRetiradas ?? 0;
+        flash(
+          (esEst ? "Estación desactivada" : "Actividad desactivada") +
+            (n ? ` · ${n} cita(s) futura(s) quedan en borrador para quitarse al publicar` : ""),
+        );
+      }
       dispatch("saved");
     } catch (e) {
       error = e.message;
@@ -133,9 +141,12 @@
           </span>
         </label>
         <label class="sub-field">Disciplina
-          <select class="sub-select" bind:value={f.disciplina}>
+          <select class="sub-select" bind:value={f.disciplina} disabled={disciplinaBloqueada}>
             {#each DISCIPLINAS as o}<option value={o.value}>{o.label}</option>{/each}
           </select>
+          {#if disciplinaBloqueada}
+            <span class="sub-field-hint">No se puede cambiar: la actividad ya tiene citas o ejecuciones registradas.</span>
+          {/if}
         </label>
         <label class="check">
           <input type="checkbox" bind:checked={f.capturaMovilHabilitada} />Habilitar captura desde la app móvil

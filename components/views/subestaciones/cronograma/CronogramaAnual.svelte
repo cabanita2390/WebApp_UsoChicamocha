@@ -63,13 +63,23 @@
   let masiva = null;
   let publicarAbierto = false;
 
+  // Cada carga lleva un número: si el usuario cambia de año dos veces seguidas, solo se aplica
+  // la respuesta de la última petición (una respuesta lenta del año anterior no pisa la nueva).
+  let secuencia = 0;
+
   async function cargarCronograma() {
-    cron = await substationAdmin.obtenerCronograma(anio);
-    hoy = { anioActual: cron.anioActual, mesActual: cron.mesActual };
-    if (!cron.citas.length) {
-      const origen = await substationAdmin.obtenerCronograma(anio - 1);
-      citasOrigenCopia = origen.citas.filter((c) => c.estado === "PUBLICADA").length;
+    const mia = ++secuencia;
+    const pedido = anio;
+    const r = await substationAdmin.obtenerCronograma(pedido);
+    let origenCopia = citasOrigenCopia;
+    if (!r.citas.length) {
+      const origen = await substationAdmin.obtenerCronograma(pedido - 1);
+      origenCopia = origen.citas.filter((c) => c.estado === "PUBLICADA").length;
     }
+    if (mia !== secuencia) return;
+    cron = r;
+    citasOrigenCopia = origenCopia;
+    hoy = { anioActual: r.anioActual, mesActual: r.mesActual };
   }
 
   async function inicio() {
@@ -95,12 +105,13 @@
 
   async function recargar() {
     recargando = true;
+    const mia = secuencia + 1;
     try {
       await cargarCronograma();
     } catch (e) {
-      flash(e.message, { error: true });
+      if (mia === secuencia) flash(e.message, { error: true });
     } finally {
-      recargando = false;
+      if (mia === secuencia) recargando = false;
     }
   }
 
@@ -171,6 +182,8 @@
           disciplinaLabel,
         });
   $: totales = totalesPorMes(visibles, estacionesVisibles);
+  // Citas de las estaciones que se ven (respeta la búsqueda): cabecera y total de la grilla.
+  $: totalVisible = totales.reduce((a, n) => a + n, 0);
   $: vencidasN = citas.filter(
     (c) =>
       (!disciplina || c.disciplina === disciplina) &&
@@ -179,7 +192,7 @@
   ).length;
   $: opcionesActividad = actividades.filter((a) => !disciplina || a.disciplina === disciplina);
   $: resumen =
-    `${estacionesVisibles.length} estaciones · ${visibles.length} citas en ${anio}` +
+    `${estacionesVisibles.length} estaciones · ${totalVisible} citas en ${anio}` +
     (disciplina ? ` · ${disciplinaLabel(disciplina)}` : " · todas las disciplinas");
   $: anioVacio = !cargando && cron && citas.length === 0;
   $: ultima = cron?.ultimaPublicacion;
@@ -293,7 +306,13 @@
 
   // Descartar es la única acción que no se puede deshacer: pide confirmación en dos pasos.
   async function descartar() {
-    await ejecutar(() => substationAdmin.descartarBorrador(anio), "Borrador descartado");
+    await ejecutar(
+      () => substationAdmin.descartarBorrador(anio),
+      (r) =>
+        r?.conservadasConEjecucion
+          ? `Borrador descartado · ${r.conservadasConEjecucion} cita(s) se conservan porque ya tienen ejecución registrada`
+          : "Borrador descartado",
+    );
     confirmarDescarte = false;
   }
 
@@ -458,7 +477,7 @@
     <CronogramaGrid
       {filas}
       totalesMes={totales}
-      total={visibles.length}
+      total={totalVisible}
       {hoy}
       {anio}
       etiquetaFila={por === "act" ? "Actividad" : "Estación"}
