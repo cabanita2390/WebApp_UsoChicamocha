@@ -2,7 +2,7 @@
   import { createEventDispatcher } from "svelte";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import { flash } from "../../../../stores/subestacionesToast.js";
-  import { ejecucionesFiltroInicial, subestacionesActiveTab } from "../../../../stores/subestacionesFilters.js";
+  import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleActividadId } from "../../../../stores/subestacionesFilters.js";
   import { MESES, tipoLabel, frecuenciaLabel } from "../../../../config/subestaciones.js";
   import { BADGE, COLOR, RESULTADO, SEGUIMIENTO, chip, pctBadge, fechaCorta } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
@@ -86,6 +86,12 @@
     subestacionesActiveTab.set("ejecuciones");
   }
 
+  /** Enlace cruzado: la actividad abre su detalle en la pestaña Resumen por actividad. */
+  function verActividad(id) {
+    detalleActividadId.set(id);
+    subestacionesActiveTab.set("resumenActividad");
+  }
+
   async function abrirEjecucion(id) {
     mostrarDetalle = true;
     detalleCargando = true;
@@ -131,8 +137,11 @@
         const actual = anio === hoy.anioActual && c.mes === hoy.mesActual;
         return {
           id: c.id,
+          actividadId: c.actividadId,
           mes: MESES[c.mes - 1],
           act: actividadesPorId.get(c.actividadId)?.nombre ?? "",
+          // Ejecutada en un mes que aún no cierra: se ve ✓ pero todavía no suma al %.
+          noCuenta: c.tieneEjecucion && !cerrado,
           b: c.tieneEjecucion
             ? { ...BADGE.ok, g: "✓", l: "Cumple" }
             : cerrado
@@ -210,8 +219,12 @@
       <div class="lista">
         {#each cumplimiento as r (r.id)}
           <div class="cita">
-            <span class="gris">{r.mes}</span><span>{r.act}</span>
-            <span class="der"><span class="sub-badge" style="color:{r.b.c};background:{r.b.bg}">{r.b.g} {r.b.l}</span></span>
+            <span class="gris">{r.mes}</span>
+            <button class="enlace" title="Ver la actividad en Resumen por actividad" on:click={() => verActividad(r.actividadId)}>{r.act}</button>
+            <span class="der">
+              <span class="sub-badge" style="color:{r.b.c};background:{r.b.bg}">{r.b.g} {r.b.l}</span>
+              {#if r.noCuenta}<span class="aun" title="El mes no ha cerrado: se cuenta en el % cuando termine">aún no suma al %</span>{/if}
+            </span>
           </div>
         {:else}
           <div class="sub-empty">Sin citas publicadas en {anio}.</div>
@@ -223,7 +236,10 @@
       <div class="crit">
         {#each criticas as t, i (t.actividadId)}
           <div class="crit-item">
-            <div class="crit-top"><span>{t.actividadNombre}</span><strong>{t.intervenciones}</strong></div>
+            <div class="crit-top">
+              <button class="enlace" title="Ver la actividad en Resumen por actividad" on:click={() => verActividad(t.actividadId)}>{t.actividadNombre}</button>
+              <strong>{t.intervenciones}</strong>
+            </div>
             <div class="barra">
               <div style="width:{(t.intervenciones / maxCrit) * 100}%;background:{i === 0 ? COLOR.bad : i < 2 ? COLOR.warn : '#898781'}"></div>
             </div>
@@ -440,7 +456,8 @@
   }
   .cita {
     display: grid;
-    grid-template-columns: 52px minmax(0, 1fr) 128px;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    column-gap: 10px;
     align-items: center;
     padding: 7px 18px;
     font-size: 13px;
@@ -451,6 +468,25 @@
   }
   .der {
     text-align: right;
+  }
+  .aun {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: #898781;
+  }
+  .enlace {
+    all: unset;
+    cursor: pointer;
+    text-align: left;
+  }
+  .enlace:hover {
+    color: #2a78d6;
+    text-decoration: underline;
+  }
+  .enlace:focus-visible {
+    outline: 2px solid #2a78d6;
+    outline-offset: 2px;
   }
   .crit {
     padding: 14px 18px;

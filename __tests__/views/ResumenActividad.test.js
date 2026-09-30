@@ -20,7 +20,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
 
 import ResumenActividad from '../../components/views/subestaciones/resumen/ResumenActividad.svelte';
 import { substationAdmin } from '../../stores/substationAdmin.js';
-import { detalleActividadId, ejecucionesFiltroInicial, subestacionesActiveTab } from '../../stores/subestacionesFilters.js';
+import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab } from '../../stores/subestacionesFilters.js';
 
 const fila = (id, nombre, extra = {}) => ({
   actividadId: id, actividadNombre: nombre, disciplina: 'CIVIL', programadoAnual: 8, ejecutadoAnual: 5,
@@ -133,7 +133,7 @@ describe('ResumenActividad', () => {
     expect(screen.queryByTitle(/Noviembre/)).toBeNull(); // la cita en borrador no se muestra
     // Ejecutadas por estación: solo meses cerrados, como el % del backend (la de diciembre
     // se ve ✓ pero todavía no cuenta).
-    expect(screen.getByTitle('Diciembre · Ejecutada 02/09/2026')).toBeTruthy();
+    expect(screen.getByTitle('Diciembre · Ejecutada 02/09/2026 · aún no suma al %')).toBeTruthy();
     const ejec = [...container.querySelectorAll('.est:not(.est-h) .der')].map((n) => n.textContent.trim());
     expect(ejec).toEqual(['1 de 2', '0 de 0']);
 
@@ -170,6 +170,15 @@ describe('ResumenActividad', () => {
     await fireEvent.click(await screen.findByText('Ver en Ejecuciones y Hallazgos →'));
     expect(get(ejecucionesFiltroInicial)).toEqual({ actividadId: 10, fechaInicio: '2026-01-01', fechaFin: '2026-12-31' });
     expect(get(subestacionesActiveTab)).toBe('ejecuciones');
+  });
+
+  it('detalle: click en una estación abre su Detalle por estación en el Dashboard', async () => {
+    detalleActividadId.set(10);
+    detalleEstacionId.set(null);
+    render(ResumenActividad);
+    await fireEvent.click(await screen.findByTitle('Ver el detalle de CLAN'));
+    expect(get(detalleEstacionId)).toBe(2);
+    expect(get(subestacionesActiveTab)).toBe('dashboard');
   });
 
   it('si falla la carga muestra el error con "Reintentar"', async () => {

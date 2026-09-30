@@ -2,7 +2,7 @@
   import { createEventDispatcher } from "svelte";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import { flash } from "../../../../stores/subestacionesToast.js";
-  import { ejecucionesFiltroInicial, subestacionesActiveTab } from "../../../../stores/subestacionesFilters.js";
+  import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleEstacionId } from "../../../../stores/subestacionesFilters.js";
   import { MESES, MESES_LARGOS, disciplinaLabel } from "../../../../config/subestaciones.js";
   import { BADGE, RESULTADO, SEGUIMIENTO, estadoCita, mesCerrado, pctBadge, fechaCorta } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
@@ -111,6 +111,12 @@
     subestacionesActiveTab.set("ejecuciones");
   }
 
+  /** Enlace cruzado: la estación abre su Detalle en la pestaña Dashboard. */
+  function verEstacion(id) {
+    detalleEstacionId.set(id);
+    subestacionesActiveTab.set("dashboard");
+  }
+
   async function abrirEjecucion(id) {
     mostrarDetalle = true;
     detalleCargando = true;
@@ -157,7 +163,11 @@
           ...g,
           meses: MESES.map((m, i) => {
             const c = g.citas.find((x) => x.mes === i + 1);
-            return { m, i, e: c ? estadoMes(c) : null, fecha: c?.fechaEjecucion };
+            return {
+              m, i, e: c ? estadoMes(c) : null, fecha: c?.fechaEjecucion,
+              // Ejecutada en un mes que aún no cierra: se ve ✓ pero todavía no suma al %.
+              noCuenta: !!c?.tieneEjecucion && !mesCerrado(anio, c.mes, hoy),
+            };
           }),
           ejecutadas: vencidas.filter((c) => c.tieneEjecucion).length,
           vencidas: vencidas.length,
@@ -222,12 +232,12 @@
       </div>
       {#each filasEstacion as f (f.estacionId)}
         <div class="est">
-          <span class="est-n" title={f.nombre}>{f.nombre}</span>
+          <button class="est-n enlace" title="Ver el detalle de {f.nombre}" on:click={() => verEstacion(f.estacionId)}>{f.nombre}</button>
           {#each f.meses as x (x.i)}
             <span class="mes">
               {#if x.e}
                 <span class="punto" style="color:{x.e.c};background:{x.e.bg}"
-                  title="{MESES_LARGOS[x.i]} · {x.e.l}{x.fecha ? ` ${fechaCorta(x.fecha)}` : ''}">{x.e.g}</span>
+                  title="{MESES_LARGOS[x.i]} · {x.e.l}{x.fecha ? ` ${fechaCorta(x.fecha)}` : ''}{x.noCuenta ? ' · aún no suma al %' : ''}">{x.e.g}</span>
               {/if}
             </span>
           {/each}
@@ -237,6 +247,10 @@
         <div class="sub-empty">Sin citas publicadas de esta actividad en {anio}.</div>
       {/each}
     </div>
+    <p class="leyenda">
+      ✓ ejecutada · ✕ no ejecutada · ◐ mes en curso · ○ programada — “Ejecutadas” y el % solo cuentan meses
+      ya cerrados; una cita hecha por adelantado se ve ✓ pero suma cuando su mes termine.
+    </p>
 
     <div class="seccion">Registros de {anio}</div>
     <div class="sub-card scroll-x">
@@ -440,6 +454,29 @@
   }
   .der {
     text-align: right;
+  }
+  .leyenda {
+    margin: -8px 0 0;
+    font-size: 12px;
+    color: #898781;
+  }
+  .enlace {
+    all: unset;
+    cursor: pointer;
+    text-align: left;
+  }
+  .enlace:hover {
+    color: #2a78d6;
+    text-decoration: underline;
+  }
+  .enlace:focus-visible {
+    outline: 2px solid #2a78d6;
+    outline-offset: 2px;
+  }
+  .est-n.enlace {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .ej {
     display: grid;

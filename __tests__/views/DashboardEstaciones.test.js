@@ -21,7 +21,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
 
 import DashboardEstaciones from '../../components/views/subestaciones/dashboard/DashboardEstaciones.svelte';
 import { substationAdmin } from '../../stores/substationAdmin.js';
-import { detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab } from '../../stores/subestacionesFilters.js';
+import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab } from '../../stores/subestacionesFilters.js';
 
 const ind = (id, nombre, extra = {}) => ({
   estacionId: id, estacionNombre: nombre, estacionTipo: 'BOMBEO', programado: 4, cumple: 3, noCumple: 1,
@@ -172,5 +172,36 @@ describe('DashboardEstaciones', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.getByText('Cumplimiento 2026')).toBeTruthy();
     expect(screen.queryByText('10%')).toBeNull();
+  });
+
+  it('tabla: título con el año y "Ejecutadas" como "x de vencidas" (así cuadra con el %)', async () => {
+    const { container } = render(DashboardEstaciones);
+    expect(await screen.findByText('Cumplimiento 2026')).toBeTruthy();
+    expect(screen.getByText(/ejecutadas ÷ citas de meses ya cerrados/)).toBeTruthy();
+    const ayalas = container.querySelectorAll('.sub-tr.clickable')[0];
+    expect(ayalas.children[3].textContent.trim()).toBe('3 de 4');
+  });
+
+  it('detalle: una cita ejecutada en un mes abierto avisa que aún no suma al %', async () => {
+    detalleEstacionId.set(1);
+    const cron = await substationAdmin.obtenerCronograma();
+    substationAdmin.obtenerCronograma.mockResolvedValue({
+      ...cron,
+      citas: cron.citas.map((c) => (c.id === 3 ? { ...c, tieneEjecucion: true, fechaEjecucion: '2026-09-02' } : c)),
+    });
+    render(DashboardEstaciones);
+    await screen.findByText('Cumplimiento cita por cita');
+    // Feb (mes cerrado) ejecutada: cuenta, sin aviso. Sep (mes en curso) ejecutada: avisa.
+    expect(screen.getAllByText('aún no suma al %')).toHaveLength(1);
+  });
+
+  it('detalle: click en una actividad abre su detalle en Resumen por actividad', async () => {
+    detalleEstacionId.set(1);
+    detalleActividadId.set(null);
+    render(DashboardEstaciones);
+    await screen.findByText('Cumplimiento cita por cita');
+    await fireEvent.click(screen.getAllByTitle('Ver la actividad en Resumen por actividad')[0]);
+    expect(get(detalleActividadId)).toBe(10);
+    expect(get(subestacionesActiveTab)).toBe('resumenActividad');
   });
 });

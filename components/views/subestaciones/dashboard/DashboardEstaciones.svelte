@@ -9,6 +9,7 @@
   import DetalleEstacion from "./DetalleEstacion.svelte";
 
   let filas = [];
+  let anio = null;
   let cargando = true;
   let errorCarga = "";
   // Sin códigos de estación (P1/D3).
@@ -18,7 +19,9 @@
     cargando = true;
     errorCarga = "";
     try {
-      filas = (await substationAdmin.indicadoresPorEstacion()).map((i) => {
+      const r = await substationAdmin.indicadoresPorEstacion();
+      anio = r[0]?.anio ?? new Date().getFullYear();
+      filas = r.map((i) => {
         const pct = i.porcentajeCumplimiento != null ? Math.round(Number(i.porcentajeCumplimiento)) : null;
         return { ...i, pct, pc: pct != null ? pctBadge(pct) : null };
       });
@@ -41,6 +44,14 @@
   {:else if errorCarga}
     <ErrorCarga que="el dashboard" mensaje={errorCarga} on:reintentar={cargar} />
   {:else}
+    <div class="sub-head">
+      <div class="sub-head-text">
+        <h1 class="sub-title">Cumplimiento {anio}</h1>
+        <p class="sub-subtitle">
+          Civil · ejecutadas ÷ citas de meses ya cerrados · click en una estación para ver su detalle.
+        </p>
+      </div>
+    </div>
     <div class="sub-card scroll-x">
       <div class="sub-th" style="grid-template-columns:{cols}">
         <span>Estación</span><span>Tipo</span><span>Programadas</span><span>Ejecutadas</span><span>Cumplimiento</span>
@@ -53,7 +64,7 @@
           <span>{s.estacionNombre}</span>
           <span class="gris">{tipoLabel(s.estacionTipo)}</span>
           <span>{s.programado}</span>
-          <span>{s.ejecutadasVencidas}</span>
+          <span>{s.ejecutadasVencidas} <span class="tenue">de {s.vencidas}</span></span>
           <span>
             {#if s.pc}
               <span class="sub-badge" style="color:{s.pc.c};background:{s.pc.bg}">{s.pc.g} {s.pct}%</span>
@@ -82,6 +93,9 @@
   .sub-th,
   .sub-tr {
     min-width: 820px;
+  }
+  .tenue {
+    color: #898781;
   }
   .gris {
     color: #52514e;
