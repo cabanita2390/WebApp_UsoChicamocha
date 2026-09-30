@@ -26,3 +26,7 @@ export const detalleEstacionId = writable(null);
 
 // Actividad cuyo detalle (registros) abre la pestaña Resumen por actividad. null = la tabla.
 export const detalleActividadId = writable(null);
+
+// Disciplina que filtra Dashboard, Resumen por actividad, sus detalles y el Cronograma.
+// "" = todas (el módulo ya tiene catálogo para Civil, Eléctrico y Electromecánico).
+export const disciplinaFiltro = writable('');

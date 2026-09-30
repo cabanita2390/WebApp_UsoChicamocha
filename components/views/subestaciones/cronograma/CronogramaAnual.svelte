@@ -10,6 +10,7 @@
     subestacionesActiveTab,
     ejecucionesFiltroInicial,
     detalleEstacionId,
+    disciplinaFiltro,
   } from "../../../../stores/subestacionesFilters.js";
   import { DISCIPLINAS, MESES, disciplinaLabel } from "../../../../config/subestaciones.js";
   import {
@@ -51,7 +52,8 @@
   // Filtros y vista (mockup §6.1–6.2)
   let por = "est";
   let vista = "act";
-  let disciplina = "CIVIL";
+  // Misma disciplina que Dashboard y Resumen ("" = todas).
+  let disciplina = get(disciplinaFiltro);
   let actividadId = "";
   let q = "";
   let densidad = "normal";
@@ -346,6 +348,7 @@
 
   function cambiarDisciplina(e) {
     disciplina = e.target.value;
+    disciplinaFiltro.set(disciplina);
     actividadId = "";
   }
 </script>

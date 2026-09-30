@@ -24,7 +24,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
 import CronogramaAnual from '../../components/views/subestaciones/cronograma/CronogramaAnual.svelte';
 import { substationAdmin } from '../../stores/substationAdmin.js';
 import {
-  cronogramaAnioInicial, subestacionesActiveTab, ejecucionesFiltroInicial, detalleEstacionId,
+  cronogramaAnioInicial, subestacionesActiveTab, ejecucionesFiltroInicial, detalleEstacionId, disciplinaFiltro,
 } from '../../stores/subestacionesFilters.js';
 import { subestacionesToast } from '../../stores/subestacionesToast.js';
 
@@ -64,6 +64,7 @@ describe('CronogramaAnual', () => {
     subestacionesActiveTab.set('cronograma');
     ejecucionesFiltroInicial.set(null);
     detalleEstacionId.set(null);
+    disciplinaFiltro.set('');
     substationAdmin.listarEstaciones.mockResolvedValue(ESTACIONES);
     substationAdmin.listarActividades.mockResolvedValue(ACTIVIDADES);
     substationAdmin.obtenerCronograma.mockResolvedValue(cronograma());
@@ -74,7 +75,7 @@ describe('CronogramaAnual', () => {
 
     expect(await screen.findByText('Ayalas')).toBeTruthy();
     expect(screen.queryByText('Inactiva')).toBeNull();
-    expect(screen.getByText(/2 estaciones · 3 citas en 2026 · Civil/)).toBeTruthy();
+    expect(screen.getByText(/2 estaciones · 3 citas en 2026 · todas las disciplinas/)).toBeTruthy();
     expect(screen.getAllByText('Pintura puertas', { selector: '.corto' })).toHaveLength(2);
     expect(screen.getByText('Muros', { selector: '.corto' })).toBeTruthy();
     expect(screen.getByText('■ 50%')).toBeTruthy(); // Ayalas: 1 de 2 vencidas → nivel medio

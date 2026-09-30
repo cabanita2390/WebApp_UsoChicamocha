@@ -20,7 +20,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
 
 import ResumenActividad from '../../components/views/subestaciones/resumen/ResumenActividad.svelte';
 import { substationAdmin } from '../../stores/substationAdmin.js';
-import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab } from '../../stores/subestacionesFilters.js';
+import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab, disciplinaFiltro } from '../../stores/subestacionesFilters.js';
 
 const fila = (id, nombre, extra = {}) => ({
   actividadId: id, actividadNombre: nombre, disciplina: 'CIVIL', programadoAnual: 8, ejecutadoAnual: 5,
@@ -37,6 +37,7 @@ describe('ResumenActividad', () => {
     vi.clearAllMocks();
     detalleActividadId.set(null);
     ejecucionesFiltroInicial.set(null);
+    disciplinaFiltro.set('');
     subestacionesActiveTab.set('resumenActividad');
     substationAdmin.resumenPorActividad.mockResolvedValue([
       fila(10, 'Pintura muros'),
@@ -87,7 +88,7 @@ describe('ResumenActividad', () => {
     await screen.findByText('Pintura muros');
 
     await fireEvent.click(screen.getByText('Menor cumplimiento'));
-    const nombres = [...container.querySelectorAll('.sub-tr.clickable .nombre')].map((n) => n.textContent);
+    const nombres = [...container.querySelectorAll('.sub-tr.clickable .nombre')].map((n) => n.firstChild.textContent.trim());
     expect(nombres).toEqual(['Pintura muros', 'Aseo de canales', 'Inspección presa']);
 
     await fireEvent.input(screen.getByLabelText('Buscar actividad'), { target: { value: 'aseo' } });
@@ -102,7 +103,7 @@ describe('ResumenActividad', () => {
     render(ResumenActividad);
     await screen.findByText('Pintura muros');
     await fireEvent.change(screen.getByLabelText('Año'), { target: { value: '2025' } });
-    await waitFor(() => expect(substationAdmin.resumenPorActividad).toHaveBeenLastCalledWith(2025));
+    await waitFor(() => expect(substationAdmin.resumenPorActividad).toHaveBeenLastCalledWith(2025, ''));
   });
 
   it('click en una actividad abre sus registros en la misma pestaña y "Volver" regresa', async () => {
@@ -187,5 +188,17 @@ describe('ResumenActividad', () => {
     expect(await screen.findByText(/Sin conexión/)).toBeTruthy();
     await fireEvent.click(screen.getByText('Reintentar'));
     expect(await screen.findByText('Pintura muros')).toBeTruthy();
+  });
+
+  it('todas las disciplinas por defecto (con su etiqueta) y el selector filtra el resumen', async () => {
+    render(ResumenActividad);
+    expect(await screen.findByText(/Todas las disciplinas · lo publicado/)).toBeTruthy();
+    expect(screen.getAllByText('· Civil').length).toBe(3);
+    expect(substationAdmin.resumenPorActividad).toHaveBeenLastCalledWith(null, '');
+
+    await fireEvent.change(screen.getByLabelText('Disciplina'), { target: { value: 'ELECTROMECANICO' } });
+    await waitFor(() => expect(substationAdmin.resumenPorActividad).toHaveBeenLastCalledWith(2026, 'ELECTROMECANICO'));
+    expect(await screen.findByText(/Electromecánico · lo publicado/)).toBeTruthy();
+    expect(screen.queryByText('· Civil')).toBeNull();
   });
 });

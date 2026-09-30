@@ -1,11 +1,13 @@
 <script>
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
-  import { detalleActividadId } from "../../../../stores/subestacionesFilters.js";
+  import { detalleActividadId, disciplinaFiltro } from "../../../../stores/subestacionesFilters.js";
+  import { disciplinaLabel } from "../../../../config/subestaciones.js";
   import { pctBadge } from "../../../../utils/cronograma.js";
   import Loader from "../../../shared/Loader.svelte";
   import SubToast from "../SubToast.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
   import DetalleActividad from "./DetalleActividad.svelte";
+  import SelectorDisciplina from "../SelectorDisciplina.svelte";
 
   // Resumen por actividad (P6): mismo lenguaje del Dashboard — tabla de actividades del año;
   // click en una fila → sus registros en la misma pestaña → modal con fotos.
@@ -28,7 +30,7 @@
     else cargando = true;
     errorCarga = "";
     try {
-      const r = await substationAdmin.resumenPorActividad(anio);
+      const r = await substationAdmin.resumenPorActividad(anio, $disciplinaFiltro);
       if (mia !== secuencia) return;
       filas = r.map((a) => {
         const pct = a.porcentajeCumplimiento != null ? Math.round(Number(a.porcentajeCumplimiento)) : null;
@@ -93,10 +95,12 @@
       <div class="sub-head-text">
         <h1 class="sub-title">Resumen por actividad</h1>
         <p class="sub-subtitle">
-          Civil · lo publicado a móvil y lo ejecutado en {anio} · click en una actividad para ver sus registros.
+          {$disciplinaFiltro ? disciplinaLabel($disciplinaFiltro) : "Todas las disciplinas"} · lo publicado a móvil y lo
+          ejecutado en {anio} · click en una actividad para ver sus registros.
         </p>
       </div>
       <div class="controles">
+        <SelectorDisciplina on:change={cargar} />
         <input class="ctl buscar" bind:value={q} placeholder="Buscar actividad…" aria-label="Buscar actividad" />
         <div class="sub-seg" role="group" aria-label="Ordenar">
           <button class:on={orden === "nombre"} on:click={() => (orden = "nombre")}>A–Z</button>
@@ -122,7 +126,9 @@
         <div class="sub-tr clickable" style="grid-template-columns:{cols}" role="button" tabindex="0"
           title="Ver registros de la actividad" on:click={() => abrir(a)}
           on:keydown={(e) => e.key === "Enter" && abrir(a)}>
-          <span class="nombre" title={a.actividadNombre}>{a.actividadNombre}</span>
+          <span class="nombre" title={a.actividadNombre}>
+            {a.actividadNombre}{#if !$disciplinaFiltro}<span class="disc">· {disciplinaLabel(a.disciplina)}</span>{/if}
+          </span>
           <span class="num">{a.programadoAnual || "—"}</span>
           <span class="num">{a.ejecutadasVencidas} <span class="gris">de {a.vencidas}</span></span>
           <span class="num">{a.ejecutadoTotal}</span>
@@ -137,7 +143,11 @@
         </div>
       {:else}
         <div class="sub-empty">
-          {q ? `Ninguna actividad coincide con "${q}".` : "Sin actividades activas en la disciplina Civil."}
+          {q
+            ? `Ninguna actividad coincide con "${q}".`
+            : $disciplinaFiltro
+              ? `Sin actividades activas en ${disciplinaLabel($disciplinaFiltro)}.`
+              : "Sin actividades activas."}
         </div>
       {/each}
       {#if visibles.length}
@@ -206,6 +216,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .disc {
+    color: #898781;
+    font-size: 12px;
+    margin-left: 6px;
   }
   .num {
     font-variant-numeric: tabular-nums;

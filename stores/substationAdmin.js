@@ -8,6 +8,15 @@ import fetchWithAuth from './api.js';
  */
 const json = (body) => JSON.stringify(body);
 
+/** "?a=1&b=2" sin los parámetros vacíos (null, undefined o ""). */
+const query = (params) => {
+    const q = Object.entries(params)
+        .filter(([, v]) => v != null && v !== '')
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+        .join('&');
+    return q ? `?${q}` : '';
+};
+
 export const substationAdmin = {
     // Catálogos (Configuración)
     listarEstaciones: () => fetchWithAuth('substation/estaciones?incluirInactivas=true'),
@@ -23,19 +32,23 @@ export const substationAdmin = {
         fetchWithAuth(`substation/actividades/${id}/estado`, { method: 'PATCH', body: json({ activa }) }),
 
     // Dashboard y Detalle por estación
-    /** Sin anio: el año actual del servidor. Cada fila trae anio, vencidas, ejecutadasVencidas, conHallazgos, hallazgosAbiertos. */
-    indicadoresPorEstacion: (anio) =>
-        fetchWithAuth(`substation/indicadores/por-estacion${anio ? `?anio=${anio}` : ''}`),
-    criticidad: (estacionId) => fetchWithAuth(`substation/indicadores/criticidad?estacionId=${estacionId}`),
+    /**
+     * Sin anio: el año actual del servidor. Sin disciplina: todas. Cada fila trae anio, vencidas,
+     * ejecutadasVencidas, conHallazgos, hallazgosAbiertos.
+     */
+    indicadoresPorEstacion: (anio, disciplina) =>
+        fetchWithAuth(`substation/indicadores/por-estacion${query({ anio, disciplina })}`),
+    criticidad: (estacionId, disciplina) =>
+        fetchWithAuth(`substation/indicadores/criticidad${query({ estacionId, disciplina })}`),
     /** Últimas ejecuciones de una estación (página de Spring: { content, totalElements, ... }). */
     ultimasEjecuciones: (estacionId, size = 6) =>
         fetchWithAuth(`substation/ejecuciones?estacionId=${estacionId}&page=0&size=${size}&sort=fecha,desc`),
     obtenerEjecucion: (id) => fetchWithAuth(`substation/ejecuciones/${id}`),
 
     // Resumen por actividad
-    /** Una fila por actividad activa, con lo publicado y lo ejecutado del año (sin anio: el actual). */
-    resumenPorActividad: (anio, disciplina = 'CIVIL') =>
-        fetchWithAuth(`substation/indicadores/por-actividad?disciplina=${disciplina}${anio ? `&anio=${anio}` : ''}`),
+    /** Una fila por actividad activa, con lo publicado y lo ejecutado del año (sin anio: el actual; sin disciplina: todas). */
+    resumenPorActividad: (anio, disciplina) =>
+        fetchWithAuth(`substation/indicadores/por-actividad${query({ anio, disciplina })}`),
     /** Registros de una actividad en el año, del más reciente al más antiguo (página de Spring). */
     ejecucionesDeActividad: (actividadId, anio, page = 0, size = 20) =>
         fetchWithAuth(

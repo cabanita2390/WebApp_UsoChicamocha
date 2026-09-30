@@ -1,12 +1,13 @@
 <script>
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
-  import { detalleEstacionId } from "../../../../stores/subestacionesFilters.js";
-  import { tipoLabel } from "../../../../config/subestaciones.js";
+  import { detalleEstacionId, disciplinaFiltro } from "../../../../stores/subestacionesFilters.js";
+  import { tipoLabel, disciplinaLabel } from "../../../../config/subestaciones.js";
   import { pctBadge } from "../../../../utils/cronograma.js";
   import Loader from "../../../shared/Loader.svelte";
   import SubToast from "../SubToast.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
   import DetalleEstacion from "./DetalleEstacion.svelte";
+  import SelectorDisciplina from "../SelectorDisciplina.svelte";
 
   let filas = [];
   let anio = null;
@@ -15,20 +16,27 @@
   // Sin códigos de estación (P1/D3).
   const cols = "minmax(0,2fr) 140px 110px 110px 150px";
 
+  // Solo se aplica la respuesta de la última carga (cambios de disciplina seguidos).
+  let secuencia = 0;
+  let recargando = false;
+
   async function cargar() {
-    cargando = true;
+    const mia = ++secuencia;
+    if (filas.length) recargando = true;
+    else cargando = true;
     errorCarga = "";
     try {
-      const r = await substationAdmin.indicadoresPorEstacion();
+      const r = await substationAdmin.indicadoresPorEstacion(undefined, $disciplinaFiltro);
+      if (mia !== secuencia) return;
       anio = r[0]?.anio ?? new Date().getFullYear();
       filas = r.map((i) => {
         const pct = i.porcentajeCumplimiento != null ? Math.round(Number(i.porcentajeCumplimiento)) : null;
         return { ...i, pct, pc: pct != null ? pctBadge(pct) : null };
       });
     } catch (e) {
-      errorCarga = e.message;
+      if (mia === secuencia) errorCarga = e.message;
     } finally {
-      cargando = false;
+      if (mia === secuencia) cargando = recargando = false;
     }
   }
   cargar();
@@ -48,11 +56,13 @@
       <div class="sub-head-text">
         <h1 class="sub-title">Cumplimiento {anio}</h1>
         <p class="sub-subtitle">
-          Civil · ejecutadas ÷ citas de meses ya cerrados · click en una estación para ver su detalle.
+          {$disciplinaFiltro ? disciplinaLabel($disciplinaFiltro) : "Todas las disciplinas"} · ejecutadas ÷ citas de
+          meses ya cerrados · click en una estación para ver su detalle.
         </p>
       </div>
+      <SelectorDisciplina on:change={cargar} />
     </div>
-    <div class="sub-card scroll-x">
+    <div class="sub-card scroll-x" class:actualizando={recargando}>
       <div class="sub-th" style="grid-template-columns:{cols}">
         <span>Estación</span><span>Tipo</span><span>Programadas</span><span>Ejecutadas</span><span>Cumplimiento</span>
       </div>
@@ -89,6 +99,11 @@
   }
   .scroll-x {
     overflow-x: auto;
+    transition: opacity 0.15s;
+  }
+  .actualizando {
+    opacity: 0.55;
+    pointer-events: none;
   }
   .sub-th,
   .sub-tr {

@@ -16,7 +16,7 @@ const ADMIN_ITEM_TITLES = [
   'Consolidado de aceites y estado: Maquinaria · Vehículos · Motos',
   'Marcas de aceite del catálogo compartido',
   'Tanqueo, suministro, dashboard financiero, almacén, rendimiento y distribución',
-  'Estaciones de Bombeo (disciplina Civil): dashboard, resumen por actividad, ejecuciones y cronograma anual',
+  'Estaciones de Bombeo: dashboard, resumen por actividad, ejecuciones y cronograma anual',
   'Configuración de Estaciones de Bombeo: estaciones, actividades y programación',
 ];
 

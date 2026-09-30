@@ -21,7 +21,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
 
 import DashboardEstaciones from '../../components/views/subestaciones/dashboard/DashboardEstaciones.svelte';
 import { substationAdmin } from '../../stores/substationAdmin.js';
-import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab } from '../../stores/subestacionesFilters.js';
+import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab, disciplinaFiltro } from '../../stores/subestacionesFilters.js';
 
 const ind = (id, nombre, extra = {}) => ({
   estacionId: id, estacionNombre: nombre, estacionTipo: 'BOMBEO', programado: 4, cumple: 3, noCumple: 1,
@@ -38,6 +38,7 @@ describe('DashboardEstaciones', () => {
     vi.clearAllMocks();
     detalleEstacionId.set(null);
     ejecucionesFiltroInicial.set(null);
+    disciplinaFiltro.set('');
     subestacionesActiveTab.set('dashboard');
     substationAdmin.indicadoresPorEstacion.mockResolvedValue([
       ind(1, 'Ayalas'),
@@ -94,7 +95,7 @@ describe('DashboardEstaciones', () => {
     detalleEstacionId.set(1);
     const { container } = render(DashboardEstaciones);
 
-    expect(await screen.findByText('Bombeo · Frecuencia base Trimestral')).toBeTruthy();
+    expect(await screen.findByText(/Bombeo · Frecuencia base Trimestral ·\s+Todas las disciplinas/)).toBeTruthy();
     expect(screen.getByText('Cumplimiento 2026')).toBeTruthy();
     expect(screen.getByText('75%')).toBeTruthy();
     expect(screen.getByText('4 vencidas a la fecha')).toBeTruthy();
@@ -165,7 +166,7 @@ describe('DashboardEstaciones', () => {
     const select = screen.getByLabelText('Año');
     await fireEvent.change(select, { target: { value: '2025' } });
     await fireEvent.change(select, { target: { value: '2026' } });
-    await waitFor(() => expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(2026));
+    await waitFor(() => expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(2026, ''));
 
     // La respuesta lenta de 2025 llega al final: no debe pisar la de 2026.
     responder2025([ind(1, 'Ayalas', { anio: 2025, porcentajeCumplimiento: 10.0 })]);
@@ -203,5 +204,27 @@ describe('DashboardEstaciones', () => {
     await fireEvent.click(screen.getAllByTitle('Ver la actividad en Resumen por actividad')[0]);
     expect(get(detalleActividadId)).toBe(10);
     expect(get(subestacionesActiveTab)).toBe('resumenActividad');
+  });
+
+  it('muestra todas las disciplinas por defecto y el selector filtra el dashboard', async () => {
+    render(DashboardEstaciones);
+    expect(await screen.findByText(/Todas las disciplinas · ejecutadas/)).toBeTruthy();
+    expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(undefined, '');
+
+    await fireEvent.change(screen.getByLabelText('Disciplina'), { target: { value: 'ELECTRICO' } });
+    await waitFor(() => expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(undefined, 'ELECTRICO'));
+    expect(await screen.findByText(/Eléctrico · ejecutadas/)).toBeTruthy();
+    expect(get(disciplinaFiltro)).toBe('ELECTRICO');
+  });
+
+  it('detalle con una disciplina elegida: indicadores, criticidad y meses solo de esa disciplina', async () => {
+    disciplinaFiltro.set('ELECTRICO');
+    detalleEstacionId.set(1);
+    render(DashboardEstaciones);
+    await screen.findByText('Cumplimiento cita por cita');
+    expect(substationAdmin.indicadoresPorEstacion).toHaveBeenCalledWith(null, 'ELECTRICO');
+    expect(substationAdmin.criticidad).toHaveBeenCalledWith(1, 'ELECTRICO');
+    // Las citas del fixture son todas civiles: con Eléctrico no queda ninguna.
+    expect(screen.getByText('Sin citas publicadas en 2026.')).toBeTruthy();
   });
 });

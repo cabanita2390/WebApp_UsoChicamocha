@@ -1,5 +1,5 @@
 /**
- * Módulo de mantenimiento de Subestaciones (MVP: disciplina CIVIL). Reportes de
+ * Módulo de mantenimiento de Estaciones de Bombeo (todas las disciplinas). Reportes de
  * solo lectura — la captura de ejecuciones ocurre desde la app móvil, no aquí
  * (ver docs/design/subestaciones-design-brief.md).
  */
@@ -7,8 +7,9 @@ export function createSubstationActions({ fetchWithAuth, fetchAll, fetchPaginate
     return {
         fetchSubstationEstaciones: () => fetchAll('substationEstaciones', 'substation/estaciones'),
 
-        fetchSubstationActividades: (disciplina = 'CIVIL') =>
-            fetchAll('substationActividades', `substation/actividades?disciplina=${disciplina}`),
+        /** Sin disciplina: el catálogo de todas las disciplinas. */
+        fetchSubstationActividades: (disciplina) =>
+            fetchAll('substationActividades', `substation/actividades${disciplina ? `?disciplina=${disciplina}` : ''}`),
 
         /**
          * Listado paginado de ejecuciones. `filtros` refleja 1:1 los query params

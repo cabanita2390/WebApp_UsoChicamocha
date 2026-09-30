@@ -2,8 +2,8 @@
   import { createEventDispatcher } from "svelte";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import { flash } from "../../../../stores/subestacionesToast.js";
-  import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleActividadId } from "../../../../stores/subestacionesFilters.js";
-  import { MESES, tipoLabel, frecuenciaLabel } from "../../../../config/subestaciones.js";
+  import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleActividadId, disciplinaFiltro } from "../../../../stores/subestacionesFilters.js";
+  import { MESES, tipoLabel, frecuenciaLabel, disciplinaLabel } from "../../../../config/subestaciones.js";
   import { BADGE, COLOR, RESULTADO, SEGUIMIENTO, chip, pctBadge, fechaCorta } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
   import Loader from "../../../shared/Loader.svelte";
@@ -40,10 +40,10 @@
     errorCarga = "";
     try {
       const [indicadores, estaciones, actividades, crit, ult] = await Promise.all([
-        substationAdmin.indicadoresPorEstacion(pedido),
+        substationAdmin.indicadoresPorEstacion(pedido, $disciplinaFiltro),
         substationAdmin.listarEstaciones(),
         substationAdmin.listarActividades(),
-        substationAdmin.criticidad(estacionId),
+        substationAdmin.criticidad(estacionId, $disciplinaFiltro),
         substationAdmin.ultimasEjecuciones(estacionId),
       ]);
       const ind = indicadores.find((i) => i.estacionId === estacionId) ?? null;
@@ -58,7 +58,10 @@
       ejecuciones = ult?.content ?? [];
       hoy = { anioActual: cron.anioActual, mesActual: cron.mesActual };
       // Solo lo publicado (lo que ve el móvil), como el mockup.
-      citas = cron.citas.filter((c) => c.estacionId === estacionId && c.estado === "PUBLICADA").sort((a, b) => a.mes - b.mes);
+      citas = cron.citas
+        .filter((c) => c.estacionId === estacionId && c.estado === "PUBLICADA")
+        .filter((c) => !$disciplinaFiltro || c.disciplina === $disciplinaFiltro)
+        .sort((a, b) => a.mes - b.mes);
     } catch (e) {
       if (mia !== secuencia) return;
       // Si ya hay datos en pantalla (cambio de año), se conservan y se avisa.
@@ -128,7 +131,7 @@
         actual: anio === hoy.anioActual && i + 1 === hoy.mesActual,
         chips: citas
           .filter((c) => c.mes === i + 1)
-          .map((c) => ({ ...chip(c, { anio, hoy, actividad: actividadesPorId.get(c.actividadId), disciplinaFiltrada: true }), mes: c.mes })),
+          .map((c) => ({ ...chip(c, { anio, hoy, actividad: actividadesPorId.get(c.actividadId), disciplinaFiltrada: !!$disciplinaFiltro }), mes: c.mes })),
       }))
     : [];
   $: cumplimiento = hoy
@@ -170,7 +173,10 @@
     <div class="cabecera">
       <div>
         <h1 class="nombre">{estacion.nombre}</h1>
-        <div class="gris2">{tipoLabel(estacion.tipo)} · Frecuencia base {frecuenciaLabel(estacion.frecuenciaBase)}</div>
+        <div class="gris2">
+          {tipoLabel(estacion.tipo)} · Frecuencia base {frecuenciaLabel(estacion.frecuenciaBase)} ·
+          {$disciplinaFiltro ? disciplinaLabel($disciplinaFiltro) : "Todas las disciplinas"}
+        </div>
       </div>
       <div class="derecha">
         {#if hoy}
@@ -205,7 +211,7 @@
           <span class="mes-l" class:actual={cel.actual}>{cel.m}</span>
           {#each cel.chips as ch (ch.id)}
             <button class="chip" title={ch.title} style="background:{ch.bg};border:{ch.bd}" on:click={() => irAEjecuciones(ch.mes)}>
-              <span class="g" style="color:{ch.c}">{ch.g}</span>{ch.short}
+              <span class="g" style="color:{ch.c}">{ch.g}</span>{#if ch.dTag}<span class="dtag">{ch.dTag}</span>{/if}{ch.short}
             </button>
           {/each}
         </div>
@@ -443,6 +449,11 @@
   .g {
     font-weight: 700;
     font-size: 10px;
+    margin-right: 3px;
+  }
+  .dtag {
+    font: 600 9.5px ui-monospace, Menlo, monospace;
+    color: #898781;
     margin-right: 3px;
   }
   .dos {
