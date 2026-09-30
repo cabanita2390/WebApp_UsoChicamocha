@@ -15,6 +15,17 @@ export const BADGE = {
     bad: { c: '#d03b3b', bg: '#fbeaea' },
     neu: { c: '#52514e', bg: '#f0f0ee' },
 };
+/** Badges de ejecución (Detalle por estación y Resumen por actividad): símbolo + color. */
+export const RESULTADO = {
+    CONFORME: { ...BADGE.ok, g: '✓', l: 'Conforme' },
+    CON_HALLAZGOS: { ...BADGE.warn, g: '!', l: 'Con hallazgos' },
+    REQUIERE_INTERVENCION: { ...BADGE.bad, g: '✕', l: 'Requiere intervención' },
+};
+export const SEGUIMIENTO = {
+    ABIERTO: { ...BADGE.bad, g: '●', l: 'Abierto' },
+    EN_PROCESO: { ...BADGE.warn, g: '◐', l: 'En proceso' },
+    RESUELTO: { ...BADGE.ok, g: '✓', l: 'Resuelto' },
+};
 export const DISC_TAG = { CIVIL: 'C', ELECTRICO: 'E', ELECTROMECANICO: 'M' };
 
 /** Densidad: actividades por celda, alto de fila y ancho mínimo de columna (vista por estación / por actividad). */

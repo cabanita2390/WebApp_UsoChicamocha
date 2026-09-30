@@ -10,9 +10,6 @@ export function createSubstationActions({ fetchWithAuth, fetchAll, fetchPaginate
         fetchSubstationActividades: (disciplina = 'CIVIL') =>
             fetchAll('substationActividades', `substation/actividades?disciplina=${disciplina}`),
 
-        fetchSubstationResumenPorActividad: (disciplina = 'CIVIL') =>
-            fetchAll('substationResumenPorActividad', `substation/indicadores/por-actividad?disciplina=${disciplina}`),
-
         /**
          * Listado paginado de ejecuciones. `filtros` refleja 1:1 los query params
          * opcionales de GET /substation/ejecuciones (ver SubstationController):

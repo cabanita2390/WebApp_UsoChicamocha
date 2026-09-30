@@ -1,7 +1,7 @@
 <script>
   import TabPanel from "../shared/TabPanel.svelte";
   import DashboardEstaciones from "./subestaciones/dashboard/DashboardEstaciones.svelte";
-  import SubestacionesResumenActividad from "./SubestacionesResumenActividad.svelte";
+  import ResumenActividad from "./subestaciones/resumen/ResumenActividad.svelte";
   import SubestacionesEjecuciones from "./SubestacionesEjecuciones.svelte";
   import CronogramaAnual from "./subestaciones/cronograma/CronogramaAnual.svelte";
   import { subestacionesActiveTab, pantallaAmpliada } from "../../stores/subestacionesFilters.js";
@@ -23,7 +23,7 @@
     {#if $subestacionesActiveTab === "dashboard"}
       <DashboardEstaciones />
     {:else if $subestacionesActiveTab === "resumenActividad"}
-      <SubestacionesResumenActividad />
+      <ResumenActividad />
     {:else if $subestacionesActiveTab === "ejecuciones"}
       <SubestacionesEjecuciones />
     {:else if $subestacionesActiveTab === "cronograma"}

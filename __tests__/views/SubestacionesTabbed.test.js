@@ -7,7 +7,6 @@ vi.mock('../../stores/data.js', () => ({
   data: {
     subscribe: vi.fn((callback) => {
       callback({
-        substationResumenPorActividad: [],
         substationEstaciones: [],
         substationActividades: [],
         substationEjecuciones: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
@@ -15,7 +14,6 @@ vi.mock('../../stores/data.js', () => ({
       });
       return () => {};
     }),
-    fetchSubstationResumenPorActividad: vi.fn(),
     fetchSubstationEstaciones: vi.fn(),
     fetchSubstationActividades: vi.fn(),
     fetchSubstationEjecuciones: vi.fn(),
@@ -35,6 +33,7 @@ vi.mock('../../stores/auth.js', () => ({
 vi.mock('../../stores/substationAdmin.js', () => ({
   substationAdmin: {
     indicadoresPorEstacion: vi.fn(async () => []),
+    resumenPorActividad: vi.fn(async () => []),
     listarEstaciones: vi.fn(async () => []),
     listarActividades: vi.fn(async () => []),
     obtenerCronograma: vi.fn(async () => ({
@@ -64,7 +63,7 @@ describe('SubestacionesTabbed', () => {
     render(SubestacionesTabbed);
 
     await fireEvent.click(screen.getByRole('tab', { name: 'Resumen por Actividad' }));
-    expect(screen.getByText('Civil (única habilitada)')).toBeTruthy();
+    expect(await screen.findByText('Resumen por actividad', { selector: 'h1' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('tab', { name: 'Ejecuciones y Hallazgos' }));
     expect(screen.getByText('Solo hallazgos')).toBeTruthy();

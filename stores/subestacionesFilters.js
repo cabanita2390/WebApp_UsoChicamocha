@@ -17,8 +17,12 @@ export const configuracionTab = writable('est');
 export const pantallaAmpliada = writable(false);
 
 // Filtro con el que abre la pestaña Ejecuciones cuando se llega desde el Cronograma
-// ("Ver ejecuciones de este mes →"): { estacionId, fechaInicio, fechaFin }. Se consume una vez.
+// ("Ver ejecuciones de este mes →") o del Resumen por actividad:
+// { estacionId?, actividadId?, fechaInicio?, fechaFin? }. Se consume una vez.
 export const ejecucionesFiltroInicial = writable(null);
 
 // Estación cuyo detalle abre la pestaña Dashboard (Detalle por estación, P4). null = la tabla.
 export const detalleEstacionId = writable(null);
+
+// Actividad cuyo detalle (registros) abre la pestaña Resumen por actividad. null = la tabla.
+export const detalleActividadId = writable(null);

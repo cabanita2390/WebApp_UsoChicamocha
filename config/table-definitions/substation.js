@@ -32,17 +32,6 @@ export function estacionTipoLabel(v) {
     return v === 'BOMBEO' ? 'Bombeo' : v === 'COMPLEMENTARIA' ? 'Complementaria' : (v ?? '—');
 }
 
-/** Pestaña 2 — Resumen por Actividad. Espejo de la hoja RESUMEN_ANUAL. */
-export const createResumenActividadColumns = () => [
-    { header: 'Actividad', accessorKey: 'actividadNombre', id: 'ract_nombre', size: 280 },
-    { header: 'Programado anual', accessorFn: (r) => (r.programadoAnual > 0 ? r.programadoAnual : '—'), id: 'ract_prog', size: 120 },
-    { header: 'Ejecutado anual', accessorKey: 'ejecutadoAnual', id: 'ract_ejec', size: 120 },
-    { header: 'No programado', accessorKey: 'ejecutadoNoProgramado', id: 'ract_noprog', size: 120 },
-    { header: 'Mantenimiento', accessorKey: 'mantenimiento', id: 'ract_mant', size: 110 },
-    { header: 'Inspección', accessorKey: 'inspeccion', id: 'ract_insp', size: 100 },
-    { header: 'Total', accessorKey: 'ejecutadoTotal', id: 'ract_total', size: 90 },
-];
-
 /** Pestaña 3 — Ejecuciones y Hallazgos. `onVerDetalle` no se usa acá: la acción
  * se captura vía el evento `action` estándar de DataGrid (type: 'verDetalle'). */
 export const createEjecucionesColumns = () => [

@@ -4,7 +4,6 @@ import {
   tipoMantenimientoLabel,
   tipoActividadLabel,
   estacionTipoLabel,
-  createResumenActividadColumns,
   createEjecucionesColumns,
 } from '../config/table-definitions/substation.js';
 
@@ -64,13 +63,6 @@ describe('estacionTipoLabel', () => {
 });
 
 describe('definiciones de columnas', () => {
-  it('resumen por actividad muestra guión cuando no hay programación anual', () => {
-    const columns = createResumenActividadColumns();
-    const progColumn = columns.find((c) => c.id === 'ract_prog');
-    expect(progColumn.accessorFn({ programadoAnual: 0 })).toBe('—');
-    expect(progColumn.accessorFn({ programadoAnual: 12 })).toBe(12);
-  });
-
   it('ejecuciones muestra la descripción libre cuando no hay actividad de catálogo', () => {
     const columns = createEjecucionesColumns();
     const actCol = columns.find((c) => c.id === 'ej_actividad');

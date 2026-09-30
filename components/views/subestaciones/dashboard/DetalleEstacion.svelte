@@ -4,7 +4,7 @@
   import { flash } from "../../../../stores/subestacionesToast.js";
   import { ejecucionesFiltroInicial, subestacionesActiveTab } from "../../../../stores/subestacionesFilters.js";
   import { MESES, tipoLabel, frecuenciaLabel } from "../../../../config/subestaciones.js";
-  import { BADGE, COLOR, chip, pctBadge, fechaCorta } from "../../../../utils/cronograma.js";
+  import { BADGE, COLOR, RESULTADO, SEGUIMIENTO, chip, pctBadge, fechaCorta } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
   import Loader from "../../../shared/Loader.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
@@ -99,17 +99,6 @@
       detalleCargando = false;
     }
   }
-
-  const RESULTADO = {
-    CONFORME: { ...BADGE.ok, g: "✓", l: "Conforme" },
-    CON_HALLAZGOS: { ...BADGE.warn, g: "!", l: "Con hallazgos" },
-    REQUIERE_INTERVENCION: { ...BADGE.bad, g: "✕", l: "Requiere intervención" },
-  };
-  const SEGUIMIENTO = {
-    ABIERTO: { ...BADGE.bad, g: "●", l: "Abierto" },
-    EN_PROCESO: { ...BADGE.warn, g: "◐", l: "En proceso" },
-    RESUELTO: { ...BADGE.ok, g: "✓", l: "Resuelto" },
-  };
 
   $: pct = indicador?.porcentajeCumplimiento != null ? Math.round(Number(indicador.porcentajeCumplimiento)) : null;
   $: pc = pct != null ? pctBadge(pct) : { color: "#898781", c: "#52514e", bg: "#f0f0ee", g: "", l: "Sin citas vencidas" };

@@ -32,6 +32,17 @@ export const substationAdmin = {
         fetchWithAuth(`substation/ejecuciones?estacionId=${estacionId}&page=0&size=${size}&sort=fecha,desc`),
     obtenerEjecucion: (id) => fetchWithAuth(`substation/ejecuciones/${id}`),
 
+    // Resumen por actividad
+    /** Una fila por actividad activa, con lo publicado y lo ejecutado del año (sin anio: el actual). */
+    resumenPorActividad: (anio, disciplina = 'CIVIL') =>
+        fetchWithAuth(`substation/indicadores/por-actividad?disciplina=${disciplina}${anio ? `&anio=${anio}` : ''}`),
+    /** Registros de una actividad en el año, del más reciente al más antiguo (página de Spring). */
+    ejecucionesDeActividad: (actividadId, anio, page = 0, size = 20) =>
+        fetchWithAuth(
+            `substation/ejecuciones?actividadId=${actividadId}&fechaInicio=${anio}-01-01&fechaFin=${anio}-12-31` +
+                `&page=${page}&size=${size}&sort=fecha,desc`,
+        ),
+
     // Cronograma
     obtenerCronograma: (anio, disciplina) =>
         fetchWithAuth(`substation/cronograma?anio=${anio}${disciplina ? `&disciplina=${disciplina}` : ''}`),

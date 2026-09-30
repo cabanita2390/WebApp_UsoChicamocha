@@ -48,9 +48,10 @@
   if (filtroInicial) {
     filtros = {
       ...filtros,
-      estacionId: filtroInicial.estacionId,
-      fechaInicio: filtroInicial.fechaInicio,
-      fechaFin: filtroInicial.fechaFin,
+      estacionId: filtroInicial.estacionId ?? "",
+      actividadId: filtroInicial.actividadId ?? "",
+      fechaInicio: filtroInicial.fechaInicio ?? "",
+      fechaFin: filtroInicial.fechaFin ?? "",
     };
     ejecucionesFiltroInicial.set(null);
   }
