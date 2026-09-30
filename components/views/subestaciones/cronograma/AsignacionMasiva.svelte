@@ -210,7 +210,7 @@
 
   <div class="pie">
     <button class="sec-btn" on:click={() => dispatch("close")}>Cancelar</button>
-    <button class="primario" disabled={!ok} on:click={asignar}>{conteo.nuevas > 0 ? `Asignar ${conteo.nuevas} citas` : "Asignar"}</button>
+    <button class="primario" disabled={!ok} on:click={asignar}>{conteo.nuevas > 0 ? `Asignar ${conteo.nuevas} ${conteo.nuevas === 1 ? "cita" : "citas"}` : "Asignar"}</button>
   </div>
 </aside>
 

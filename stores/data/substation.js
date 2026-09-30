@@ -30,7 +30,9 @@ export function createSubstationActions({ fetchWithAuth, fetchAll, fetchPaginate
             if (filtros.tipoActividad) params.set('tipoActividad', filtros.tipoActividad);
             // Más reciente primero — sin esto Spring Data no aplica ningún orden
             // garantizado (en la práctica salía por id de inserción, más viejo primero).
-            params.set('sort', 'fecha,desc');
+            // Con la misma fecha, el último registrado primero.
+            params.append('sort', 'fecha,desc');
+            params.append('sort', 'id,desc');
             const qs = params.toString();
             return fetchPaginated('substationEjecuciones', 'substation/ejecuciones', page, size, {
                 extraQuery: qs ? `&${qs}` : '',

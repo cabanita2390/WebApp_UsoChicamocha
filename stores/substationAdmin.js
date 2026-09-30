@@ -42,7 +42,7 @@ export const substationAdmin = {
         fetchWithAuth(`substation/indicadores/criticidad${query({ estacionId, disciplina })}`),
     /** Últimas ejecuciones de una estación (página de Spring: { content, totalElements, ... }). */
     ultimasEjecuciones: (estacionId, size = 6) =>
-        fetchWithAuth(`substation/ejecuciones?estacionId=${estacionId}&page=0&size=${size}&sort=fecha,desc`),
+        fetchWithAuth(`substation/ejecuciones?estacionId=${estacionId}&page=0&size=${size}&sort=fecha,desc&sort=id,desc`),
     obtenerEjecucion: (id) => fetchWithAuth(`substation/ejecuciones/${id}`),
 
     // Resumen por actividad
@@ -53,7 +53,7 @@ export const substationAdmin = {
     ejecucionesDeActividad: (actividadId, anio, page = 0, size = 20) =>
         fetchWithAuth(
             `substation/ejecuciones?actividadId=${actividadId}&fechaInicio=${anio}-01-01&fechaFin=${anio}-12-31` +
-                `&page=${page}&size=${size}&sort=fecha,desc`,
+                `&page=${page}&size=${size}&sort=fecha,desc&sort=id,desc`,
         ),
 
     // Cronograma
