@@ -16,11 +16,11 @@ const ADMIN_ITEM_TITLES = [
   'Consolidado de aceites y estado: Maquinaria · Vehículos · Motos',
   'Marcas de aceite del catálogo compartido',
   'Tanqueo, suministro, dashboard financiero, almacén, rendimiento y distribución',
-  'Subestaciones (disciplina Civil): dashboard, resumen por actividad, ejecuciones y cronograma anual',
-  'Configuración de Subestaciones: estaciones, actividades y programación',
+  'Estaciones de Bombeo (disciplina Civil): dashboard, resumen por actividad, ejecuciones y cronograma anual',
+  'Configuración de Estaciones de Bombeo: estaciones, actividades y programación',
 ];
 
-const CONFIG_TITLE = 'Configuración de Subestaciones: estaciones, actividades y programación';
+const CONFIG_TITLE = 'Configuración de Estaciones de Bombeo: estaciones, actividades y programación';
 
 const ADMIN_ITEM_COUNT = ADMIN_ITEM_TITLES.length;
 

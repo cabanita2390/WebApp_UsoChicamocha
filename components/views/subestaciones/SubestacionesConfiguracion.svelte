@@ -93,7 +93,7 @@
   {:else}
     <div class="sub-head">
       <div class="sub-head-text">
-        <h1 class="sub-title">Configuración de Subestaciones</h1>
+        <h1 class="sub-title">Configuración de Estaciones de Bombeo</h1>
         <p class="sub-subtitle">Catálogos por disciplina. Los registros no se eliminan: se desactivan.</p>
       </div>
       <div class="sub-seg" role="tablist">
