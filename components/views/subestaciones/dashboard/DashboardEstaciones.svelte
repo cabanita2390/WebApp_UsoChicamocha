@@ -1,26 +1,29 @@
 <script>
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
-  import { flash } from "../../../../stores/subestacionesToast.js";
   import { detalleEstacionId } from "../../../../stores/subestacionesFilters.js";
   import { tipoLabel } from "../../../../config/subestaciones.js";
   import { pctBadge } from "../../../../utils/cronograma.js";
   import Loader from "../../../shared/Loader.svelte";
   import SubToast from "../SubToast.svelte";
+  import ErrorCarga from "../ErrorCarga.svelte";
   import DetalleEstacion from "./DetalleEstacion.svelte";
 
   let filas = [];
   let cargando = true;
+  let errorCarga = "";
   // Sin códigos de estación (P1/D3).
   const cols = "minmax(0,2fr) 140px 110px 110px 150px";
 
   async function cargar() {
+    cargando = true;
+    errorCarga = "";
     try {
       filas = (await substationAdmin.indicadoresPorEstacion()).map((i) => {
         const pct = i.porcentajeCumplimiento != null ? Math.round(Number(i.porcentajeCumplimiento)) : null;
         return { ...i, pct, pc: pct != null ? pctBadge(pct) : null };
       });
     } catch (e) {
-      flash(e.message, { error: true });
+      errorCarga = e.message;
     } finally {
       cargando = false;
     }
@@ -35,6 +38,8 @@
     {/key}
   {:else if cargando}
     <div class="cargando"><Loader /></div>
+  {:else if errorCarga}
+    <ErrorCarga que="el dashboard" mensaje={errorCarga} on:reintentar={cargar} />
   {:else}
     <div class="sub-card scroll-x">
       <div class="sub-th" style="grid-template-columns:{cols}">

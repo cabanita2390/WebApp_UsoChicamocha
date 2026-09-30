@@ -10,6 +10,7 @@
   } from "../../../stores/subestacionesFilters.js";
   import Loader from "../../shared/Loader.svelte";
   import SubToast from "./SubToast.svelte";
+  import ErrorCarga from "./ErrorCarga.svelte";
   import EstacionesTabla from "./config/EstacionesTabla.svelte";
   import ActividadesTabla from "./config/ActividadesTabla.svelte";
   import ProgramacionPanel from "./config/ProgramacionPanel.svelte";
@@ -24,6 +25,7 @@
   $: esAdmin = $auth?.currentUser?.role === "ADMIN";
 
   let cargando = true;
+  let errorCarga = "";
   let estaciones = [];
   let actividades = [];
   let anioActual = new Date().getFullYear();
@@ -48,6 +50,7 @@
   }
 
   async function cargar() {
+    errorCarga = "";
     try {
       [estaciones, actividades] = await Promise.all([
         substationAdmin.listarEstaciones(),
@@ -55,10 +58,18 @@
         cargarCronogramas(),
       ]);
     } catch (e) {
-      flash(e.message, { error: true });
+      // Primera carga: pantalla de error con "Reintentar". Recarga tras guardar: se
+      // conservan los datos y se avisa.
+      if (cargando) errorCarga = e.message;
+      else flash(e.message, { error: true });
     } finally {
       cargando = false;
     }
+  }
+
+  function reintentar() {
+    cargando = true;
+    cargar();
   }
 
   async function guardado() {
@@ -106,6 +117,8 @@
 
     {#if cargando}
       <div class="cargando"><Loader /></div>
+    {:else if errorCarga}
+      <ErrorCarga que="la configuración" mensaje={errorCarga} on:reintentar={reintentar} />
     {:else if $configuracionTab === "est"}
       <EstacionesTabla {estaciones}
         on:nueva={() => (modal = { tipo: "est", registro: null })}

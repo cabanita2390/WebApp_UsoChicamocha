@@ -23,6 +23,7 @@
   } from "../../../../utils/cronograma.js";
   import Loader from "../../../shared/Loader.svelte";
   import SubToast from "../SubToast.svelte";
+  import ErrorCarga from "../ErrorCarga.svelte";
   import CronogramaGrid from "./CronogramaGrid.svelte";
   import CeldaPanel from "./CeldaPanel.svelte";
   import AsignacionMasiva from "./AsignacionMasiva.svelte";
@@ -41,7 +42,10 @@
   let estaciones = [];
   let actividades = [];
   let cargando = true;
+  let recargando = false;
+  let errorCarga = "";
   let ocupado = false;
+  let confirmarDescarte = false;
   let citasOrigenCopia = 0;
 
   // Filtros y vista (mockup §6.1–6.2)
@@ -69,6 +73,8 @@
   }
 
   async function inicio() {
+    cargando = true;
+    errorCarga = "";
     try {
       [estaciones, actividades] = await Promise.all([
         substationAdmin.listarEstaciones(),
@@ -80,7 +86,7 @@
         await cargarCronograma();
       }
     } catch (e) {
-      flash(e.message, { error: true });
+      errorCarga = e.message;
     } finally {
       cargando = false;
     }
@@ -88,21 +94,32 @@
   inicio();
 
   async function recargar() {
+    recargando = true;
     try {
       await cargarCronograma();
     } catch (e) {
       flash(e.message, { error: true });
+    } finally {
+      recargando = false;
     }
   }
 
   async function cambiarAnio(e) {
     anio = Number(e.target.value);
     celda = null;
+    confirmarDescarte = false;
     soloCambios = false;
     await recargar();
   }
 
   onDestroy(() => pantallaAmpliada.set(false));
+
+  // Escape sale de la vista ampliada (si no hay un panel o modal abierto, que se cierran primero).
+  function onKeydown(e) {
+    if (e.key === "Escape" && $pantallaAmpliada && !celda && !masiva && !publicarAbierto) {
+      pantallaAmpliada.set(false);
+    }
+  }
 
   // ---- Datos derivados (mockup: renderVals) ----
   $: actividadesPorId = new Map(actividades.map((a) => [a.id, a]));
@@ -274,8 +291,10 @@
     subestacionesActiveTab.set("dashboard");
   }
 
-  function descartar() {
-    ejecutar(() => substationAdmin.descartarBorrador(anio), "Borrador descartado");
+  // Descartar es la única acción que no se puede deshacer: pide confirmación en dos pasos.
+  async function descartar() {
+    await ejecutar(() => substationAdmin.descartarBorrador(anio), "Borrador descartado");
+    confirmarDescarte = false;
   }
 
   async function publicado(e) {
@@ -312,9 +331,13 @@
   }
 </script>
 
+<svelte:window on:keydown={onKeydown} />
+
 <div class="sub-mod">
   {#if cargando}
     <div class="cargando"><Loader /></div>
+  {:else if errorCarga && !cron}
+    <ErrorCarga que="el cronograma" mensaje={errorCarga} on:reintentar={inicio} />
   {:else}
     <div class="sub-head">
       <div class="sub-head-text">
@@ -394,8 +417,12 @@
           <button class="solo" on:click={() => (soloCambios = !soloCambios)}>
             {verSoloCambios ? "Mostrar todo el cronograma" : "Ver solo los cambios"}
           </button>
-          {#if esAdmin}
-            <button class="sub-btn chico-btn" disabled={ocupado} on:click={descartar}>Descartar</button>
+          {#if esAdmin && confirmarDescarte}
+            <span class="confirmar-txt">¿Descartar {nCambios} {nCambios === 1 ? "cambio" : "cambios"}? No se puede deshacer.</span>
+            <button class="sub-btn chico-btn" disabled={ocupado} on:click={() => (confirmarDescarte = false)}>Cancelar</button>
+            <button class="peligro" disabled={ocupado} on:click={descartar}>Sí, descartar</button>
+          {:else if esAdmin}
+            <button class="sub-btn chico-btn" disabled={ocupado} on:click={() => (confirmarDescarte = true)}>Descartar</button>
             <button class="sub-btn-primary" on:click={() => (publicarAbierto = true)}>Revisar y publicar a móvil</button>
           {/if}
         </div>
@@ -439,7 +466,7 @@
       conChips={vista === "act"}
       densidad={dens}
       dosColumnas={por === "act"}
-      maxAlto={$pantallaAmpliada ? "calc(100vh - 150px)" : "calc(100vh - 300px)"}
+      actualizando={recargando || ocupado}
       vacio={mensajeVacio}
       on:celda={abrirCelda}
       on:fila={abrirFila}
@@ -639,11 +666,30 @@
   .borrador-btns {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
   }
   .solo {
     background: #fff;
     color: #1f5fae;
     border: 1px solid #2a78d6;
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .confirmar-txt {
+    font-size: 13px;
+    color: #d03b3b;
+    font-weight: 600;
+    align-self: center;
+  }
+  .peligro {
+    background: #d03b3b;
+    color: #fff;
+    border: 0;
     border-radius: 999px;
     padding: 8px 16px;
     font-size: 13px;

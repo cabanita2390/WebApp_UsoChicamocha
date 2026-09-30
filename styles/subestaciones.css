@@ -42,6 +42,11 @@
   gap: 16px;
   box-sizing: border-box;
 }
+/* Los bloques de la página nunca se encogen: si no caben, la página hace scroll (sin esto,
+   en pantallas bajas las tarjetas con overflow quedaban aplastadas). */
+.sub-mod > * {
+  flex-shrink: 0;
+}
 .sub-mod *,
 .sub-mod *::before,
 .sub-mod *::after {

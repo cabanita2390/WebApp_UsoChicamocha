@@ -87,6 +87,11 @@
     }
   }
 
+  /** Deja el cursor en el primer campo al abrir el modal. */
+  function enfocar(node) {
+    node.focus();
+  }
+
   function onKeydown(e) {
     if (e.key === "Escape") cerrar();
   }
@@ -102,9 +107,9 @@
       <button class="sub-modal-x" aria-label="Cerrar" on:click={cerrar}>×</button>
     </div>
 
-    <div class="sub-modal-body">
+    <form class="sub-modal-body" on:submit|preventDefault={guardar}>
       <label class="sub-field">Nombre
-        <input class="sub-input" bind:value={f.nombre} maxlength={esEst ? 120 : 200} />
+        <input class="sub-input" bind:value={f.nombre} maxlength={esEst ? 120 : 200} use:enfocar />
       </label>
 
       {#if esEst}
@@ -141,9 +146,9 @@
         <div class="off">
           <span class="off-text">{offText}</span>
           {#if confirmar}
-            <button class="sub-btn-danger" disabled={guardando} on:click={() => cambiarEstado(false)}>Confirmar</button>
+            <button type="button" class="sub-btn-danger" disabled={guardando} on:click={() => cambiarEstado(false)}>Confirmar</button>
           {:else}
-            <button class="sub-btn-danger-outline" disabled={guardando} on:click={pedirDesactivar}>
+            <button type="button" class="sub-btn-danger-outline" disabled={guardando} on:click={pedirDesactivar}>
               {inactiva ? "Reactivar" : "Desactivar"}
             </button>
           {/if}
@@ -151,7 +156,8 @@
       {/if}
 
       {#if error}<div class="sub-field-error" role="alert">{error}</div>{/if}
-    </div>
+      <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+    </form>
 
     <div class="sub-modal-foot">
       <button class="sub-btn" on:click={cerrar}>Cancelar</button>

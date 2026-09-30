@@ -95,13 +95,17 @@ describe('CronogramaAnual', () => {
     expect(screen.getByText('Revisar y publicar a móvil')).toBeTruthy();
   });
 
-  it('descartar el borrador llama al backend y recarga', async () => {
+  it('descartar el borrador pide confirmación, llama al backend y recarga', async () => {
     substationAdmin.obtenerCronograma.mockResolvedValue(cronograma({ borrador: { altas: 1, bajas: 0 },
       citas: [cita(200, 1, 10, 11, { estado: 'BORRADOR' })] }));
     substationAdmin.descartarBorrador.mockResolvedValue(null);
     render(CronogramaAnual);
 
     await fireEvent.click(await screen.findByText('Descartar'));
+    // Descartar no se puede deshacer: el primer clic solo pide confirmación.
+    expect(substationAdmin.descartarBorrador).not.toHaveBeenCalled();
+    expect(screen.getByText('¿Descartar 1 cambio? No se puede deshacer.')).toBeTruthy();
+    await fireEvent.click(screen.getByText('Sí, descartar'));
     await waitFor(() => expect(substationAdmin.descartarBorrador).toHaveBeenCalledWith(2026));
     await waitFor(() => expect(substationAdmin.obtenerCronograma).toHaveBeenCalledTimes(2));
   });
@@ -190,5 +194,25 @@ describe('CronogramaAnual', () => {
     expect(await screen.findByText('2027 todavía no tiene cronograma')).toBeTruthy();
     await fireEvent.click(screen.getByText('Copiar 2026 como borrador · 3 citas'));
     await waitFor(() => expect(substationAdmin.copiarAnio).toHaveBeenCalledWith(2026, 2027));
+  });
+
+  it('si falla la carga muestra el error con "Reintentar"', async () => {
+    substationAdmin.obtenerCronograma.mockRejectedValueOnce(new Error('Servidor no disponible'));
+    render(CronogramaAnual);
+
+    expect(await screen.findByText('No se pudo cargar el cronograma')).toBeTruthy();
+    expect(screen.getByText('Servidor no disponible')).toBeTruthy();
+    await fireEvent.click(screen.getByText('Reintentar'));
+    expect(await screen.findByText('Ayalas')).toBeTruthy();
+  });
+
+  it('las celdas se abren con el teclado (Enter)', async () => {
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+
+    const celdaFeb = container.querySelectorAll('.fila')[0].querySelectorAll('.celda')[1];
+    expect(celdaFeb.getAttribute('aria-label')).toBe('Ayalas · Febrero · 1 cita');
+    await fireEvent.keyDown(celdaFeb, { key: 'Enter' });
+    expect(screen.getByText('Febrero 2026 · 1 actividad')).toBeTruthy();
   });
 });

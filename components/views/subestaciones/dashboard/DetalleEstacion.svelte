@@ -7,6 +7,7 @@
   import { BADGE, COLOR, chip, pctBadge, fechaCorta } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
   import Loader from "../../../shared/Loader.svelte";
+  import ErrorCarga from "../ErrorCarga.svelte";
   import SubestacionEjecucionDetalleModal from "../../../shared/SubestacionEjecucionDetalleModal.svelte";
 
   export let estacionId;
@@ -22,6 +23,7 @@
   let criticas = [];
   let ejecuciones = [];
   let cargando = true;
+  let errorCarga = "";
 
   // Modal de ejecución (el mismo de la pestaña Ejecuciones, con fotos)
   let detalle = null;
@@ -30,6 +32,7 @@
 
   async function cargar() {
     cargando = true;
+    errorCarga = "";
     try {
       const [indicadores, estaciones, actividades, crit, ult] = await Promise.all([
         substationAdmin.indicadoresPorEstacion(anio),
@@ -49,7 +52,9 @@
       // Solo lo publicado (lo que ve el móvil), como el mockup.
       citas = cron.citas.filter((c) => c.estacionId === estacionId && c.estado === "PUBLICADA").sort((a, b) => a.mes - b.mes);
     } catch (e) {
-      flash(e.message, { error: true });
+      // Si ya hay datos en pantalla (cambio de año), se conservan y se avisa.
+      if (estacion) flash(e.message, { error: true });
+      else errorCarga = e.message;
     } finally {
       cargando = false;
     }
@@ -150,7 +155,10 @@
 
 {#if cargando && !estacion}
   <div class="cargando"><Loader /></div>
+{:else if errorCarga}
+  <ErrorCarga que="el detalle de la estación" mensaje={errorCarga} on:reintentar={cargar} />
 {:else if estacion}
+  <div class="contenido" class:actualizando={cargando}>
   <div class="sub-card scroll-x">
     <div class="cabecera">
       <div>
@@ -252,6 +260,7 @@
       <div class="sub-empty">Sin ejecuciones registradas.</div>
     {/each}
   </div>
+  </div>
 {/if}
 
 {#if mostrarDetalle}
@@ -259,6 +268,19 @@
 {/if}
 
 <style>
+  .contenido {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: opacity 0.15s;
+  }
+  .contenido > :global(*) {
+    flex-shrink: 0;
+  }
+  .contenido.actualizando {
+    opacity: 0.55;
+    pointer-events: none;
+  }
   .volver-fila {
     display: flex;
     align-items: center;

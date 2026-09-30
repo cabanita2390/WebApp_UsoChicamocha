@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher } from "svelte";
-  import { MESES } from "../../../../config/subestaciones.js";
+  import { MESES, MESES_LARGOS } from "../../../../config/subestaciones.js";
 
   export let filas = [];
   export let totalesMes = [];
@@ -14,9 +14,10 @@
   /** { h, w } de DENSIDAD */
   export let densidad;
   export let dosColumnas = false;
-  export let maxAlto = "calc(100vh - 300px)";
   export let vacio = "";
   export let tituloFila = "Ver detalle de estación";
+  /** Atenúa la grilla mientras se recarga (cambio de año, después de guardar). */
+  export let actualizando = false;
 
   const dispatch = createEventDispatcher();
   const TRIMESTRES = ["1er trimestre", "2do trimestre", "3er trimestre", "4to trimestre"];
@@ -26,13 +27,20 @@
   $: altoCelda = `${densidad.h}px`;
   $: mesActualVisible = anio === hoy.anioActual ? hoy.mesActual : null;
 
+  function teclado(e, fila, celda) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      abrir(e, fila, celda);
+    }
+  }
+
   function abrir(e, fila, celda) {
     const r = e.currentTarget.getBoundingClientRect();
     dispatch("celda", { fila, celda, x: r.left, y: r.bottom });
   }
 </script>
 
-<div class="marco" style="max-height:{maxAlto}">
+<div class="marco" class:actualizando>
   <div style="min-width:{minAncho}">
     <div class="cabecera">
       <div class="grid trimestres" style="grid-template-columns:{cols}">
@@ -60,10 +68,11 @@
           <span class="pct" style="color:{fila.badge.color}" title={fila.badge.l}>{fila.badge.g} {fila.pctL}</span>
         </button>
         {#each fila.celdas as c (c.mes)}
-          <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-          <div class="celda" class:trim-borde={c.trimestre} class:actual={c.actual} class:cambios={c.hayCambios}
+          <div class="celda" role="button" tabindex="0"
+            aria-label="{fila.nombre} · {MESES_LARGOS[c.mes - 1]} · {c.n} {c.n === 1 ? 'cita' : 'citas'}"
+            class:trim-borde={c.trimestre} class:actual={c.actual} class:cambios={c.hayCambios}
             class:sel={c.seleccionada} class:dos={dosColumnas} style="height:{altoCelda}"
-            on:click={(e) => abrir(e, fila, c)}>
+            on:click={(e) => abrir(e, fila, c)} on:keydown={(e) => teclado(e, fila, c)}>
             {#if conChips && c.n > 0}
               {#each c.chips as ch (ch.id)}
                 <span class="chip" class:tachada={ch.tachada} title={ch.title}
@@ -108,7 +117,14 @@
     border-radius: 10px;
     box-shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 12px rgba(11, 11, 11, 0.05);
     overflow: auto;
-    min-height: 420px;
+    /* Ocupa el alto que queda en la pantalla (un solo scroll, el de la grilla); con
+       menos de 420 px disponibles la página hace scroll. */
+    flex: 1 0 420px;
+    transition: opacity 0.15s;
+  }
+  .marco.actualizando {
+    opacity: 0.55;
+    pointer-events: none;
   }
   .grid {
     display: grid;
@@ -241,6 +257,10 @@
   }
   .celda:hover {
     background: #f1f5fb;
+  }
+  .celda:focus-visible {
+    outline: 2px solid #2a78d6;
+    outline-offset: -2px;
   }
   .chip {
     display: flex;

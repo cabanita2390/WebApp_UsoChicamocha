@@ -143,4 +143,13 @@ describe('DashboardEstaciones', () => {
 
     await waitFor(() => expect(substationAdmin.obtenerEjecucion).toHaveBeenCalledWith(900));
   });
+
+  it('si falla la carga muestra el error con "Reintentar"', async () => {
+    substationAdmin.indicadoresPorEstacion.mockRejectedValueOnce(new Error('Sin conexión'));
+    render(DashboardEstaciones);
+
+    expect(await screen.findByText('No se pudo cargar el dashboard')).toBeTruthy();
+    await fireEvent.click(screen.getByText('Reintentar'));
+    expect(await screen.findByText('Ayalas')).toBeTruthy();
+  });
 });

@@ -162,4 +162,34 @@ describe('SubestacionesConfiguracion', () => {
 
     expect(screen.getByText(/Copia las 2 citas de 2026 a 2027/)).toBeTruthy();
   });
+
+  it('si falla la carga muestra el error con "Reintentar"', async () => {
+    substationAdmin.listarEstaciones.mockRejectedValueOnce(new Error('Sin conexión'));
+    render(SubestacionesConfiguracion);
+
+    expect(await screen.findByText('No se pudo cargar la configuración')).toBeTruthy();
+    await fireEvent.click(screen.getByText('Reintentar'));
+    expect(await screen.findByText('Ayalas')).toBeTruthy();
+  });
+
+  it('en el modal, Enter guarda y el cursor empieza en "Nombre"', async () => {
+    substationAdmin.crearEstacion.mockResolvedValue({ id: 3 });
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByText('+ Nueva estación'));
+
+    const nombre = screen.getByLabelText('Nombre');
+    expect(document.activeElement).toBe(nombre);
+    await fireEvent.input(nombre, { target: { value: 'Tunja' } });
+    await fireEvent.submit(nombre.closest('form'));
+    await waitFor(() => expect(substationAdmin.crearEstacion).toHaveBeenCalled());
+  });
+
+  it('desactivar desde el modal no guarda el formulario por error', async () => {
+    substationAdmin.cambiarEstadoEstacion.mockResolvedValue({});
+    render(SubestacionesConfiguracion);
+    await fireEvent.click(await screen.findByText('Ayalas'));
+    await fireEvent.click(screen.getByText('Desactivar'));
+    expect(substationAdmin.actualizarEstacion).not.toHaveBeenCalled();
+  });
 });
