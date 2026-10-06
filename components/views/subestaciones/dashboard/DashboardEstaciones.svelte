@@ -71,7 +71,10 @@
         <div class="sub-tr clickable" style="grid-template-columns:{cols}" role="button" tabindex="0"
           title="Ver detalle de estación" on:click={() => detalleEstacionId.set(s.estacionId)}
           on:keydown={(e) => e.key === "Enter" && detalleEstacionId.set(s.estacionId)}>
-          <span>{s.estacionNombre}</span>
+          <span>
+            {s.estacionNombre}
+            {#if s.activa === false}<span class="sub-badge neu inactiva" title="Desactivada: se muestra por las citas o registros que tuvo este año">Inactiva</span>{/if}
+          </span>
           <span class="gris">{tipoLabel(s.estacionTipo)}</span>
           <span>{s.programado}</span>
           <span>{s.ejecutadasVencidas} <span class="tenue">de {s.vencidas}</span></span>
@@ -92,6 +95,9 @@
 </div>
 
 <style>
+  .inactiva {
+    margin-left: 6px;
+  }
   .cargando {
     display: flex;
     justify-content: center;

@@ -72,6 +72,17 @@ describe('DashboardEstaciones', () => {
     });
   });
 
+  it('una estación desactivada que tuvo citas en el año sale marcada como Inactiva', async () => {
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([
+      ind(1, 'Ayalas', { activa: true }),
+      ind(3, 'Monquira', { activa: false }),
+    ]);
+    render(DashboardEstaciones);
+
+    expect(await screen.findByText('Monquira')).toBeTruthy();
+    expect(screen.getAllByText('Inactiva')).toHaveLength(1);
+  });
+
   it('tabla del mockup: estación, tipo, programadas, ejecutadas y % con símbolo; "—" sin vencidas', async () => {
     render(DashboardEstaciones);
     expect(await screen.findByText('Ayalas')).toBeTruthy();

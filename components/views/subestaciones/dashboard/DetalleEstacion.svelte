@@ -172,7 +172,10 @@
   <div class="sub-card scroll-x">
     <div class="cabecera">
       <div>
-        <h1 class="nombre">{estacion.nombre}</h1>
+        <h1 class="nombre">
+          {estacion.nombre}
+          {#if !estacion.activa}<span class="sub-badge neu inactiva">Inactiva</span>{/if}
+        </h1>
         <div class="gris2">
           {tipoLabel(estacion.tipo)} · Frecuencia base {frecuenciaLabel(estacion.frecuenciaBase)} ·
           {$disciplinaFiltro ? disciplinaLabel($disciplinaFiltro) : "Todas las disciplinas"}
@@ -288,6 +291,10 @@
 {/if}
 
 <style>
+  .inactiva {
+    margin-left: 8px;
+    vertical-align: middle;
+  }
   .contenido {
     display: flex;
     flex-direction: column;
