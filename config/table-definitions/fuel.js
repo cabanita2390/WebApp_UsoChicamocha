@@ -8,7 +8,9 @@ import { formatDateTimeLocal, formatCurrency, formatKm, formatHoras, formatCanti
  * @param {Record<number, object>} vehiculosById - mapa id -> vehículo/moto de $data.vehicles (placa, marca).
  * @param {Record<number, object>} machinesById - mapa id -> máquina de $data.machines (name, brand).
  * @param {boolean} showActions - agrega una columna de acciones (Editar/Eliminar) al final; se
- *   omite del todo (no solo se oculta el botón Eliminar) cuando el usuario no es ADMIN.
+ *   omite del todo (no solo se ocultan los botones) para roles sin permiso de editar
+ *   (ADMIN o SUPERVISOR_OPERATIVO). Eliminar es más restrictivo (solo ADMIN) y se
+ *   controla aparte con la prop showDeleteButton del DataGrid.
  * @param {boolean} showHistorialAction - agrega la columna "Ver historial" (de solo lectura,
  *   visible sin importar el rol) — se omite dentro del propio modal de historial de un activo.
  * @param {boolean} showReintegroAction - agrega la columna "Reintegro" (Fase 6): botón
