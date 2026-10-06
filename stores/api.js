@@ -40,6 +40,24 @@ async function refreshTokenOnce() {
     }
 }
 
+export const MENSAJE_SIN_CONEXION =
+    'No hay conexión con el servidor. Revise su conexión a internet e intente de nuevo.';
+
+/**
+ * fetch que traduce el fallo de red (servidor caído, sin internet, CORS) a un mensaje para
+ * el usuario: el navegador solo da un TypeError "Failed to fetch".
+ */
+async function fetchConRed(url, init) {
+    try {
+        return await fetch(url, init);
+    } catch (e) {
+        if (e instanceof TypeError) {
+            throw new Error(MENSAJE_SIN_CONEXION);
+        }
+        throw e;
+    }
+}
+
 async function fetchWithAuth(endpoint, options = {}, retryCount = 0) {
     const MAX_RETRIES = 1;
     const token = getTokenOrThrow();
@@ -51,7 +69,7 @@ async function fetchWithAuth(endpoint, options = {}, retryCount = 0) {
         ...(isFormData ? {} : { 'Content-Type': 'application/json; charset=UTF-8' })
     };
 
-    const response = await fetch(buildUrl(endpoint, options.version), {
+    const response = await fetchConRed(buildUrl(endpoint, options.version), {
         ...options,
         headers: { ...defaultHeaders, ...options.headers }
     });
@@ -114,7 +132,7 @@ export async function download(endpoint, filename, options = {}, retryCount = 0)
     const MAX_RETRIES = 1;
     const token = getTokenOrThrow();
 
-    const response = await fetch(buildUrl(endpoint, options.version), {
+    const response = await fetchConRed(buildUrl(endpoint, options.version), {
         method: 'GET',
         ...options,
         headers: { 'Authorization': `Bearer ${token}`, ...options.headers }
