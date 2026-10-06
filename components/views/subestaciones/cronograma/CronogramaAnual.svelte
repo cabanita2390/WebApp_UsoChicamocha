@@ -207,6 +207,8 @@
 
   // ---- Acciones ----
   async function ejecutar(accion, mensaje) {
+    // Un doble clic llega antes de que los botones se pinten deshabilitados.
+    if (ocupado) return null;
     ocupado = true;
     try {
       const r = await accion();

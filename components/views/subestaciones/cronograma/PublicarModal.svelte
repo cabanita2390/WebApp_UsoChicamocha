@@ -31,6 +31,8 @@
   });
 
   async function publicar() {
+    // Un doble clic llega antes de que el botón se pinte deshabilitado.
+    if (publicando) return;
     publicando = true;
     error = "";
     try {
