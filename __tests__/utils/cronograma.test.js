@@ -70,6 +70,13 @@ describe('utils/cronograma', () => {
         expect(filas[1].sub).toBe('Compl.');
     });
 
+    it('fila por estación: la cita ya ejecutada de un mes abierto suma al % (no queda "—")', () => {
+        const citas = [cita(1, 1, 10, 9, { tieneEjecucion: true }), cita(2, 1, 11, 11)];
+        const [fila] = filasPorEstacion({ estaciones: [estaciones[0]], citas, actividadesPorId: actividades, anio: 2026, hoy,
+            densidad: 'normal', disciplinaFiltrada: true });
+        expect(fila.pct).toBe(100); // 1 de 1: la pendiente de noviembre todavía no cuenta
+    });
+
     it('densidad: con más citas que el máximo muestra max-1 chips y "+N más"', () => {
         const citas = [1, 2, 3, 4].map((i) => cita(i, 1, i % 2 ? 10 : 11, 10));
         const [fila] = filasPorEstacion({ estaciones: [estaciones[0]], citas, actividadesPorId: actividades, anio: 2026,

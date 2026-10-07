@@ -109,8 +109,8 @@ describe('DashboardEstaciones', () => {
     expect(await screen.findByText(/Bombeo · Frecuencia base Trimestral ·\s+Todas las disciplinas/)).toBeTruthy();
     expect(screen.getByText('Cumplimiento 2026')).toBeTruthy();
     expect(screen.getByText('75%')).toBeTruthy();
-    expect(screen.getByText('4 vencidas a la fecha')).toBeTruthy();
-    expect(screen.getByText('de 4 vencidas')).toBeTruthy();
+    expect(screen.getByText('4 cuentan para el %')).toBeTruthy();
+    expect(screen.getByText('de 4 a la fecha')).toBeTruthy();
     expect(screen.getByText('requieren seguimiento')).toBeTruthy();
 
     // Cita por cita: 4 publicadas (sin la del borrador ni la de otra estación)
@@ -189,12 +189,12 @@ describe('DashboardEstaciones', () => {
   it('tabla: título con el año y "Ejecutadas" como "x de vencidas" (así cuadra con el %)', async () => {
     const { container } = render(DashboardEstaciones);
     expect(await screen.findByText('Cumplimiento 2026')).toBeTruthy();
-    expect(screen.getByText(/ejecutadas ÷ citas de meses ya cerrados/)).toBeTruthy();
+    expect(screen.getByText(/ejecutadas ÷ citas de meses cerrados y ya ejecutadas/)).toBeTruthy();
     const ayalas = container.querySelectorAll('.sub-tr.clickable')[0];
     expect(ayalas.children[3].textContent.trim()).toBe('3 de 4');
   });
 
-  it('detalle: una cita ejecutada en un mes abierto avisa que aún no suma al %', async () => {
+  it('detalle: una cita ejecutada en un mes abierto se ve cumplida, sin aviso de que no suma', async () => {
     detalleEstacionId.set(1);
     const cron = await substationAdmin.obtenerCronograma();
     substationAdmin.obtenerCronograma.mockResolvedValue({
@@ -203,8 +203,9 @@ describe('DashboardEstaciones', () => {
     });
     render(DashboardEstaciones);
     await screen.findByText('Cumplimiento cita por cita');
-    // Feb (mes cerrado) ejecutada: cuenta, sin aviso. Sep (mes en curso) ejecutada: avisa.
-    expect(screen.getAllByText('aún no suma al %')).toHaveLength(1);
+    // Sep (mes en curso) ejecutada: suma al % de una vez, igual que el backend.
+    expect(screen.queryByText('aún no suma al %')).toBeNull();
+    expect(screen.getAllByText('✓ Cumple').length).toBeGreaterThan(0);
   });
 
   it('detalle: click en una actividad abre su detalle en Resumen por actividad', async () => {

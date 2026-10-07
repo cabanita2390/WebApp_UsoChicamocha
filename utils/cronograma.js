@@ -144,7 +144,8 @@ function celda(lista, m, { anio, hoy, max, seleccion, modoEdicion, chipDe }) {
         n,
         okN: ok,
         badN: bad,
-        vencidasN: mesCerrado(anio, m, hoy) ? n : 0,
+        // Citas que entran al %: todas las de un mes cerrado y, de un mes abierto, solo las ya ejecutadas.
+        vencidasN: mesCerrado(anio, m, hoy) ? n : ok,
         chips: chips.slice(0, n > max ? max - 1 : max),
         mas: n > max ? n - max + 1 : 0,
         mostrarMas: modoEdicion && n === 0,
@@ -160,7 +161,7 @@ function celda(lista, m, { anio, hoy, max, seleccion, modoEdicion, chipDe }) {
 
 function pctFila(celdas) {
     const vencidas = celdas.reduce((x, c) => x + c.vencidasN, 0);
-    const ejecutadas = celdas.reduce((x, c) => x + (c.vencidasN ? c.okN : 0), 0);
+    const ejecutadas = celdas.reduce((x, c) => x + c.okN, 0);
     if (!vencidas) return { pct: null, pctL: '—', badge: { color: '#898781', g: '', l: 'Sin citas vencidas' } };
     const pct = Math.round((ejecutadas / vencidas) * 100);
     return { pct, pctL: `${pct}%`, badge: pctBadge(pct) };

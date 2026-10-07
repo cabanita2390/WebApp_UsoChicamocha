@@ -116,7 +116,7 @@
       <div class="sub-th" style="grid-template-columns:{cols}">
         <span>Actividad</span>
         <span class="num" title="Citas publicadas a móvil en el año, todas las estaciones">Programadas</span>
-        <span class="num" title="Citas de meses cerrados que tienen ejecución">Ejecutadas</span>
+        <span class="num" title="Citas ejecutadas, de las que ya cuentan para el %">Ejecutadas</span>
         <span class="num" title="Todas las ejecuciones del año de esta actividad">Registros</span>
         <span class="num" title="Ejecuciones sin cita del cronograma">Fuera de cronograma</span>
         <span>Cumplimiento</span>
@@ -168,8 +168,8 @@
       {/if}
     </div>
     <p class="nota">
-      Cumplimiento = citas ejecutadas ÷ citas de meses ya cerrados (misma fórmula del Dashboard). “—” = todavía no
-      hay citas vencidas.
+      Cumplimiento = citas ejecutadas ÷ (citas de meses cerrados + citas ya ejecutadas de meses abiertos), misma
+      fórmula del Dashboard. “—” = todavía no hay citas que medir.
     </p>
   {/if}
   <SubToast />

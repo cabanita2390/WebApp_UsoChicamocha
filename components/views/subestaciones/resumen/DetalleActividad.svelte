@@ -148,26 +148,22 @@
   $: pc = pct != null ? pctBadge(pct) : { color: "#898781", c: "#52514e", bg: "#f0f0ee", g: "", l: "Sin citas vencidas" };
   $: kpis = resumen
     ? [
-        { l: "Citas programadas", v: resumen.programadoAnual, s: `${resumen.vencidas} vencidas a la fecha` },
-        { l: "Ejecutadas", v: resumen.ejecutadasVencidas, s: `de ${resumen.vencidas} vencidas` },
+        { l: "Citas programadas", v: resumen.programadoAnual, s: `${resumen.vencidas} cuentan para el %` },
+        { l: "Ejecutadas", v: resumen.ejecutadasVencidas, s: `de ${resumen.vencidas} a la fecha` },
         { l: "Registros del año", v: resumen.ejecutadoTotal, s: `${resumen.mantenimiento} mantenimiento · ${resumen.inspeccion} inspección` },
         { l: "Fuera de cronograma", v: resumen.ejecutadoNoProgramado, s: "registros sin cita asociada" },
       ]
     : [];
   $: filasEstacion = hoy
     ? porEstacion.map((g) => {
-        // Misma fórmula del backend: solo cuentan los meses cerrados (una cita futura
-        // ejecutada antes de tiempo se ve ✓ pero todavía no suma al cumplimiento).
-        const vencidas = g.citas.filter((c) => mesCerrado(anio, c.mes, hoy));
+        // Misma fórmula del backend: cuentan las citas de meses cerrados y las ya ejecutadas
+        // (una cita hecha por adelantado suma de una vez; la pendiente de un mes abierto no).
+        const vencidas = g.citas.filter((c) => c.tieneEjecucion || mesCerrado(anio, c.mes, hoy));
         return {
           ...g,
           meses: MESES.map((m, i) => {
             const c = g.citas.find((x) => x.mes === i + 1);
-            return {
-              m, i, e: c ? estadoMes(c) : null, fecha: c?.fechaEjecucion,
-              // Ejecutada en un mes que aún no cierra: se ve ✓ pero todavía no suma al %.
-              noCuenta: !!c?.tieneEjecucion && !mesCerrado(anio, c.mes, hoy),
-            };
+            return { m, i, e: c ? estadoMes(c) : null, fecha: c?.fechaEjecucion };
           }),
           ejecutadas: vencidas.filter((c) => c.tieneEjecucion).length,
           vencidas: vencidas.length,
@@ -237,7 +233,7 @@
             <span class="mes">
               {#if x.e}
                 <span class="punto" style="color:{x.e.c};background:{x.e.bg}"
-                  title="{MESES_LARGOS[x.i]} · {x.e.l}{x.fecha ? ` ${fechaCorta(x.fecha)}` : ''}{x.noCuenta ? ' · aún no suma al %' : ''}">{x.e.g}</span>
+                  title="{MESES_LARGOS[x.i]} · {x.e.l}{x.fecha ? ` ${fechaCorta(x.fecha)}` : ''}">{x.e.g}</span>
               {/if}
             </span>
           {/each}
@@ -248,8 +244,8 @@
       {/each}
     </div>
     <p class="leyenda">
-      ✓ ejecutada · ✕ no ejecutada · ◐ mes en curso · ○ programada — “Ejecutadas” y el % solo cuentan meses
-      ya cerrados; una cita hecha por adelantado se ve ✓ pero suma cuando su mes termine.
+      ✓ ejecutada · ✕ no ejecutada · ◐ mes en curso · ○ programada — “Ejecutadas” y el % cuentan las citas de meses
+      cerrados y las ya ejecutadas; una pendiente del mes en curso o de meses futuros todavía no cuenta.
     </p>
 
     <div class="seccion">Registros de {anio}</div>

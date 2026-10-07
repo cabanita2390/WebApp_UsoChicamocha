@@ -132,11 +132,11 @@ describe('ResumenActividad', () => {
     expect(screen.getByTitle('Mayo · No ejecutada')).toBeTruthy();
     expect(screen.getByTitle('Septiembre · En curso')).toBeTruthy();
     expect(screen.queryByTitle(/Noviembre/)).toBeNull(); // la cita en borrador no se muestra
-    // Ejecutadas por estación: solo meses cerrados, como el % del backend (la de diciembre
-    // se ve ✓ pero todavía no cuenta).
-    expect(screen.getByTitle('Diciembre · Ejecutada 02/09/2026 · aún no suma al %')).toBeTruthy();
+    // Ejecutadas por estación, como el % del backend: meses cerrados + las ya ejecutadas
+    // (la de diciembre en CLAN, hecha por adelantado, suma de una vez; la de septiembre en curso no).
+    expect(screen.getByTitle('Diciembre · Ejecutada 02/09/2026')).toBeTruthy();
     const ejec = [...container.querySelectorAll('.est:not(.est-h) .der')].map((n) => n.textContent.trim());
-    expect(ejec).toEqual(['1 de 2', '0 de 0']);
+    expect(ejec).toEqual(['1 de 2', '1 de 1']);
 
     expect(screen.getByText('21 registros')).toBeTruthy();
     expect(screen.getByText('! Con hallazgos')).toBeTruthy();

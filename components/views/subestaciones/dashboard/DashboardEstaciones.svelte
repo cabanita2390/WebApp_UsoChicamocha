@@ -57,7 +57,7 @@
         <h1 class="sub-title">Cumplimiento {anio}</h1>
         <p class="sub-subtitle">
           {$disciplinaFiltro ? disciplinaLabel($disciplinaFiltro) : "Todas las disciplinas"} · ejecutadas ÷ citas de
-          meses ya cerrados · click en una estación para ver su detalle.
+          meses cerrados y ya ejecutadas · click en una estación para ver su detalle.
         </p>
       </div>
       <SelectorDisciplina on:change={cargar} />

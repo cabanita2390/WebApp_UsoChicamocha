@@ -114,8 +114,8 @@
   $: abiertos = indicador?.hallazgosAbiertos ?? 0;
   $: kpis = indicador
     ? [
-        { l: "Citas programadas", v: indicador.programado, s: `${indicador.vencidas} vencidas a la fecha`, c: "#0b0b0b" },
-        { l: "Ejecutadas", v: indicador.ejecutadasVencidas, s: `de ${indicador.vencidas} vencidas`, c: "#0b0b0b" },
+        { l: "Citas programadas", v: indicador.programado, s: `${indicador.vencidas} cuentan para el %`, c: "#0b0b0b" },
+        { l: "Ejecutadas", v: indicador.ejecutadasVencidas, s: `de ${indicador.vencidas} a la fecha`, c: "#0b0b0b" },
         { l: "Con hallazgos", v: indicador.conHallazgos, s: `en ${anio}`, c: "#0b0b0b" },
         {
           l: "Hallazgos abiertos",
@@ -143,8 +143,6 @@
           actividadId: c.actividadId,
           mes: MESES[c.mes - 1],
           act: actividadesPorId.get(c.actividadId)?.nombre ?? "",
-          // Ejecutada en un mes que aún no cierra: se ve ✓ pero todavía no suma al %.
-          noCuenta: c.tieneEjecucion && !cerrado,
           b: c.tieneEjecucion
             ? { ...BADGE.ok, g: "✓", l: "Cumple" }
             : cerrado
@@ -232,7 +230,6 @@
             <button class="enlace" title="Ver la actividad en Resumen por actividad" on:click={() => verActividad(r.actividadId)}>{r.act}</button>
             <span class="der">
               <span class="sub-badge" style="color:{r.b.c};background:{r.b.bg}">{r.b.g} {r.b.l}</span>
-              {#if r.noCuenta}<span class="aun" title="El mes no ha cerrado: se cuenta en el % cuando termine">aún no suma al %</span>{/if}
             </span>
           </div>
         {:else}
@@ -486,12 +483,6 @@
   }
   .der {
     text-align: right;
-  }
-  .aun {
-    display: block;
-    margin-top: 2px;
-    font-size: 11px;
-    color: #898781;
   }
   .enlace {
     all: unset;
