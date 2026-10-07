@@ -16,8 +16,11 @@ const ADMIN_ITEM_TITLES = [
   'Consolidado de aceites y estado: Maquinaria · Vehículos · Motos',
   'Marcas de aceite del catálogo compartido',
   'Tanqueo, suministro, dashboard financiero, almacén, rendimiento y distribución',
-  'Mantenimiento de subestaciones (disciplina Civil): dashboard, resumen por actividad y ejecuciones/hallazgos',
+  'Estaciones de Bombeo: dashboard, resumen por actividad, ejecuciones y cronograma anual',
+  'Configuración de Estaciones de Bombeo: estaciones, actividades y programación',
 ];
+
+const CONFIG_TITLE = 'Configuración de Estaciones de Bombeo: estaciones, actividades y programación';
 
 const ADMIN_ITEM_COUNT = ADMIN_ITEM_TITLES.length;
 
@@ -39,7 +42,7 @@ describe('Sidebar', () => {
       mockAuth('ADMIN');
     });
 
-    it('renderiza los 7 ítems de navegación visibles del sidebar', async () => {
+    it('renderiza los ítems de navegación visibles del sidebar', async () => {
       const { default: SidebarAdmin } = await import('../../components/shared/Sidebar.svelte');
       const { container } = render(SidebarAdmin);
 
@@ -68,9 +71,14 @@ describe('Sidebar', () => {
       const { container } = render(SidebarNonAdmin);
 
       expect(screen.queryByTitle('Usuarios del sistema')).toBeNull();
-      for (const title of ADMIN_ITEM_TITLES.filter((t) => t !== 'Usuarios del sistema')) {
+      for (const title of ADMIN_ITEM_TITLES.filter((t) => t !== 'Usuarios del sistema' && t !== CONFIG_TITLE)) {
         expect(screen.getByTitle(title)).toBeTruthy();
       }
+      // Configuración de Subestaciones: visible pero con candado, sin enlace (mockup §0.2)
+      expect(screen.queryByTitle(CONFIG_TITLE)).toBeNull();
+      const bloqueado = screen.getByTitle('Requiere rol ADMIN');
+      expect(bloqueado.tagName).not.toBe('A');
+      expect(bloqueado.textContent).toContain('Solo ADMIN');
       expect(container.querySelectorAll('.nav-item').length).toBe(ADMIN_ITEM_COUNT - 1);
     });
   });

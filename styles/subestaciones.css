@@ -1,0 +1,343 @@
+/*
+ * Módulo Subestaciones (web v2): tokens y piezas visuales copiadas 1:1 del mockup
+ * "Subestaciones Civil v2" (DOCUMENTOS/CIVILWEB/mokup). Todo va bajo `.sub-mod` para no
+ * tocar el resto de la app.
+ */
+.sub-mod {
+  --sub-ink: #0b0b0b;
+  --sub-ink-2: #52514e;
+  --sub-muted: #898781;
+  --sub-border: rgba(11, 11, 11, 0.08);
+  --sub-border-2: rgba(11, 11, 11, 0.12);
+  --sub-row-border: rgba(11, 11, 11, 0.05);
+  --sub-page: #f7f7f6;
+  --sub-surface: #ffffff;
+  --sub-hover: #fafaf9;
+  --sub-blue: #2a78d6;
+  --sub-blue-dark: #1f5fae;
+  --sub-blue-soft: #e8f1fb;
+  --sub-blue-disabled: #a9c6ea;
+  --sub-ok: #006300;
+  --sub-ok-bg: #e8f1e8;
+  --sub-warn: #8a5b00;
+  --sub-warn-bg: #faf1de;
+  --sub-bad: #d03b3b;
+  --sub-bad-bg: #fbeaea;
+  --sub-neu: #52514e;
+  --sub-neu-bg: #f0f0ee;
+  --sub-shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 12px rgba(11, 11, 11, 0.05);
+
+  background: var(--sub-page);
+  color: var(--sub-ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+}
+/* Los bloques de la página nunca se encogen: si no caben, la página hace scroll (sin esto,
+   en pantallas bajas las tarjetas con overflow quedaban aplastadas). */
+.sub-mod > * {
+  flex-shrink: 0;
+}
+.sub-mod *,
+.sub-mod *::before,
+.sub-mod *::after {
+  box-sizing: border-box;
+}
+.sub-mod select,
+.sub-mod input,
+.sub-mod textarea,
+.sub-mod button {
+  font-family: inherit;
+}
+
+/* Encabezado de pantalla */
+.sub-mod .sub-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.sub-mod .sub-head-text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.sub-mod .sub-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.sub-mod .sub-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--sub-ink-2);
+}
+
+/* Tarjeta */
+.sub-mod .sub-card {
+  background: var(--sub-surface);
+  border: 1px solid var(--sub-border);
+  border-radius: 10px;
+  box-shadow: var(--sub-shadow);
+}
+
+/* Botones */
+.sub-mod .sub-btn-primary {
+  background: var(--sub-blue);
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sub-mod .sub-btn-primary:disabled {
+  background: var(--sub-blue-disabled);
+  cursor: not-allowed;
+}
+.sub-mod .sub-btn {
+  background: #fff;
+  color: var(--sub-ink);
+  border: 1px solid var(--sub-border-2);
+  border-radius: 999px;
+  padding: 9px 20px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sub-mod .sub-btn-danger {
+  background: var(--sub-bad);
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: none;
+}
+.sub-mod .sub-btn-danger-outline {
+  background: #fff;
+  color: var(--sub-bad);
+  border: 1px solid rgba(208, 59, 59, 0.45);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: none;
+}
+.sub-mod .sub-link {
+  all: unset;
+  cursor: pointer;
+  color: var(--sub-blue);
+}
+
+/* Control segmentado (Estaciones / Actividades / Programación, Filas, Densidad…) */
+.sub-mod .sub-seg {
+  display: flex;
+  padding: 3px;
+  background: #efefed;
+  border-radius: 999px;
+}
+.sub-mod .sub-seg button {
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--sub-ink);
+  font-weight: 400;
+  box-shadow: none;
+}
+.sub-mod .sub-seg button.on {
+  background: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(11, 11, 11, 0.1);
+}
+
+/* Badges de estado: símbolo + color (nunca solo color) */
+.sub-mod .sub-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sub-mod .sub-badge.ok { color: var(--sub-ok); background: var(--sub-ok-bg); }
+.sub-mod .sub-badge.warn { color: var(--sub-warn); background: var(--sub-warn-bg); }
+.sub-mod .sub-badge.bad { color: var(--sub-bad); background: var(--sub-bad-bg); }
+.sub-mod .sub-badge.neu { color: var(--sub-neu); background: var(--sub-neu-bg); }
+
+/* Tablas de grilla CSS (encabezado + filas clicables) */
+.sub-mod .sub-table-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--sub-border);
+}
+.sub-mod .sub-table-bar-text {
+  font-size: 13px;
+  color: var(--sub-ink-2);
+  min-width: 0;
+}
+.sub-mod .sub-table-bar-text strong {
+  color: var(--sub-ink);
+}
+.sub-mod .sub-th {
+  display: grid;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sub-muted);
+  border-bottom: 1px solid var(--sub-border);
+}
+.sub-mod .sub-tr {
+  display: grid;
+  align-items: center;
+  padding: 9px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--sub-row-border);
+}
+.sub-mod .sub-tr.clickable {
+  cursor: pointer;
+}
+.sub-mod .sub-tr.clickable:hover {
+  background: var(--sub-hover);
+}
+.sub-mod .sub-empty {
+  padding: 32px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--sub-muted);
+}
+
+/* Formularios */
+.sub-mod .sub-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--sub-ink-2);
+}
+.sub-mod .sub-input,
+.sub-mod .sub-select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--sub-border-2);
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+  color: var(--sub-ink);
+}
+.sub-mod .sub-field-hint {
+  font-size: 11.5px;
+  color: var(--sub-muted);
+}
+.sub-mod .sub-field-error {
+  font-size: 12px;
+  color: var(--sub-bad);
+}
+
+/* Candado "solo ADMIN" */
+.sub-mod .sub-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed rgba(11, 11, 11, 0.18);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  color: var(--sub-muted);
+  white-space: nowrap;
+  cursor: not-allowed;
+}
+
+/* Modales y capas (fuera del flujo de .sub-mod: se montan con position: fixed) */
+.sub-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 11, 11, 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1050;
+}
+.sub-modal {
+  width: 500px;
+  max-width: 100%;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(11, 11, 11, 0.18);
+}
+.sub-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(11, 11, 11, 0.08);
+}
+.sub-modal-title {
+  font-size: 16px;
+  font-weight: 650;
+}
+.sub-modal-x {
+  all: unset;
+  cursor: pointer;
+  font-size: 20px;
+  color: #898781;
+  padding: 2px 6px;
+}
+.sub-modal-body {
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sub-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 22px;
+  border-top: 1px solid rgba(11, 11, 11, 0.08);
+}
+
+/* Toast (mensaje temporal abajo, ~2 s) */
+.sub-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0b0b0b;
+  color: #fff;
+  font-size: 13px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  z-index: 1100;
+  box-shadow: 0 6px 20px rgba(11, 11, 11, 0.25);
+  max-width: calc(100vw - 32px);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.sub-toast.error {
+  background: #d03b3b;
+}

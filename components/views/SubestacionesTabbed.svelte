@@ -1,14 +1,16 @@
 <script>
   import TabPanel from "../shared/TabPanel.svelte";
-  import SubestacionesDashboard from "./SubestacionesDashboard.svelte";
-  import SubestacionesResumenActividad from "./SubestacionesResumenActividad.svelte";
+  import DashboardEstaciones from "./subestaciones/dashboard/DashboardEstaciones.svelte";
+  import ResumenActividad from "./subestaciones/resumen/ResumenActividad.svelte";
   import SubestacionesEjecuciones from "./SubestacionesEjecuciones.svelte";
-  import { subestacionesActiveTab } from "../../stores/subestacionesFilters.js";
+  import CronogramaAnual from "./subestaciones/cronograma/CronogramaAnual.svelte";
+  import { subestacionesActiveTab, pantallaAmpliada } from "../../stores/subestacionesFilters.js";
 
   const tabs = [
     { id: "dashboard", label: "Dashboard de Estaciones" },
     { id: "resumenActividad", label: "Resumen por Actividad" },
     { id: "ejecuciones", label: "Ejecuciones y Hallazgos" },
+    { id: "cronograma", label: "Cronograma Anual" },
   ];
 
   function handleTabChange(event) {
@@ -17,13 +19,15 @@
 </script>
 
 <div class="tabbed-wrap">
-  <TabPanel {tabs} activeTab={$subestacionesActiveTab} on:tabChange={handleTabChange}>
+  <TabPanel {tabs} activeTab={$subestacionesActiveTab} hideBar={$pantallaAmpliada} on:tabChange={handleTabChange}>
     {#if $subestacionesActiveTab === "dashboard"}
-      <SubestacionesDashboard />
+      <DashboardEstaciones />
     {:else if $subestacionesActiveTab === "resumenActividad"}
-      <SubestacionesResumenActividad />
+      <ResumenActividad />
     {:else if $subestacionesActiveTab === "ejecuciones"}
       <SubestacionesEjecuciones />
+    {:else if $subestacionesActiveTab === "cronograma"}
+      <CronogramaAnual />
     {/if}
   </TabPanel>
 </div>

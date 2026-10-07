@@ -1,14 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import SubestacionesTabbed from '../../components/views/SubestacionesTabbed.svelte';
-import { subestacionesActiveTab } from '../../stores/subestacionesFilters.js';
+import { subestacionesActiveTab, pantallaAmpliada, detalleEstacionId } from '../../stores/subestacionesFilters.js';
 
 vi.mock('../../stores/data.js', () => ({
   data: {
     subscribe: vi.fn((callback) => {
       callback({
-        substationIndicadoresPorEstacion: [],
-        substationResumenPorActividad: [],
         substationEstaciones: [],
         substationActividades: [],
         substationEjecuciones: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
@@ -16,8 +14,6 @@ vi.mock('../../stores/data.js', () => ({
       });
       return () => {};
     }),
-    fetchSubstationIndicadoresPorEstacion: vi.fn(),
-    fetchSubstationResumenPorActividad: vi.fn(),
     fetchSubstationEstaciones: vi.fn(),
     fetchSubstationActividades: vi.fn(),
     fetchSubstationEjecuciones: vi.fn(),
@@ -30,31 +26,53 @@ vi.mock('../../stores/ui.js', () => ({
   addNotification: vi.fn(),
 }));
 
-// Mismo motivo que FuelTrendChart.test.js: jsdom no tiene canvas 2D real.
-vi.mock('echarts/core', () => ({ use: vi.fn(), init: vi.fn(() => ({ setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn() })) }));
+vi.mock('../../stores/auth.js', () => ({
+  auth: { subscribe: (fn) => { fn({ currentUser: { name: 'admin', role: 'ADMIN' } }); return () => {}; } },
+}));
+
+vi.mock('../../stores/substationAdmin.js', () => ({
+  substationAdmin: {
+    indicadoresPorEstacion: vi.fn(async () => []),
+    resumenPorActividad: vi.fn(async () => []),
+    listarEstaciones: vi.fn(async () => []),
+    listarActividades: vi.fn(async () => []),
+    obtenerCronograma: vi.fn(async () => ({
+      anio: 2026, anioActual: 2026, mesActual: 9, citas: [], borrador: { altas: 0, bajas: 0 },
+      ultimaPublicacion: null, puedeDeshacer: false,
+    })),
+  },
+}));
 
 describe('SubestacionesTabbed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     subestacionesActiveTab.set('dashboard');
+    pantallaAmpliada.set(false);
+    detalleEstacionId.set(null);
   });
 
-  it('muestra el Dashboard de Estaciones por defecto', () => {
+  it('muestra las 4 pestañas y el Dashboard de Estaciones por defecto', async () => {
     render(SubestacionesTabbed);
-    expect(screen.getByText('Estaciones activas')).toBeTruthy();
+    expect(screen.getAllByRole('tab').map((t) => t.textContent.trim())).toEqual([
+      'Dashboard de Estaciones', 'Resumen por Actividad', 'Ejecuciones y Hallazgos', 'Cronograma Anual',
+    ]);
+    expect(await screen.findByText('Programadas')).toBeTruthy();
   });
 
   it('cambia a cada pestaña y renderiza el componente correcto', async () => {
     render(SubestacionesTabbed);
 
     await fireEvent.click(screen.getByRole('tab', { name: 'Resumen por Actividad' }));
-    expect(screen.getByText('Civil (única habilitada)')).toBeTruthy();
+    expect(await screen.findByText('Resumen por actividad', { selector: 'h1' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('tab', { name: 'Ejecuciones y Hallazgos' }));
     expect(screen.getByText('Solo hallazgos')).toBeTruthy();
 
+    await fireEvent.click(screen.getByRole('tab', { name: 'Cronograma Anual' }));
+    expect(await screen.findByText('Cronograma Anual', { selector: 'h1' })).toBeTruthy();
+
     await fireEvent.click(screen.getByRole('tab', { name: 'Dashboard de Estaciones' }));
-    expect(screen.getByText('Estaciones activas')).toBeTruthy();
+    expect(await screen.findByText('Programadas')).toBeTruthy();
   });
 
   it('la pestaña activa sobrevive a que el componente se desmonte y se vuelva a montar', async () => {
@@ -64,5 +82,11 @@ describe('SubestacionesTabbed', () => {
 
     render(SubestacionesTabbed);
     expect(screen.getByText('Solo hallazgos')).toBeTruthy();
+  });
+
+  it('en vista ampliada del Cronograma se oculta la barra de pestañas', () => {
+    pantallaAmpliada.set(true);
+    render(SubestacionesTabbed);
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Módulo de mantenimiento de Subestaciones (MVP: disciplina CIVIL). Reportes de
+ * Módulo de mantenimiento de Estaciones de Bombeo (todas las disciplinas). Reportes de
  * solo lectura — la captura de ejecuciones ocurre desde la app móvil, no aquí
  * (ver docs/design/subestaciones-design-brief.md).
  */
@@ -7,14 +7,9 @@ export function createSubstationActions({ fetchWithAuth, fetchAll, fetchPaginate
     return {
         fetchSubstationEstaciones: () => fetchAll('substationEstaciones', 'substation/estaciones'),
 
-        fetchSubstationActividades: (disciplina = 'CIVIL') =>
-            fetchAll('substationActividades', `substation/actividades?disciplina=${disciplina}`),
-
-        fetchSubstationIndicadoresPorEstacion: () =>
-            fetchAll('substationIndicadoresPorEstacion', 'substation/indicadores/por-estacion'),
-
-        fetchSubstationResumenPorActividad: (disciplina = 'CIVIL') =>
-            fetchAll('substationResumenPorActividad', `substation/indicadores/por-actividad?disciplina=${disciplina}`),
+        /** Sin disciplina: el catálogo de todas las disciplinas. */
+        fetchSubstationActividades: (disciplina) =>
+            fetchAll('substationActividades', `substation/actividades${disciplina ? `?disciplina=${disciplina}` : ''}`),
 
         /**
          * Listado paginado de ejecuciones. `filtros` refleja 1:1 los query params
@@ -35,7 +30,9 @@ export function createSubstationActions({ fetchWithAuth, fetchAll, fetchPaginate
             if (filtros.tipoActividad) params.set('tipoActividad', filtros.tipoActividad);
             // Más reciente primero — sin esto Spring Data no aplica ningún orden
             // garantizado (en la práctica salía por id de inserción, más viejo primero).
-            params.set('sort', 'fecha,desc');
+            // Con la misma fecha, el último registrado primero.
+            params.append('sort', 'fecha,desc');
+            params.append('sort', 'id,desc');
             const qs = params.toString();
             return fetchPaginated('substationEjecuciones', 'substation/ejecuciones', page, size, {
                 extraQuery: qs ? `&${qs}` : '',

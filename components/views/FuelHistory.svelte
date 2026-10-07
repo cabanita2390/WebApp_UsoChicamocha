@@ -32,6 +32,9 @@
   // ADMIN-only.
   $: isSupervisorOperativo = $auth?.currentUser?.role === "SUPERVISOR_OPERATIVO";
   $: canReintegrar = isAdmin || isSupervisorOperativo;
+  // Editar exige SUPERVISOR_OPERATIVO o ADMIN en el backend (ver SecurityConfig);
+  // Eliminar sigue siendo ADMIN-only (showDeleteButton más abajo).
+  $: canEditar = isAdmin || isSupervisorOperativo;
   $: fuelTypes = $data.fuelTypes ?? [];
   $: fuelTypesById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.nombre]));
   $: unidadMedidaById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.unidadMedida]));
@@ -41,7 +44,7 @@
   // tabla vehiculos), por eso vehiculosById ya cubre VEHICULO y MOTOCICLETA.
   $: motos = $data.motos ?? [];
   $: machines = $data.machines ?? [];
-  $: columns = createRefuelingColumns(fuelTypesById, unidadMedidaById, vehiculosById, machinesById, isAdmin, false, canReintegrar);
+  $: columns = createRefuelingColumns(fuelTypesById, unidadMedidaById, vehiculosById, machinesById, canEditar, false, canReintegrar);
 
   $: activo = tipoElemento === "MAQUINARIA" ? machinesById[activoId] : vehiculosById[activoId];
   $: activoLabel = activo

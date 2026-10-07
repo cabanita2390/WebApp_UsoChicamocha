@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import fetchWithAuth, { getFileUrl } from '../stores/api.js';
+import fetchWithAuth, { getFileUrl, MENSAJE_SIN_CONEXION } from '../stores/api.js';
 
 /**
  * @fileoverview Suite de tests para la función fetchWithAuth.
@@ -53,6 +53,12 @@ describe('fetchWithAuth', () => {
   });
 
   // --- Casos de Prueba ---
+
+  it('servidor caído o sin internet: mensaje legible en vez de "Failed to fetch"', async () => {
+    global.fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await expect(fetchWithAuth('substation/cronograma?anio=2026')).rejects.toThrow(MENSAJE_SIN_CONEXION);
+  });
 
   /**
    * @test Caso exitoso (Happy Path).

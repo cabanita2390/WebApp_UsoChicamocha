@@ -59,8 +59,6 @@ export const initialState = {
     // useWebSocketNotifications.js en segundo plano.
     substationEstaciones: [],
     substationActividades: [],
-    substationIndicadoresPorEstacion: [],
-    substationResumenPorActividad: [],
     substationEjecuciones: { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 },
     isLoading: false,
     error: null,
@@ -94,8 +92,6 @@ export const STORE_ARRAY_KEYS = new Set([
     'vehicleInspectionsFull',
     'substationEstaciones',
     'substationActividades',
-    'substationIndicadoresPorEstacion',
-    'substationResumenPorActividad',
 ]);
 
 /** Convierte cuerpo JSON a lista (array plano, Spring `content`, o `data`). */

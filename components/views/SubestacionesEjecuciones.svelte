@@ -6,6 +6,9 @@
   import DataGrid from "../shared/DataGrid.svelte";
   import SubestacionEjecucionDetalleModal from "../shared/SubestacionEjecucionDetalleModal.svelte";
   import { createEjecucionesColumns } from "../../config/table-definitions/substation.js";
+  import { get } from "svelte/store";
+  import { ejecucionesFiltroInicial } from "../../stores/subestacionesFilters.js";
+  import { disciplinaLabel } from "../../config/subestaciones.js";
 
   const TIPOS_MANTENIMIENTO = [
     { value: "PREVENTIVO", label: "Preventivo" },
@@ -41,6 +44,18 @@
   }
 
   let filtros = filtrosVacios();
+  // Llegando desde el Cronograma ("Ver ejecuciones de este mes →"): estación + rango del mes.
+  const filtroInicial = get(ejecucionesFiltroInicial);
+  if (filtroInicial) {
+    filtros = {
+      ...filtros,
+      estacionId: filtroInicial.estacionId ?? "",
+      actividadId: filtroInicial.actividadId ?? "",
+      fechaInicio: filtroInicial.fechaInicio ?? "",
+      fechaFin: filtroInicial.fechaFin ?? "",
+    };
+    ejecucionesFiltroInicial.set(null);
+  }
   let pageSize = 20;
 
   $: isLoading = $data.isLoading;
@@ -116,7 +131,7 @@
 
   onMount(() => {
     if (!estaciones.length) data.fetchSubstationEstaciones();
-    if (!actividades.length) data.fetchSubstationActividades("CIVIL");
+    if (!actividades.length) data.fetchSubstationActividades();
     cargar(0);
   });
 </script>
@@ -138,7 +153,7 @@
         <select bind:value={filtros.actividadId}>
           <option value="">Todas</option>
           {#each actividades as a}
-            <option value={a.id}>{a.nombre}</option>
+            <option value={a.id}>{disciplinaLabel(a.disciplina)} · {a.nombre}</option>
           {/each}
         </select>
       </label>
