@@ -56,7 +56,7 @@ describe('SubestacionesTabbed', () => {
     expect(screen.getAllByRole('tab').map((t) => t.textContent.trim())).toEqual([
       'Dashboard de Estaciones', 'Resumen por Actividad', 'Ejecuciones y Hallazgos', 'Cronograma Anual',
     ]);
-    expect(await screen.findByText('Programadas')).toBeTruthy();
+    expect(await screen.findByText('Avance del año')).toBeTruthy();
   });
 
   it('cambia a cada pestaña y renderiza el componente correcto', async () => {
@@ -72,7 +72,7 @@ describe('SubestacionesTabbed', () => {
     expect(await screen.findByText('Cronograma Anual', { selector: 'h1' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('tab', { name: 'Dashboard de Estaciones' }));
-    expect(await screen.findByText('Programadas')).toBeTruthy();
+    expect(await screen.findByText('Avance del año')).toBeTruthy();
   });
 
   it('la pestaña activa sobrevive a que el componente se desmonte y se vuelva a montar', async () => {

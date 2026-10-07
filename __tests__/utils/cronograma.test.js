@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     mesCerrado, estadoCita, chip, filtrarCitas, filasPorEstacion, filasPorActividad, totalesPorMes,
-    mesesDePreset, paresAsignacion, pctBadge, fechaHora,
+    mesesDePreset, paresAsignacion, pctBadge, fechaHora, semaforoMes, porcentaje,
 } from '../../utils/cronograma.js';
 
 const hoy = { anioActual: 2026, mesActual: 9 };
@@ -121,5 +121,16 @@ describe('utils/cronograma', () => {
         expect(pctBadge(55).g).toBe('■');
         expect(pctBadge(35).g).toBe('▼');
         expect(fechaHora('2026-09-29T14:21:51.374636')).toBe('29/09/2026 14:21');
+    });
+
+    it('semáforo del mes: compara el avance con lo que va del mes; null sin citas', () => {
+        expect(semaforoMes(0, 10, 5).l).toBe('Al día');        // empieza el mes: nadie sale en rojo
+        expect(semaforoMes(4, 10, 50).l).toBe('Al día');       // 40% con 50% del mes: dentro de 10 puntos
+        expect(semaforoMes(3, 10, 50).l).toBe('Algo atrasado');
+        expect(semaforoMes(1, 10, 90).l).toBe('Atrasado');     // final de mes en 10%
+        expect(semaforoMes(15, 15, 20)).toMatchObject({ l: 'Mes completo', pct: 100 });
+        expect(semaforoMes(0, 0, 50)).toBeNull();
+        expect(porcentaje(1, 4)).toBe(25);
+        expect(porcentaje(1, 0)).toBeNull();
     });
 });

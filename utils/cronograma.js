@@ -27,6 +27,31 @@ export const SEGUIMIENTO = {
     RESUELTO: { ...BADGE.ok, g: '✓', l: 'Resuelto' },
 };
 export const DISC_TAG = { CIVIL: 'C', ELECTRICO: 'E', ELECTROMECANICO: 'M' };
+/**
+ * Imprevistos (ejecuciones sin cita): terracota suave. Distinto del rojo del semáforo y de los
+ * hallazgos: no es una alarma, es "ojo, esto no estaba planeado" para notar si se repite.
+ */
+export const IMPREVISTO = { c: '#a6532f', bg: '#f8ece4', fila: '#fbf3ee' };
+
+/** Porcentaje entero (0-100) de parte sobre total; null si total es 0. */
+export function porcentaje(parte, total) {
+    return total ? Math.round((parte / total) * 100) : null;
+}
+
+/**
+ * Semáforo del mes en curso: compara el avance de las citas del mes contra cuánto del mes ya
+ * pasó. Al empezar el mes nadie sale en rojo; al final, ir en 10% sí. null si no hay citas.
+ */
+export function semaforoMes(cumple, programado, transcurrido) {
+    if (!programado) return null;
+    const avance = (cumple / programado) * 100;
+    const pct = Math.round(avance);
+    if (avance >= 100) return { ...BADGE.ok, color: COLOR.ok, g: '▲', l: 'Mes completo', pct };
+    const diferencia = avance - Number(transcurrido ?? 0);
+    if (diferencia >= -10) return { ...BADGE.ok, color: COLOR.ok, g: '▲', l: 'Al día', pct };
+    if (diferencia >= -30) return { ...BADGE.warn, color: COLOR.warn, g: '■', l: 'Algo atrasado', pct };
+    return { ...BADGE.bad, color: COLOR.bad, g: '▼', l: 'Atrasado', pct };
+}
 
 /** Densidad: actividades por celda, alto de fila y ancho mínimo de columna (vista por estación / por actividad). */
 export const DENSIDAD = {

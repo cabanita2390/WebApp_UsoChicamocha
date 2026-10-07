@@ -1,10 +1,11 @@
 <script>
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, onDestroy } from "svelte";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import { flash } from "../../../../stores/subestacionesToast.js";
   import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleActividadId, disciplinaFiltro } from "../../../../stores/subestacionesFilters.js";
-  import { MESES, tipoLabel, frecuenciaLabel, disciplinaLabel } from "../../../../config/subestaciones.js";
-  import { BADGE, COLOR, RESULTADO, SEGUIMIENTO, chip, pctBadge, fechaCorta } from "../../../../utils/cronograma.js";
+  import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
+  import { MESES, MESES_LARGOS, tipoLabel, frecuenciaLabel, disciplinaLabel } from "../../../../config/subestaciones.js";
+  import { BADGE, COLOR, IMPREVISTO, RESULTADO, SEGUIMIENTO, chip, fechaCorta, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
   import Loader from "../../../shared/Loader.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
@@ -78,6 +79,9 @@
   }
   cargar();
 
+  // Llegó una ejecución del móvil (WebSocket): si es de esta estación, se recarga.
+  onDestroy(alCambiarEjecuciones((ev) => (ev.estacionId == null || ev.estacionId === estacionId) && cargar()));
+
   function cambiarAnio(e) {
     anio = Number(e.target.value);
     cargar();
@@ -114,14 +118,40 @@
     }
   }
 
-  $: pct = indicador?.porcentajeCumplimiento != null ? Math.round(Number(indicador.porcentajeCumplimiento)) : null;
-  $: pc = pct != null ? pctBadge(pct) : { color: "#898781", c: "#52514e", bg: "#f0f0ee", g: "", l: "Sin citas vencidas" };
+  // Avance del año: neutro, sin semáforo (da sensación de progreso). El semáforo es solo del mes.
+  $: avance = indicador ? porcentaje(indicador.cumple, indicador.programado) : null;
+  $: atrasadas = indicador ? Math.max(0, indicador.vencidas - indicador.ejecutadasVencidas) : 0;
+  $: semaforo = indicador?.mes != null
+    ? semaforoMes(indicador.cumpleMes, indicador.programadoMes, indicador.porcentajeMesTranscurrido)
+    : null;
+  $: impAnio = indicador ? porcentaje(indicador.ejecutadoNoProgramado, indicador.ejecutadoTotal) : null;
   $: abiertos = indicador?.hallazgosAbiertos ?? 0;
   $: kpis = indicador
     ? [
-        { l: "Citas programadas", v: indicador.programado, s: `${indicador.vencidas} cuentan para el %`, c: "#0b0b0b" },
-        { l: "Ejecutadas", v: indicador.ejecutadasVencidas, s: `de ${indicador.vencidas} a la fecha`, c: "#0b0b0b" },
-        { l: "Fuera de cronograma", v: indicador.ejecutadoNoProgramado, s: "registros sin cita asociada", c: "#0b0b0b" },
+        {
+          l: "Avance del año",
+          v: `${indicador.cumple} de ${indicador.programado}`,
+          s: atrasadas ? `${atrasadas} atrasada${atrasadas === 1 ? "" : "s"} de meses cerrados` : "sin atrasos de meses cerrados",
+          c: "#0b0b0b",
+        },
+        indicador.mes != null
+          ? {
+              l: `${MESES_LARGOS[indicador.mes - 1]} (mes en curso)`,
+              v: `${indicador.cumpleMes} de ${indicador.programadoMes}`,
+              s: semaforo ? `${semaforo.g} ${semaforo.pct}% · ${semaforo.l}` : "sin citas este mes",
+              c: "#0b0b0b",
+              sc: semaforo?.color,
+            }
+          : { l: "Mes en curso", v: "—", s: `${anio} no es el año actual`, c: "#898781" },
+        {
+          l: "Imprevistos",
+          v: indicador.ejecutadoNoProgramado,
+          s: indicador.ejecutadoNoProgramado
+            ? `${impAnio}% de ${indicador.ejecutadoTotal} registros` +
+              (indicador.mes != null ? ` · ${indicador.ejecutadoNoProgramadoMes} este mes` : "")
+            : "todo lo hecho estaba programado",
+          c: indicador.ejecutadoNoProgramado ? IMPREVISTO.c : "#0b0b0b",
+        },
         { l: "Con hallazgos", v: indicador.conHallazgos, s: `en ${anio}`, c: "#0b0b0b" },
         {
           l: "Hallazgos abiertos",
@@ -138,6 +168,8 @@
         chips: citas
           .filter((c) => c.mes === i + 1)
           .map((c) => ({ ...chip(c, { anio, hoy, actividad: actividadesPorId.get(c.actividadId), disciplinaFiltrada: !!$disciplinaFiltro }), mes: c.mes })),
+        // Imprevistos del mes (por la fecha del registro), en terracota junto a lo programado.
+        imprevistos: noProgramadas.filter((e) => Number(e.fecha?.slice(5, 7)) === i + 1),
       }))
     : [];
   $: cumplimiento = hoy
@@ -192,9 +224,12 @@
           </select>
         {/if}
         <div class="pct-box">
-          <div class="gris">Cumplimiento {anio}</div>
-          <div class="pct" style="color:{pc.color}">{pct != null ? `${pct}%` : "—"}</div>
-          <span class="sub-badge" style="color:{pc.c};background:{pc.bg}">{pc.g} {pc.l}</span>
+          <div class="gris">Avance {anio}</div>
+          <div class="pct">{avance != null ? `${avance}%` : "—"}</div>
+          {#if avance != null}
+            <div class="barra-avance" aria-hidden="true"><span style="width:{avance}%"></span></div>
+          {/if}
+          <div class="gris">{indicador ? `${indicador.cumple} de ${indicador.programado} citas` : "Sin citas"}</div>
         </div>
       </div>
     </div>
@@ -203,13 +238,13 @@
         <div class="kpi">
           <div class="gris">{k.l}</div>
           <div class="kv" style="color:{k.c}">{k.v}</div>
-          <div class="ks">{k.s}</div>
+          <div class="ks" style={k.sc ? `color:${k.sc}` : ""}>{k.s}</div>
         </div>
       {/each}
     </div>
   </div>
 
-  <div class="seccion">Año {anio} · Programado vs. ejecutado</div>
+  <div class="seccion">Año {anio} · Programado vs. ejecutado <span class="leyenda-imp" style="color:{IMPREVISTO.c};background:{IMPREVISTO.bg}">＋ imprevisto</span></div>
   <div class="sub-card scroll-x">
     <div class="card-t">Cronograma</div>
     <div class="tira">
@@ -219,6 +254,12 @@
           {#each cel.chips as ch (ch.id)}
             <button class="chip" title={ch.title} style="background:{ch.bg};border:{ch.bd}" on:click={() => irAEjecuciones(ch.mes)}>
               <span class="g" style="color:{ch.c}">{ch.g}</span>{#if ch.dTag}<span class="dtag">{ch.dTag}</span>{/if}{ch.short}
+            </button>
+          {/each}
+          {#each cel.imprevistos as e (e.id)}
+            <button class="chip" title="Imprevisto · {fechaCorta(e.fecha)} · {e.actividadNombre ?? e.descripcionLibre ?? 'Registro libre'}"
+              style="background:{IMPREVISTO.bg};border:1px solid transparent;color:{IMPREVISTO.c}" on:click={() => abrirEjecucion(e.id)}>
+              <span class="g">＋</span>{e.actividadNombre ?? e.descripcionLibre ?? "Registro libre"}
             </button>
           {/each}
         </div>
@@ -265,7 +306,8 @@
 
   <div class="sub-card scroll-x">
     <div class="card-t entre">
-      <span>Fuera de cronograma <span class="normal">· {anio} · no suman al %</span></span>
+      <span><span class="punto-imp" style="background:{IMPREVISTO.c}"></span>Imprevistos · fuera de cronograma
+        <span class="normal">· {anio} · {noProgramadas.length} {noProgramadas.length === 1 ? "registro" : "registros"} · no suman al avance</span></span>
       {#if noProgramadas.length}
         <button class="sub-link" on:click={() => irAEjecuciones(null, {
           esProgramada: false, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31`,
@@ -285,7 +327,7 @@
         <span class="gris2">{e.responsable ?? ""}</span>
       </div>
     {:else}
-      <div class="sub-empty">Sin actividades fuera de cronograma en {anio}.</div>
+      <div class="sub-empty">Sin imprevistos en {anio}: todo lo hecho estaba programado.</div>
     {/each}
   </div>
 
@@ -394,6 +436,37 @@
   }
   .pct-box {
     text-align: right;
+  }
+  .barra-avance {
+    width: 140px;
+    height: 6px;
+    margin: 4px 0 4px auto;
+    border-radius: 999px;
+    background: #ececea;
+    overflow: hidden;
+  }
+  .barra-avance span {
+    display: block;
+    height: 100%;
+    background: #3d3c39;
+    border-radius: 999px;
+  }
+  .leyenda-imp {
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .punto-imp {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+    border-radius: 50%;
+    vertical-align: middle;
   }
   .pct {
     font-size: 30px;

@@ -40,7 +40,7 @@ export const createEjecucionesColumns = () => [
     { header: 'Actividad', accessorFn: (r) => r.actividadNombre ?? r.descripcionLibre ?? '—', id: 'ej_actividad', size: 240 },
     { header: 'Tipo mant.', accessorFn: (r) => tipoMantenimientoLabel(r.tipoMantenimiento), id: 'ej_tipomant', size: 110 },
     { header: 'Tipo act.', accessorFn: (r) => tipoActividadLabel(r.tipoActividad), id: 'ej_tipoact', size: 110 },
-    { header: 'Programada', accessorFn: (r) => (r.esProgramada ? 'Sí' : 'No'), id: 'ej_prog', size: 90 },
+    { header: 'Programada', accessorFn: (r) => (r.esProgramada ? 'Sí' : 'No · imprevisto'), id: 'ej_prog', size: 120 },
     {
         header: 'Resultado',
         accessorFn: (r) => resultadoBadge(r.resultado).label,

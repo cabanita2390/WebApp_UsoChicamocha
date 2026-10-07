@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { data } from "../../stores/data.js";
   import { addNotification } from "../../stores/ui.js";
   import Loader from "../shared/Loader.svelte";
@@ -9,6 +9,11 @@
   import { get } from "svelte/store";
   import { ejecucionesFiltroInicial } from "../../stores/subestacionesFilters.js";
   import { disciplinaLabel } from "../../config/subestaciones.js";
+  import { alCambiarEjecuciones } from "../../stores/subestacionesEventos.js";
+  import { IMPREVISTO } from "../../utils/cronograma.js";
+
+  /** Imprevistos (sin cita del cronograma): fila en terracota suave para verlos de un vistazo. */
+  const claseFila = (r) => (r.esProgramada === false ? "fila-imprevisto" : "");
 
   const TIPOS_MANTENIMIENTO = [
     { value: "PREVENTIVO", label: "Preventivo" },
@@ -131,6 +136,9 @@
     if (type === "verDetalle") abrirDetalle(row);
   }
 
+  // Llegó una ejecución del móvil (WebSocket): se recarga la página actual con los mismos filtros.
+  onDestroy(alCambiarEjecuciones(() => cargar(pagina.currentPage ?? 0)));
+
   onMount(() => {
     if (!estaciones.length) data.fetchSubstationEstaciones();
     if (!actividades.length) data.fetchSubstationActividades();
@@ -138,7 +146,7 @@
   });
 </script>
 
-<div class="ejecuciones">
+<div class="ejecuciones" style="--imp-c:{IMPREVISTO.c};--imp-fila:{IMPREVISTO.fila}">
   <div class="filter-card">
     <div class="chip-row">
       <label class="filter-chip">
@@ -234,6 +242,7 @@
           on:pageChange={handlePageChange}
           on:sizeChange={handleSizeChange}
           variant="modern"
+          rowClass={claseFila}
         />
       {/if}
     </div>
@@ -249,6 +258,12 @@
 {/if}
 
 <style>
+  .ejecuciones :global(tr.fila-imprevisto td) {
+    background-color: var(--imp-fila) !important;
+  }
+  .ejecuciones :global(tr.fila-imprevisto td:first-child) {
+    box-shadow: inset 3px 0 0 var(--imp-c);
+  }
   .ejecuciones {
     --surface: #ffffff;
     --page: #f7f7f6;

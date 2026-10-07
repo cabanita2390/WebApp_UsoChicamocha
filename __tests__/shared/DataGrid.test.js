@@ -426,6 +426,22 @@ describe('DataGrid', () => {
    * @test Renderiza clases de fila especiales.
    * Verifica que se rendericen clases de fila especiales para datos inesperados o órdenes pendientes.
    */
+  it('rowClass agrega la clase que devuelva para cada fila', () => {
+    const { container } = render(DataGrid, {
+      props: {
+        columns: mockColumns,
+        data: [{ ...mockData[0], marcar: true }, mockData[1]],
+        totalPages: 1,
+        currentPage: 0,
+        pageSize: 20,
+        totalElements: 2,
+        rowClass: (r) => (r.marcar ? 'fila-marcada' : ''),
+      },
+    });
+
+    expect(container.querySelectorAll('tbody tr.fila-marcada')).toHaveLength(1);
+  });
+
   it('renders special row classes', async () => {
     const dataWithSpecialRows = [
       { ...mockData[0], isUnexpected: true },

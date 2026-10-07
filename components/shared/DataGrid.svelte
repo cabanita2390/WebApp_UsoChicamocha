@@ -35,6 +35,8 @@
   export let pageSize = 20;
   export let totalElements = 0;
   export let fixedLayout = false;
+  /** Opcional: (fila) => clase CSS extra para el <tr> (la vista que lo usa define el estilo con :global). */
+  export let rowClass = null;
   /** Si es false, se oculta el pie de paginación (listas cargadas de una vez). */
   export let showPagination = true;
   /** Controla si se muestran los botones de eliminación en las acciones */
@@ -347,6 +349,7 @@
         {#each $table.getRowModel().rows as row}
           <tr
             key={row.id}
+            class={rowClass?.(row.original) ?? ""}
             class:unexpected-row={row.original.isUnexpected}
             class:anomaly-row={row.original.isAnomaly}
             class:pending-row={row.original.order?.status?.toLowerCase() ===

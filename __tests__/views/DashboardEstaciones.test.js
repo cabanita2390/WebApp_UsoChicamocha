@@ -23,11 +23,14 @@ vi.mock('../../stores/substationAdmin.js', () => ({
 import DashboardEstaciones from '../../components/views/subestaciones/dashboard/DashboardEstaciones.svelte';
 import { substationAdmin } from '../../stores/substationAdmin.js';
 import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab, disciplinaFiltro } from '../../stores/subestacionesFilters.js';
+import { ejecucionCambio } from '../../stores/subestacionesEventos.js';
 
 const ind = (id, nombre, extra = {}) => ({
   estacionId: id, estacionNombre: nombre, estacionTipo: 'BOMBEO', programado: 4, cumple: 3, noCumple: 1,
   porcentajeCumplimiento: 75.0, anio: 2026, vencidas: 4, ejecutadasVencidas: 3, conHallazgos: 2, hallazgosAbiertos: 1,
-  ejecutadoProgramado: 3, ejecutadoNoProgramado: 0, ejecutadoMantenimiento: 3, ejecutadoInspeccion: 0, ejecutadoTotal: 3, ...extra,
+  ejecutadoProgramado: 3, ejecutadoNoProgramado: 0, ejecutadoMantenimiento: 3, ejecutadoInspeccion: 0, ejecutadoTotal: 3,
+  mes: 9, programadoMes: 2, cumpleMes: 0, ejecutadoTotalMes: 0, ejecutadoNoProgramadoMes: 0, porcentajeMesTranscurrido: 50.0,
+  ...extra,
 });
 const cita = (id, actividadId, mes, extra = {}) => ({
   id, estacionId: 1, actividadId, mes, disciplina: 'CIVIL', estado: 'PUBLICADA', pendienteRetiro: false,
@@ -90,12 +93,67 @@ describe('DashboardEstaciones', () => {
     expect(screen.getAllByText('Inactiva')).toHaveLength(1);
   });
 
-  it('tabla del mockup: estación, tipo, programadas, ejecutadas y % con símbolo; "—" sin vencidas', async () => {
+  it('vista Año: avance "x de y" con barra neutra (sin semáforo), atrasadas e imprevistos; fila Total', async () => {
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([
+      ind(1, 'Ayalas', { ejecutadoNoProgramado: 1, ejecutadoTotal: 4 }),
+      ind(2, 'CLAN', { estacionTipo: 'COMPLEMENTARIA', programado: 0, cumple: 0, vencidas: 0, ejecutadasVencidas: 0 }),
+    ]);
+    const { container } = render(DashboardEstaciones);
+    expect(await screen.findByText('Avance 2026')).toBeTruthy();
+    expect(screen.getByText('Complementaria')).toBeTruthy();
+
+    const [ayalas, clan] = container.querySelectorAll('.sub-tr.clickable');
+    expect(ayalas.children[2].textContent.replace(/\s+/g, ' ').trim()).toBe('3 de 4 75%');
+    expect(ayalas.querySelector('.sub-badge')).toBeNull(); // el año no lleva semáforo
+    expect(ayalas.children[3].textContent.trim()).toBe('1'); // atrasada: 4 vencidas, 3 ejecutadas
+    expect(ayalas.children[4].textContent.trim()).toBe('1 · 25% del total');
+    expect(clan.children[2].textContent).toContain('Sin citas');
+    expect(clan.children[4].textContent.trim()).toBe('—');
+
+    const total = container.querySelector('.sub-tr.total');
+    expect(total.children[0].textContent).toBe('Total · 2 estaciones');
+    expect(total.children[2].textContent.replace(/\s+/g, ' ').trim()).toBe('3 de 4 75%');
+  });
+
+  it('vista Mes en curso: "x de y" del mes con semáforo contra el tiempo transcurrido e imprevistos del mes', async () => {
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([
+      ind(1, 'Ayalas', { programadoMes: 4, cumpleMes: 2, ejecutadoTotalMes: 3, ejecutadoNoProgramadoMes: 1 }), // 50% con 50% del mes
+      ind(2, 'CLAN', { programadoMes: 10, cumpleMes: 1 }),                                                     // 10% con 50% del mes
+      ind(3, 'Monquira', { programadoMes: 0, cumpleMes: 0 }),
+    ]);
+    const { container } = render(DashboardEstaciones);
+    await fireEvent.click(await screen.findByText('Mes en curso'));
+
+    expect(screen.getByText('Avance de Septiembre 2026')).toBeTruthy();
+    expect(screen.getByText(/va el 50% del mes/)).toBeTruthy();
+    const [ayalas, clan, monquira] = container.querySelectorAll('.sub-tr.clickable');
+    expect(ayalas.querySelector('.sub-badge').textContent).toBe('▲ 50% · Al día');
+    expect(ayalas.children[3].textContent.trim()).toBe('1 · 33% del total');
+    expect(clan.querySelector('.sub-badge').textContent).toBe('▼ 10% · Atrasado');
+    expect(monquira.children[2].textContent).toContain('Sin citas este mes');
+  });
+
+  it('otro año sin mes en curso: no ofrece la vista del mes', async () => {
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([ind(1, 'Ayalas', { mes: null, porcentajeMesTranscurrido: null })]);
     render(DashboardEstaciones);
     expect(await screen.findByText('Ayalas')).toBeTruthy();
-    expect(screen.getByText('▲ 75%')).toBeTruthy();
-    expect(screen.getByText('Complementaria')).toBeTruthy();
-    expect(screen.getByText('—')).toBeTruthy();
+    expect(screen.queryByText('Mes en curso')).toBeNull();
+  });
+
+  it('llega una ejecución por WebSocket: recarga el dashboard sin que el usuario refresque', async () => {
+    vi.useFakeTimers();
+    try {
+      render(DashboardEstaciones);
+      await vi.waitFor(() => expect(screen.getByText('Ayalas')).toBeTruthy());
+      expect(substationAdmin.indicadoresPorEstacion).toHaveBeenCalledTimes(1);
+
+      ejecucionCambio.set({ estacionId: 1, ejecucionId: 5, tipo: 'REGISTRADA', recibido: 1 });
+      ejecucionCambio.set({ estacionId: 2, ejecucionId: 6, tipo: 'REGISTRADA', recibido: 2 }); // ráfaga: una sola recarga
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(substationAdmin.indicadoresPorEstacion).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('click en la fila abre el detalle en la misma pestaña y "Volver" regresa a la tabla', async () => {
@@ -106,7 +164,7 @@ describe('DashboardEstaciones', () => {
     expect(await screen.findByText('← Volver al Dashboard')).toBeTruthy();
     await fireEvent.click(screen.getByText('← Volver al Dashboard'));
     expect(get(detalleEstacionId)).toBeNull();
-    expect(await screen.findByText('Programadas')).toBeTruthy();
+    expect(await screen.findByText('Avance del año')).toBeTruthy();
   });
 
   it('detalle: cabecera, KPIs, tira de 12 meses solo con lo publicado, cita por cita, críticas y recientes', async () => {
@@ -114,10 +172,15 @@ describe('DashboardEstaciones', () => {
     const { container } = render(DashboardEstaciones);
 
     expect(await screen.findByText(/Bombeo · Frecuencia base Trimestral ·\s+Todas las disciplinas/)).toBeTruthy();
-    expect(screen.getByText('Cumplimiento 2026')).toBeTruthy();
+    expect(screen.getByText('Avance 2026')).toBeTruthy();
     expect(screen.getByText('75%')).toBeTruthy();
-    expect(screen.getByText('4 cuentan para el %')).toBeTruthy();
-    expect(screen.getByText('de 4 a la fecha')).toBeTruthy();
+    expect(screen.getByText('3 de 4 citas')).toBeTruthy();
+    expect(screen.getByText('3 de 4')).toBeTruthy();
+    expect(screen.getByText('1 atrasada de meses cerrados')).toBeTruthy();
+    // Mes en curso con semáforo: 0 de 2 con la mitad del mes ya pasada
+    expect(screen.getByText('Septiembre (mes en curso)')).toBeTruthy();
+    expect(screen.getByText('0 de 2')).toBeTruthy();
+    expect(screen.getByText('▼ 0% · Atrasado')).toBeTruthy();
     expect(screen.getByText('requieren seguimiento')).toBeTruthy();
 
     // Cita por cita: 4 publicadas (sin la del borrador ni la de otra estación)
@@ -138,7 +201,7 @@ describe('DashboardEstaciones', () => {
   it('click en un chip de la tira abre Ejecuciones filtrada por estación y mes', async () => {
     detalleEstacionId.set(1);
     const { container } = render(DashboardEstaciones);
-    await screen.findByText('Cumplimiento 2026');
+    await screen.findByText('Avance 2026');
 
     await fireEvent.click(container.querySelectorAll('.tira .chip')[0]);
 
@@ -175,7 +238,7 @@ describe('DashboardEstaciones', () => {
   it('detalle: al cambiar de año dos veces seguidas solo se aplica la última respuesta', async () => {
     detalleEstacionId.set(1);
     render(DashboardEstaciones);
-    expect(await screen.findByText('Cumplimiento 2026')).toBeTruthy();
+    expect(await screen.findByText('Avance 2026')).toBeTruthy();
 
     let responder2025;
     const actual = substationAdmin.indicadoresPorEstacion.getMockImplementation();
@@ -187,19 +250,12 @@ describe('DashboardEstaciones', () => {
     await waitFor(() => expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(2026, ''));
 
     // La respuesta lenta de 2025 llega al final: no debe pisar la de 2026.
-    responder2025([ind(1, 'Ayalas', { anio: 2025, porcentajeCumplimiento: 10.0 })]);
+    responder2025([ind(1, 'Ayalas', { anio: 2025, cumple: 1, programado: 10 })]);
     await new Promise((r) => setTimeout(r, 0));
-    expect(screen.getByText('Cumplimiento 2026')).toBeTruthy();
+    expect(screen.getByText('Avance 2026')).toBeTruthy();
     expect(screen.queryByText('10%')).toBeNull();
   });
 
-  it('tabla: título con el año y "Ejecutadas" como "x de vencidas" (así cuadra con el %)', async () => {
-    const { container } = render(DashboardEstaciones);
-    expect(await screen.findByText('Cumplimiento 2026')).toBeTruthy();
-    expect(screen.getByText(/ejecutadas ÷ citas de meses cerrados y ya ejecutadas/)).toBeTruthy();
-    const ayalas = container.querySelectorAll('.sub-tr.clickable')[0];
-    expect(ayalas.children[3].textContent.trim()).toBe('3 de 4');
-  });
 
   it('detalle: una cita ejecutada en un mes abierto se ve cumplida, sin aviso de que no suma', async () => {
     detalleEstacionId.set(1);
@@ -227,12 +283,12 @@ describe('DashboardEstaciones', () => {
 
   it('muestra todas las disciplinas por defecto y el selector filtra el dashboard', async () => {
     render(DashboardEstaciones);
-    expect(await screen.findByText(/Todas las disciplinas · ejecutadas/)).toBeTruthy();
+    expect(await screen.findByText(/Todas las disciplinas · citas ejecutadas/)).toBeTruthy();
     expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(undefined, '');
 
     await fireEvent.change(screen.getByLabelText('Disciplina'), { target: { value: 'ELECTRICO' } });
     await waitFor(() => expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(undefined, 'ELECTRICO'));
-    expect(await screen.findByText(/Eléctrico · ejecutadas/)).toBeTruthy();
+    expect(await screen.findByText(/Eléctrico · citas ejecutadas/)).toBeTruthy();
     expect(get(disciplinaFiltro)).toBe('ELECTRICO');
   });
 
@@ -247,21 +303,20 @@ describe('DashboardEstaciones', () => {
     expect(screen.getByText('Sin citas publicadas en 2026.')).toBeTruthy();
   });
 
-  it('tabla: columna "No programadas" con los registros del año sin cita', async () => {
-    substationAdmin.indicadoresPorEstacion.mockResolvedValue([ind(1, 'Ayalas', { ejecutadoNoProgramado: 5 })]);
-    const { container } = render(DashboardEstaciones);
-    expect(await screen.findByText('No programadas')).toBeTruthy();
-    const ayalas = container.querySelectorAll('.sub-tr.clickable')[0];
-    expect(ayalas.children[4].textContent.trim()).toBe('5');
-  });
-
-  it('detalle: KPI y lista "Fuera de cronograma"; el enlace abre Ejecuciones filtrado a no programadas del año', async () => {
+  it('detalle: KPI "Imprevistos", chips en la tira y lista; el enlace abre Ejecuciones filtrado a no programadas del año', async () => {
     detalleEstacionId.set(1);
-    substationAdmin.indicadoresPorEstacion.mockResolvedValue([ind(1, 'Ayalas', { ejecutadoNoProgramado: 2 })]);
-    render(DashboardEstaciones);
-    expect(await screen.findByText('Limpieza de canal')).toBeTruthy();
-    expect(screen.getByText('Cambio de breaker')).toBeTruthy();
-    expect(screen.getByText('registros sin cita asociada')).toBeTruthy();
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([
+      ind(1, 'Ayalas', { ejecutadoNoProgramado: 2, ejecutadoTotal: 5, ejecutadoNoProgramadoMes: 1 }),
+    ]);
+    const { container } = render(DashboardEstaciones);
+    expect(await screen.findByText('Imprevistos')).toBeTruthy();
+    expect(screen.getByText('40% de 5 registros · 1 este mes')).toBeTruthy();
+    // Lista y tira (octubre y septiembre, por la fecha del registro)
+    expect(screen.getAllByText('Limpieza de canal')).toHaveLength(2);
+    expect(screen.getAllByText('Cambio de breaker')).toHaveLength(2);
+    const meses = [...container.querySelectorAll('.tira .mes-col')];
+    expect(meses[9].textContent).toContain('Limpieza de canal');
+    expect(meses[8].textContent).toContain('Cambio de breaker');
     expect(substationAdmin.noProgramadasDeEstacion).toHaveBeenCalledWith(1, 2026);
 
     await fireEvent.click(screen.getByText('Ver en Ejecuciones →'));
@@ -275,7 +330,7 @@ describe('DashboardEstaciones', () => {
     detalleEstacionId.set(1);
     disciplinaFiltro.set('CIVIL');
     render(DashboardEstaciones);
-    expect(await screen.findByText('Limpieza de canal')).toBeTruthy();
+    expect((await screen.findAllByText('Limpieza de canal')).length).toBeGreaterThan(0);
     expect(screen.queryByText('Cambio de breaker')).toBeNull();
   });
 });
