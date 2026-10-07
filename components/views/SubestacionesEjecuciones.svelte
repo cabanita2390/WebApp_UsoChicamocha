@@ -45,12 +45,14 @@
 
   let filtros = filtrosVacios();
   // Llegando desde el Cronograma ("Ver ejecuciones de este mes →"): estación + rango del mes.
+  // Desde el Detalle por estación también puede venir esProgramada=false (fuera de cronograma).
   const filtroInicial = get(ejecucionesFiltroInicial);
   if (filtroInicial) {
     filtros = {
       ...filtros,
       estacionId: filtroInicial.estacionId ?? "",
       actividadId: filtroInicial.actividadId ?? "",
+      esProgramada: filtroInicial.esProgramada != null ? String(filtroInicial.esProgramada) : "",
       fechaInicio: filtroInicial.fechaInicio ?? "",
       fechaFin: filtroInicial.fechaFin ?? "",
     };

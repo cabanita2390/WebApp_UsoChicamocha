@@ -14,6 +14,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
     listarActividades: vi.fn(),
     criticidad: vi.fn(),
     ultimasEjecuciones: vi.fn(),
+    noProgramadasDeEstacion: vi.fn(),
     obtenerCronograma: vi.fn(),
     obtenerEjecucion: vi.fn(),
   },
@@ -58,6 +59,12 @@ describe('DashboardEstaciones', () => {
     substationAdmin.ultimasEjecuciones.mockResolvedValue({ content: [
       { id: 900, fecha: '2026-08-12', actividadNombre: 'Pintura muros', tipoMantenimiento: 'PREVENTIVO',
         resultado: 'CON_HALLAZGOS', seguimiento: { estado: 'ABIERTO' }, responsable: 'J. Pérez' },
+    ] });
+    substationAdmin.noProgramadasDeEstacion.mockResolvedValue({ content: [
+      { id: 950, fecha: '2026-10-02', actividadNombre: null, descripcionLibre: 'Limpieza de canal', disciplina: 'CIVIL',
+        tipoMantenimiento: 'CORRECTIVO', resultado: 'CONFORME', esProgramada: false, responsable: 'L. Rojas' },
+      { id: 951, fecha: '2026-09-20', actividadNombre: 'Cambio de breaker', disciplina: 'ELECTRICO',
+        tipoMantenimiento: 'CORRECTIVO', resultado: 'CONFORME', esProgramada: false, responsable: 'A. Gómez' },
     ] });
     substationAdmin.obtenerCronograma.mockResolvedValue({
       anio: 2026, anioActual: 2026, mesActual: 9, borrador: { altas: 0, bajas: 0 }, ultimaPublicacion: null, puedeDeshacer: false,
@@ -238,5 +245,37 @@ describe('DashboardEstaciones', () => {
     expect(substationAdmin.criticidad).toHaveBeenCalledWith(1, 'ELECTRICO');
     // Las citas del fixture son todas civiles: con Eléctrico no queda ninguna.
     expect(screen.getByText('Sin citas publicadas en 2026.')).toBeTruthy();
+  });
+
+  it('tabla: columna "No programadas" con los registros del año sin cita', async () => {
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([ind(1, 'Ayalas', { ejecutadoNoProgramado: 5 })]);
+    const { container } = render(DashboardEstaciones);
+    expect(await screen.findByText('No programadas')).toBeTruthy();
+    const ayalas = container.querySelectorAll('.sub-tr.clickable')[0];
+    expect(ayalas.children[4].textContent.trim()).toBe('5');
+  });
+
+  it('detalle: KPI y lista "Fuera de cronograma"; el enlace abre Ejecuciones filtrado a no programadas del año', async () => {
+    detalleEstacionId.set(1);
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([ind(1, 'Ayalas', { ejecutadoNoProgramado: 2 })]);
+    render(DashboardEstaciones);
+    expect(await screen.findByText('Limpieza de canal')).toBeTruthy();
+    expect(screen.getByText('Cambio de breaker')).toBeTruthy();
+    expect(screen.getByText('registros sin cita asociada')).toBeTruthy();
+    expect(substationAdmin.noProgramadasDeEstacion).toHaveBeenCalledWith(1, 2026);
+
+    await fireEvent.click(screen.getByText('Ver en Ejecuciones →'));
+    expect(get(ejecucionesFiltroInicial)).toEqual({
+      estacionId: 1, esProgramada: false, fechaInicio: '2026-01-01', fechaFin: '2026-12-31',
+    });
+    expect(get(subestacionesActiveTab)).toBe('ejecuciones');
+  });
+
+  it('detalle: con una disciplina elegida, "Fuera de cronograma" solo lista los de esa disciplina', async () => {
+    detalleEstacionId.set(1);
+    disciplinaFiltro.set('CIVIL');
+    render(DashboardEstaciones);
+    expect(await screen.findByText('Limpieza de canal')).toBeTruthy();
+    expect(screen.queryByText('Cambio de breaker')).toBeNull();
   });
 });

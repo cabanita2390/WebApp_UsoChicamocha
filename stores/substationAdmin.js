@@ -44,6 +44,12 @@ export const substationAdmin = {
     ultimasEjecuciones: (estacionId, size = 6) =>
         fetchWithAuth(`substation/ejecuciones?estacionId=${estacionId}&page=0&size=${size}&sort=fecha,desc&sort=id,desc`),
     obtenerEjecucion: (id) => fetchWithAuth(`substation/ejecuciones/${id}`),
+    /** Registros fuera de cronograma (sin cita) de una estación en el año, del más reciente al más antiguo. */
+    noProgramadasDeEstacion: (estacionId, anio, size = 50) =>
+        fetchWithAuth(
+            `substation/ejecuciones?estacionId=${estacionId}&esProgramada=false&fechaInicio=${anio}-01-01` +
+                `&fechaFin=${anio}-12-31&page=0&size=${size}&sort=fecha,desc&sort=id,desc`,
+        ),
 
     // Resumen por actividad
     /** Una fila por actividad activa, con lo publicado y lo ejecutado del año (sin anio: el actual; sin disciplina: todas). */

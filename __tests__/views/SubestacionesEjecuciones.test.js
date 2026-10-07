@@ -49,6 +49,7 @@ vi.mock('../../components/shared/SubestacionEjecucionDetalleModal.svelte', async
 
 import { data } from '../../stores/data.js';
 import { addNotification } from '../../stores/ui.js';
+import { ejecucionesFiltroInicial } from '../../stores/subestacionesFilters.js';
 
 /** Ubica el <select>/<input> de un chip de filtro por su etiqueta visible. */
 function chipControl(container, label) {
@@ -197,5 +198,16 @@ describe('SubestacionesEjecuciones', () => {
     mockState.substationEjecuciones = { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 };
     render(SubestacionesEjecuciones);
     expect(screen.getByText('Sin ejecuciones para los filtros seleccionados.')).toBeTruthy();
+  });
+
+  it('llegando desde "Fuera de cronograma" del Detalle por estación filtra solo las no programadas del año', async () => {
+    ejecucionesFiltroInicial.set({ estacionId: 1, esProgramada: false, fechaInicio: '2026-01-01', fechaFin: '2026-12-31' });
+    const { container } = render(SubestacionesEjecuciones);
+    expect(chipControl(container, 'Programada').value).toBe('false');
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, {
+      ...filtrosDefault, estacionId: 1, esProgramada: false, fechaInicio: '2026-01-01', fechaFin: '2026-12-31',
+    });
   });
 });

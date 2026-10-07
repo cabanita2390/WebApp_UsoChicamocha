@@ -22,6 +22,7 @@
   let actividadesPorId = new Map();
   let criticas = [];
   let ejecuciones = [];
+  let noProgramadas = [];
   let cargando = true;
   let errorCarga = "";
 
@@ -48,7 +49,10 @@
       ]);
       const ind = indicadores.find((i) => i.estacionId === estacionId) ?? null;
       const anioDatos = ind?.anio ?? pedido;
-      const cron = await substationAdmin.obtenerCronograma(anioDatos);
+      const [cron, fuera] = await Promise.all([
+        substationAdmin.obtenerCronograma(anioDatos),
+        substationAdmin.noProgramadasDeEstacion(estacionId, anioDatos),
+      ]);
       if (mia !== secuencia) return;
       indicador = ind;
       anio = anioDatos;
@@ -56,6 +60,7 @@
       actividadesPorId = new Map(actividades.map((a) => [a.id, a]));
       criticas = crit.slice(0, 5);
       ejecuciones = ult?.content ?? [];
+      noProgramadas = (fuera?.content ?? []).filter((e) => !$disciplinaFiltro || e.disciplina === $disciplinaFiltro);
       hoy = { anioActual: cron.anioActual, mesActual: cron.mesActual };
       // Solo lo publicado (lo que ve el móvil), como el mockup.
       citas = cron.citas
@@ -78,8 +83,8 @@
     cargar();
   }
 
-  function irAEjecuciones(mes) {
-    const filtro = { estacionId };
+  function irAEjecuciones(mes, extra = {}) {
+    const filtro = { estacionId, ...extra };
     if (mes) {
       const mm = String(mes).padStart(2, "0");
       filtro.fechaInicio = `${anio}-${mm}-01`;
@@ -116,6 +121,7 @@
     ? [
         { l: "Citas programadas", v: indicador.programado, s: `${indicador.vencidas} cuentan para el %`, c: "#0b0b0b" },
         { l: "Ejecutadas", v: indicador.ejecutadasVencidas, s: `de ${indicador.vencidas} a la fecha`, c: "#0b0b0b" },
+        { l: "Fuera de cronograma", v: indicador.ejecutadoNoProgramado, s: "registros sin cita asociada", c: "#0b0b0b" },
         { l: "Con hallazgos", v: indicador.conHallazgos, s: `en ${anio}`, c: "#0b0b0b" },
         {
           l: "Hallazgos abiertos",
@@ -257,6 +263,32 @@
     </div>
   </div>
 
+  <div class="sub-card scroll-x">
+    <div class="card-t entre">
+      <span>Fuera de cronograma <span class="normal">· {anio} · no suman al %</span></span>
+      {#if noProgramadas.length}
+        <button class="sub-link" on:click={() => irAEjecuciones(null, {
+          esProgramada: false, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31`,
+        })}>Ver en Ejecuciones →</button>
+      {/if}
+    </div>
+    {#each noProgramadas as e (e.id)}
+      {@const rb = RESULTADO[e.resultado] ?? RESULTADO.CONFORME}
+      <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+      <div class="ej" role="button" tabindex="0" on:click={() => abrirEjecucion(e.id)}
+        on:keydown={(ev) => ev.key === "Enter" && abrirEjecucion(e.id)}>
+        <span class="gris2 num">{fechaCorta(e.fecha)}</span>
+        <span>{e.actividadNombre ?? e.descripcionLibre ?? "Registro libre"}</span>
+        <span class="gris2">{tipoMantenimientoLabel(e.tipoMantenimiento)}</span>
+        <span><span class="sub-badge" style="color:{rb.c};background:{rb.bg}">{rb.g} {rb.l}</span></span>
+        <span></span>
+        <span class="gris2">{e.responsable ?? ""}</span>
+      </div>
+    {:else}
+      <div class="sub-empty">Sin actividades fuera de cronograma en {anio}.</div>
+    {/each}
+  </div>
+
   <div class="seccion">Actividad reciente</div>
   <div class="sub-card scroll-x">
     <div class="card-t entre">
@@ -371,7 +403,7 @@
   }
   .kpis {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     border-top: 1px solid rgba(11, 11, 11, 0.08);
   }
   .kpi {

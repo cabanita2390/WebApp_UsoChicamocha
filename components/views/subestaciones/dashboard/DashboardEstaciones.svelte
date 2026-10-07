@@ -14,7 +14,7 @@
   let cargando = true;
   let errorCarga = "";
   // Sin códigos de estación (P1/D3).
-  const cols = "minmax(0,2fr) 140px 110px 110px 150px";
+  const cols = "minmax(0,2fr) 140px 110px 110px 130px 150px";
 
   // Solo se aplica la respuesta de la última carga (cambios de disciplina seguidos).
   let secuencia = 0;
@@ -64,7 +64,8 @@
     </div>
     <div class="sub-card scroll-x" class:actualizando={recargando}>
       <div class="sub-th" style="grid-template-columns:{cols}">
-        <span>Estación</span><span>Tipo</span><span>Programadas</span><span>Ejecutadas</span><span>Cumplimiento</span>
+        <span>Estación</span><span>Tipo</span><span>Programadas</span><span>Ejecutadas</span>
+        <span title="Registros del año sin cita del cronograma (no suman al %)">No programadas</span><span>Cumplimiento</span>
       </div>
       {#each filas as s (s.estacionId)}
         <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
@@ -78,6 +79,7 @@
           <span class="gris">{tipoLabel(s.estacionTipo)}</span>
           <span>{s.programado}</span>
           <span>{s.ejecutadasVencidas} <span class="tenue">de {s.vencidas}</span></span>
+          <span class:tenue={!s.ejecutadoNoProgramado}>{s.ejecutadoNoProgramado ?? 0}</span>
           <span>
             {#if s.pc}
               <span class="sub-badge" style="color:{s.pc.c};background:{s.pc.bg}">{s.pc.g} {s.pct}%</span>
