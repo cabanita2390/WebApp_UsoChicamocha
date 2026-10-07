@@ -93,26 +93,31 @@ describe('DashboardEstaciones', () => {
     expect(screen.getAllByText('Inactiva')).toHaveLength(1);
   });
 
-  it('vista Año: avance "x de y" con barra neutra (sin semáforo), atrasadas e imprevistos; fila Total', async () => {
+  it('vista Año: tarjetas resumen y por estación nombre+tipo, avance con barra neutra (sin semáforo), atrasadas e imprevistos', async () => {
     substationAdmin.indicadoresPorEstacion.mockResolvedValue([
       ind(1, 'Ayalas', { ejecutadoNoProgramado: 1, ejecutadoTotal: 4 }),
       ind(2, 'CLAN', { estacionTipo: 'COMPLEMENTARIA', programado: 0, cumple: 0, vencidas: 0, ejecutadasVencidas: 0 }),
     ]);
     const { container } = render(DashboardEstaciones);
-    expect(await screen.findByText('Avance 2026')).toBeTruthy();
-    expect(screen.getByText('Complementaria')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Avance 2026' })).toBeTruthy();
+
+    // Tarjetas: suma de todas las estaciones
+    const tarjeta = (k) => container.querySelector(`[data-kpi="${k}"]`).textContent.replace(/\s+/g, ' ');
+    expect(tarjeta('anio')).toContain('75%');
+    expect(tarjeta('anio')).toContain('3 de 4 citas del año');
+    expect(tarjeta('mes')).toContain('Septiembre · mes en curso');
+    expect(tarjeta('atrasadas')).toContain('1');
+    expect(tarjeta('imprevistos')).toContain('14% de 7 registros');
 
     const [ayalas, clan] = container.querySelectorAll('.sub-tr.clickable');
-    expect(ayalas.children[2].textContent.replace(/\s+/g, ' ').trim()).toBe('3 de 4 75%');
+    expect(ayalas.children[0].textContent.replace(/\s+/g, ' ').trim()).toBe('Ayalas Bombeo');
+    expect(clan.children[0].textContent).toContain('Complementaria');
+    expect(ayalas.children[1].textContent.replace(/\s+/g, ' ').trim()).toBe('3 de 4 75%');
     expect(ayalas.querySelector('.sub-badge')).toBeNull(); // el año no lleva semáforo
-    expect(ayalas.children[3].textContent.trim()).toBe('1'); // atrasada: 4 vencidas, 3 ejecutadas
-    expect(ayalas.children[4].textContent.trim()).toBe('1 · 25% del total');
-    expect(clan.children[2].textContent).toContain('Sin citas');
-    expect(clan.children[4].textContent.trim()).toBe('—');
-
-    const total = container.querySelector('.sub-tr.total');
-    expect(total.children[0].textContent).toBe('Total · 2 estaciones');
-    expect(total.children[2].textContent.replace(/\s+/g, ' ').trim()).toBe('3 de 4 75%');
+    expect(ayalas.children[2].textContent.trim()).toBe('1'); // atrasada: 4 vencidas, 3 ejecutadas
+    expect(ayalas.children[3].textContent.trim()).toBe('1 · 25% del total');
+    expect(clan.children[1].textContent).toContain('Sin citas en 2026');
+    expect(clan.children[3].textContent.trim()).toBe('—');
   });
 
   it('vista Mes en curso: "x de y" del mes con semáforo contra el tiempo transcurrido e imprevistos del mes', async () => {
@@ -124,13 +129,16 @@ describe('DashboardEstaciones', () => {
     const { container } = render(DashboardEstaciones);
     await fireEvent.click(await screen.findByText('Mes en curso'));
 
-    expect(screen.getByText('Avance de Septiembre 2026')).toBeTruthy();
-    expect(screen.getByText(/va el 50% del mes/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Avance de Septiembre 2026' })).toBeTruthy();
+    expect(screen.getByText(/semáforo compara lo ejecutado/)).toBeTruthy();
     const [ayalas, clan, monquira] = container.querySelectorAll('.sub-tr.clickable');
     expect(ayalas.querySelector('.sub-badge').textContent).toBe('▲ 50% · Al día');
-    expect(ayalas.children[3].textContent.trim()).toBe('1 · 33% del total');
+    expect(ayalas.querySelector('.marca').style.left).toBe('50%'); // raya: cuánto del mes ha pasado
+    expect(ayalas.children[2].textContent.trim()).toBe('1 · 33% del total');
     expect(clan.querySelector('.sub-badge').textContent).toBe('▼ 10% · Atrasado');
-    expect(monquira.children[2].textContent).toContain('Sin citas este mes');
+    expect(monquira.children[1].textContent).toContain('Sin citas este mes');
+    // Tarjeta del mes: 3 de 14 citas con la mitad del mes ya pasada
+    expect(container.querySelector('[data-kpi="mes"]').textContent).toContain('■ 21% · Algo atrasado');
   });
 
   it('otro año sin mes en curso: no ofrece la vista del mes', async () => {
