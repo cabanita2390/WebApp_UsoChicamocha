@@ -71,7 +71,16 @@
   $: hayMes = mes != null;
   $: if (!hayMes && vista === "mes") vista = "anio";
   $: nombreMes = hayMes ? MESES_LARGOS[mes - 1] : "";
-  $: cols = vista === "mes" ? "minmax(200px,1fr) minmax(280px,1.6fr) 190px" : "minmax(200px,1fr) minmax(280px,1.6fr) 110px 190px";
+  // Día y días restantes del mes, derivados del % que manda el servidor (nunca la fecha del navegador).
+  $: diasMes = hayMes ? new Date(anio, mes, 0).getDate() : 0;
+  $: diaMes = hayMes ? Math.round(((transcurrido ?? 0) * diasMes) / 100) : 0;
+  $: quedan = Math.max(0, diasMes - diaMes);
+  $: pendientesMes = Math.max(0, total.programadoMes - total.cumpleMes);
+  $: conCitasMes = filas.filter((f) => f.programadoMes);
+  $: atrasadasMes = conCitasMes.filter((f) => f.semaforo && f.semaforo.l !== "Al día" && f.semaforo.l !== "Mes completo");
+  $: cols = vista === "mes"
+    ? "minmax(190px,1fr) minmax(220px,1.4fr) 170px 96px 170px"
+    : "minmax(200px,1fr) minmax(280px,1.6fr) 110px 190px";
 </script>
 
 <div class="sub-mod">
@@ -107,45 +116,84 @@
       </div>
     </div>
 
-    <!-- Resumen de todas las estaciones -->
+    <!-- Resumen de todas las estaciones: tarjetas propias de cada vista -->
     <div class="resumen" class:actualizando={recargando} style="--imp-c:{IMPREVISTO.c};--imp-bg:{IMPREVISTO.bg}">
-      <div class="sub-card tarjeta" data-kpi="anio">
-        <div class="t-l">Avance {anio}</div>
-        <div class="t-v">{total.avanceAnio != null ? `${total.avanceAnio}%` : "—"}</div>
-        <div class="barra grande" aria-hidden="true"><span style="width:{total.avanceAnio ?? 0}%"></span></div>
-        <div class="t-s">{total.cumple} de {total.programado} citas del año</div>
-      </div>
-      {#if hayMes}
+      {#if vista === "mes"}
         <div class="sub-card tarjeta" data-kpi="mes">
-          <div class="t-l">{nombreMes} · mes en curso</div>
-          <div class="t-v">{total.cumpleMes} <span class="t-de">de {total.programadoMes}</span></div>
+          <div class="t-l">Avance de {nombreMes}</div>
+          <div class="t-v">{total.cumpleMes} <span class="t-de">de {total.programadoMes} citas</span></div>
+          <div class="barra grande" aria-hidden="true">
+            <span style="width:{total.avanceMes ?? 0}%;background:{total.semaforo?.color ?? '#3d3c39'}"></span>
+            <i class="marca" style="left:{transcurrido ?? 0}%"></i>
+          </div>
           {#if total.semaforo}
             <span class="sub-badge" style="color:{total.semaforo.c};background:{total.semaforo.bg}">{total.semaforo.g} {total.semaforo.pct}% · {total.semaforo.l}</span>
           {:else}
             <span class="t-s">Sin citas este mes</span>
           {/if}
-          <div class="t-s">va el {Math.round(transcurrido ?? 0)}% del mes</div>
+        </div>
+        <div class="sub-card tarjeta" data-kpi="pendientes">
+          <div class="t-l">Por ejecutar</div>
+          <div class="t-v" class:tenue={!pendientesMes}>{pendientesMes}</div>
+          <div class="t-s">{pendientesMes ? `citas pendientes · quedan ${quedan} días` : "todas las citas del mes hechas"}</div>
+        </div>
+        <div class="sub-card tarjeta" data-kpi="estaciones">
+          <div class="t-l">Estaciones atrasadas</div>
+          <div class="t-v" class:tenue={!atrasadasMes.length}>{atrasadasMes.length} <span class="t-de">de {conCitasMes.length}</span></div>
+          <div class="t-s">con citas este mes, por detrás del tiempo</div>
+        </div>
+        <div class="sub-card tarjeta" data-kpi="imprevistos">
+          <div class="t-l">Imprevistos de {nombreMes}</div>
+          <div class="t-v imp-v" class:tenue={!total.ejecutadoNoProgramadoMes}>{total.ejecutadoNoProgramadoMes}</div>
+          <div class="t-s">
+            {total.impMes != null ? `${total.impMes}% de ${total.ejecutadoTotalMes} registros del mes` : "sin registros este mes"}
+          </div>
+        </div>
+      {:else}
+        <div class="sub-card tarjeta" data-kpi="anio">
+          <div class="t-l">Avance {anio}</div>
+          <div class="t-v">{total.avanceAnio != null ? `${total.avanceAnio}%` : "—"}</div>
+          <div class="barra grande" aria-hidden="true"><span style="width:{total.avanceAnio ?? 0}%"></span></div>
+          <div class="t-s">{total.cumple} de {total.programado} citas del año</div>
+        </div>
+        {#if hayMes}
+          <div class="sub-card tarjeta" data-kpi="mes">
+            <div class="t-l">{nombreMes} · mes en curso</div>
+            <div class="t-v">{total.cumpleMes} <span class="t-de">de {total.programadoMes}</span></div>
+            {#if total.semaforo}
+              <span class="sub-badge" style="color:{total.semaforo.c};background:{total.semaforo.bg}">{total.semaforo.g} {total.semaforo.pct}% · {total.semaforo.l}</span>
+            {:else}
+              <span class="t-s">Sin citas este mes</span>
+            {/if}
+            <div class="t-s">va el {Math.round(transcurrido ?? 0)}% del mes</div>
+          </div>
+        {/if}
+        <div class="sub-card tarjeta" data-kpi="atrasadas">
+          <div class="t-l">Atrasadas</div>
+          <div class="t-v" class:tenue={!total.atrasadas}>{total.atrasadas}</div>
+          <div class="t-s">citas de meses cerrados sin ejecutar</div>
+        </div>
+        <div class="sub-card tarjeta" data-kpi="imprevistos">
+          <div class="t-l">Imprevistos</div>
+          <div class="t-v imp-v">{total.ejecutadoNoProgramado}</div>
+          <div class="t-s">
+            {total.impAnio != null ? `${total.impAnio}% de ${total.ejecutadoTotal} registros` : "sin registros todavía"}{hayMes ? ` · ${total.ejecutadoNoProgramadoMes} este mes` : ""}
+          </div>
         </div>
       {/if}
-      <div class="sub-card tarjeta" data-kpi="atrasadas">
-        <div class="t-l">Atrasadas</div>
-        <div class="t-v" class:tenue={!total.atrasadas}>{total.atrasadas}</div>
-        <div class="t-s">citas de meses cerrados sin ejecutar</div>
-      </div>
-      <div class="sub-card tarjeta" data-kpi="imprevistos">
-        <div class="t-l">Imprevistos</div>
-        <div class="t-v imp-v">{total.ejecutadoNoProgramado}</div>
-        <div class="t-s">
-          {total.impAnio != null ? `${total.impAnio}% de ${total.ejecutadoTotal} registros` : "sin registros todavía"}{hayMes ? ` · ${total.ejecutadoNoProgramadoMes} este mes` : ""}
-        </div>
-      </div>
     </div>
 
     <div class="sub-card tabla" class:actualizando={recargando} style="--imp-c:{IMPREVISTO.c};--imp-bg:{IMPREVISTO.bg}">
       <div class="sub-th" style="grid-template-columns:{cols}">
         <span>Estación</span>
-        <span>{vista === "mes" ? `Citas de ${nombreMes}` : "Avance del año"}</span>
-        {#if vista !== "mes"}<span class="der" title="Citas de meses ya cerrados que no se ejecutaron">Atrasadas</span>{/if}
+        {#if vista === "mes"}
+          <span title="La raya marca cuánto del mes ha pasado">Citas de {nombreMes}</span>
+          <span>Estado</span>
+          <span class="der">Pendientes</span>
+        {:else}
+          <span>Avance del año</span>
+          <span class="der" title="Citas de meses ya cerrados que no se ejecutaron">Atrasadas</span>
+        {/if}
         <span class="der" title="Registros sin cita del cronograma y qué parte son del total de registros">Imprevistos</span>
       </div>
       {#each filas as s (s.estacionId)}
@@ -162,18 +210,21 @@
           </span>
 
           {#if vista === "mes"}
-            <span class="avance">
-              {#if s.programadoMes}
+            {#if s.programadoMes}
+              <span class="avance">
                 <span class="num cuenta">{s.cumpleMes} <span class="tenue">de {s.programadoMes}</span></span>
-                <span class="barra" aria-hidden="true" title="La raya marca cuánto del mes ha pasado">
+                <span class="barra" aria-hidden="true">
                   <span style="width:{s.avanceMes}%;background:{s.semaforo.color}"></span>
                   <i class="marca" style="left:{transcurrido ?? 0}%"></i>
                 </span>
-                <span class="sub-badge estado" style="color:{s.semaforo.c};background:{s.semaforo.bg}">{s.semaforo.g} {s.semaforo.pct}% · {s.semaforo.l}</span>
-              {:else}
-                <span class="tenue">Sin citas este mes</span>
-              {/if}
-            </span>
+              </span>
+              <span><span class="sub-badge estado" style="color:{s.semaforo.c};background:{s.semaforo.bg}">{s.semaforo.g} {s.semaforo.pct}% · {s.semaforo.l}</span></span>
+              <span class="der num" class:tenue={s.programadoMes === s.cumpleMes}>{s.programadoMes - s.cumpleMes}</span>
+            {:else}
+              <span class="tenue">Sin citas este mes</span>
+              <span></span>
+              <span class="der tenue">—</span>
+            {/if}
             <span class="der">
               {#if s.ejecutadoNoProgramadoMes}
                 <span class="imp">{s.ejecutadoNoProgramadoMes} · {s.impMes}% del total</span>
@@ -310,11 +361,8 @@
     text-align: right;
     font-weight: 600;
   }
-  /* Ancho fijo: así todas las barras del mes terminan en el mismo punto. */
   .estado {
     white-space: nowrap;
-    min-width: 168px;
-    justify-content: center;
   }
   /* Barra de avance: neutra en el año (sensación de progreso, no juicio); en el mes toma el
      color del semáforo y una raya marca cuánto del mes ha pasado. */

@@ -134,11 +134,19 @@ describe('DashboardEstaciones', () => {
     const [ayalas, clan, monquira] = container.querySelectorAll('.sub-tr.clickable');
     expect(ayalas.querySelector('.sub-badge').textContent).toBe('▲ 50% · Al día');
     expect(ayalas.querySelector('.marca').style.left).toBe('50%'); // raya: cuánto del mes ha pasado
-    expect(ayalas.children[2].textContent.trim()).toBe('1 · 33% del total');
+    expect(ayalas.children[3].textContent.trim()).toBe('2');        // pendientes del mes
+    expect(ayalas.children[4].textContent.trim()).toBe('1 · 33% del total');
     expect(clan.querySelector('.sub-badge').textContent).toBe('▼ 10% · Atrasado');
     expect(monquira.children[1].textContent).toContain('Sin citas este mes');
-    // Tarjeta del mes: 3 de 14 citas con la mitad del mes ya pasada
-    expect(container.querySelector('[data-kpi="mes"]').textContent).toContain('■ 21% · Algo atrasado');
+
+    // Tarjetas propias del mes: 3 de 14 citas con la mitad del mes ya pasada (15 de 30 días)
+    const tarjeta = (k) => container.querySelector(`[data-kpi="${k}"]`).textContent.replace(/\s+/g, ' ');
+    expect(tarjeta('mes')).toContain('Avance de Septiembre');
+    expect(tarjeta('mes')).toContain('■ 21% · Algo atrasado');
+    expect(tarjeta('pendientes')).toContain('11 citas pendientes · quedan 15 días');
+    expect(tarjeta('estaciones')).toContain('1 de 2'); // CLAN atrasada; Monquira no tiene citas
+    expect(tarjeta('imprevistos')).toContain('33% de 3 registros del mes');
+    expect(container.querySelector('[data-kpi="anio"]')).toBeNull();
   });
 
   it('otro año sin mes en curso: no ofrece la vista del mes', async () => {
