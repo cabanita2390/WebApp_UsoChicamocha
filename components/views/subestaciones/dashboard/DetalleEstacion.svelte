@@ -6,7 +6,7 @@
   import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleActividadId, disciplinaFiltro, anioDetalle } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { MESES, MESES_LARGOS, tipoLabel, frecuenciaLabel, disciplinaLabel } from "../../../../config/subestaciones.js";
-  import { BADGE, IMPREVISTO, RESULTADO, chip, fechaCorta, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
+  import { BADGE, IMPREVISTO, RESULTADO, chip, fechaCorta, porcentaje, semaforoMes, aniosParaSelector } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
   import Loader from "../../../shared/Loader.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
@@ -84,6 +84,14 @@
     }
   }
   cargar();
+
+  // Años con datos para el selector (si no llega, actual y anterior: no bloquea la vista).
+  let infoAnios = null;
+  Promise.resolve()
+    .then(() => substationAdmin.aniosCronograma())
+    .then((r) => (infoAnios = r))
+    .catch(() => {});
+  $: opcionesAnio = hoy ? aniosParaSelector(infoAnios, hoy.anioActual, "consulta", anio) : [];
 
   // Llegó una ejecución del móvil (WebSocket): si es de esta estación, se recarga.
   onDestroy(alCambiarEjecuciones((ev) => (ev.estacionId == null || ev.estacionId === estacionId) && cargar()));
@@ -247,7 +255,7 @@
       <div class="derecha">
         {#if hoy}
           <select class="anio" value={String(anio)} on:change={cambiarAnio} aria-label="Año">
-            {#each [hoy.anioActual, hoy.anioActual - 1] as y}<option value={String(y)}>{y}</option>{/each}
+            {#each opcionesAnio as y}<option value={String(y)}>{y}</option>{/each}
           </select>
         {/if}
         <div class="pct-box">

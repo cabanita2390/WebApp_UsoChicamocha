@@ -6,7 +6,7 @@
   import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleEstacionId, anioDetalle } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { MESES, MESES_LARGOS, disciplinaLabel } from "../../../../config/subestaciones.js";
-  import { BADGE, IMPREVISTO, RESULTADO, estadoCita, fechaCorta, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
+  import { BADGE, IMPREVISTO, RESULTADO, estadoCita, fechaCorta, porcentaje, semaforoMes, aniosParaSelector } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
   import Loader from "../../../shared/Loader.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
@@ -76,6 +76,14 @@
     }
   }
   cargar();
+
+  // Años con datos para el selector (si no llega, actual y anterior: no bloquea la vista).
+  let infoAnios = null;
+  Promise.resolve()
+    .then(() => substationAdmin.aniosCronograma())
+    .then((r) => (infoAnios = r))
+    .catch(() => {});
+  $: opcionesAnio = aniosParaSelector(infoAnios, anioActual, "consulta", anio);
 
   // Llegó una ejecución del móvil (WebSocket): se recarga (puede ser de esta actividad).
   onDestroy(alCambiarEjecuciones(() => cargar()));
@@ -268,7 +276,7 @@
         </div>
         <div class="derecha">
           <select class="anio" value={String(anio)} on:change={cambiarAnio} aria-label="Año">
-            {#each [anioActual, anioActual - 1] as y}<option value={String(y)}>{y}</option>{/each}
+            {#each opcionesAnio as y}<option value={String(y)}>{y}</option>{/each}
           </select>
           <div class="pct-box">
             <div class="gris">Avance {anio}</div>

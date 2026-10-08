@@ -21,6 +21,7 @@
     totalesPorMes,
     estadoCita,
     fechaHora,
+    aniosParaSelector,
   } from "../../../../utils/cronograma.js";
   import Loader from "../../../shared/Loader.svelte";
   import SubToast from "../SubToast.svelte";
@@ -32,6 +33,14 @@
   import SubestacionEjecucionDetalleModal from "../../../shared/SubestacionEjecucionDetalleModal.svelte";
 
   $: esAdmin = $auth?.currentUser?.role === "ADMIN";
+  // Un año pasado se consulta, no se edita (el backend tampoco deja programarlo).
+  $: soloLectura = anio < hoy.anioActual;
+  $: editable = esAdmin && !soloLectura;
+  $: if (soloLectura && modoEdicion) modoEdicion = false;
+
+  // Años del selector: los que tienen datos + el actual y el siguiente (en 2027 ofrece 2028).
+  let infoAnios = null;
+  $: opcionesAnio = aniosParaSelector(infoAnios, hoy.anioActual, "cronograma", anio);
 
   // "Hoy" lo manda el servidor en cada GET /cronograma; hasta entonces, el del navegador.
   const ahora = new Date();
@@ -114,6 +123,11 @@
         substationAdmin.listarEstaciones(),
         substationAdmin.listarActividades(),
       ]);
+      // Si no llega, el selector ofrece lo de siempre (actual y siguiente): no bloquea la grilla.
+      Promise.resolve()
+        .then(() => substationAdmin.aniosCronograma())
+        .then((r) => (infoAnios = r))
+        .catch(() => {});
       await cargarCronograma();
       if (anioPedido == null && anio !== hoy.anioActual) {
         anio = hoy.anioActual;
@@ -406,13 +420,13 @@
           {/each}
         </select>
         <select class="ctl anio" value={String(anio)} on:change={cambiarAnio} aria-label="Año">
-          {#each [hoy.anioActual, hoy.anioActual + 1] as y}<option value={String(y)}>{y}</option>{/each}
+          {#each opcionesAnio as y}<option value={String(y)}>{y}{y < hoy.anioActual ? " · consulta" : ""}</option>{/each}
         </select>
         <input class="ctl buscar" bind:value={q} placeholder="Buscar estación…" />
         <button class="sub-btn chico-btn" on:click={() => pantallaAmpliada.update((v) => !v)}>
           {$pantallaAmpliada ? "⤡ Salir de vista ampliada" : "⤢ Ampliar"}
         </button>
-        {#if esAdmin}
+        {#if editable}
           <button class="sub-btn-primary" on:click={abrirMasiva}>Asignación masiva</button>
           <button class="modo" class:on={modoEdicion} on:click={() => (modoEdicion = !modoEdicion)}>
             {modoEdicion ? "✓ Modo asignación" : "+ Asignar actividades"}
@@ -459,11 +473,11 @@
           <button class="solo" on:click={() => (soloCambios = !soloCambios)}>
             {verSoloCambios ? "Mostrar todo el cronograma" : "Ver solo los cambios"}
           </button>
-          {#if esAdmin && confirmarDescarte}
+          {#if editable && confirmarDescarte}
             <span class="confirmar-txt">¿Descartar {nCambios} {nCambios === 1 ? "cambio" : "cambios"}? No se puede deshacer.</span>
             <button class="sub-btn chico-btn" disabled={ocupado} on:click={() => (confirmarDescarte = false)}>Cancelar</button>
             <button class="peligro" disabled={ocupado} on:click={descartar}>Sí, descartar</button>
-          {:else if esAdmin}
+          {:else if editable}
             <button class="sub-btn chico-btn" disabled={ocupado} on:click={() => (confirmarDescarte = true)}>Descartar</button>
             <button class="sub-btn-primary" on:click={() => (publicarAbierto = true)}>Revisar y publicar a móvil</button>
           {/if}
@@ -473,20 +487,31 @@
       <div class="publicado">
         <span class="punto"></span>
         <span>Publicado a móvil · {fechaHora(ultima.publicadoEn)} · sin cambios pendientes</span>
-        {#if cron.puedeDeshacer && esAdmin}
+        {#if cron.puedeDeshacer && editable}
           <button class="deshacer" disabled={ocupado} on:click={deshacer}>↶ Deshacer última publicación</button>
         {/if}
       </div>
     {/if}
 
-    {#if anioVacio}
+    {#if soloLectura}
+      <div class="consulta" role="note">
+        {anio} es un año cerrado: aquí solo se consulta lo que se programó y lo que se hizo. Para programar,
+        elija {hoy.anioActual} o {hoy.anioActual + 1}.
+      </div>
+    {/if}
+
+    {#if anioVacio && soloLectura}
+      <div class="sub-card vacio-anio">
+        <div class="va-t">{anio} no tuvo cronograma publicado</div>
+      </div>
+    {:else if anioVacio}
       <div class="sub-card vacio-anio">
         <div class="va-t">{anio} todavía no tiene cronograma</div>
         <div class="va-p">
           Copie el año actual como punto de partida y ajuste solo las excepciones. Todo queda en <strong>borrador</strong>:
           los técnicos no ven nada hasta que publique, y puede descartarlo completo.
         </div>
-        {#if esAdmin}
+        {#if editable}
           <div class="va-btns">
             <button class="sub-btn-primary" disabled={ocupado || citasOrigenCopia === 0} on:click={copiarAnio}>
               Copiar {anio - 1} como borrador · {citasOrigenCopia} citas
@@ -521,7 +546,7 @@
           citas={citasCelda}
           {anio}
           {hoy}
-          {esAdmin}
+          esAdmin={editable}
           {ocupado}
           {actividadesPorId}
           {estacionesPorId}
@@ -788,5 +813,12 @@
     margin-top: 6px;
     flex-wrap: wrap;
     justify-content: center;
+  }
+  .consulta {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #f0f0ee;
+    color: #52514e;
+    font-size: 13px;
   }
 </style>

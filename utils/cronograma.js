@@ -285,3 +285,18 @@ export function paresAsignacion(citasVigentes, actividadId, estacionIds, meses) 
     }
     return { nuevas, duplicadas };
 }
+
+/**
+ * Años del selector. "cronograma": los años con datos + el actual y el siguiente (en 2027 ofrece
+ * 2028 solo; los pasados se ven en modo consulta). "consulta" (Resumen y detalles): los años con
+ * datos hasta el actual. Siempre incluye el que está elegido. Sin respuesta del servidor (null),
+ * lo de siempre: actual y siguiente / actual y anterior. Del más reciente al más antiguo.
+ */
+export function aniosParaSelector(info, anioActual, modo, seleccionado = null) {
+    const conDatos = info?.conDatos ?? [anioActual - 1];
+    const base = modo === 'cronograma'
+        ? [...conDatos, ...(info?.programables ?? [anioActual, anioActual + 1])]
+        : [...conDatos.filter((a) => a <= anioActual), anioActual];
+    if (seleccionado != null) base.push(Number(seleccionado));
+    return [...new Set(base.map(Number))].sort((a, b) => b - a);
+}

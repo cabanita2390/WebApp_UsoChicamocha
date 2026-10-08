@@ -19,6 +19,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
     deshacerPublicacion: vi.fn(),
     copiarAnio: vi.fn(),
     ejecucionDeCita: vi.fn(),
+    aniosCronograma: vi.fn(),
   },
 }));
 
@@ -159,6 +160,30 @@ describe('CronogramaAnual', () => {
 
     expect(get(ejecucionesFiltroInicial)).toEqual({ estacionId: 1, fechaInicio: '2026-02-01', fechaFin: '2026-02-28' });
     expect(get(subestacionesActiveTab)).toBe('ejecuciones');
+  });
+
+  it('en 2027 ofrece 2028 para programar y 2026 para consultar; el año pasado queda en solo lectura', async () => {
+    // Simula que el servidor ya está en 2027
+    substationAdmin.obtenerCronograma.mockImplementation(async (anio) => cronograma({
+      anio, anioActual: 2027, mesActual: 3, puedeDeshacer: anio === 2026, citas: [cita(100, 1, 10, 2)],
+    }));
+    substationAdmin.aniosCronograma.mockResolvedValue({ anioActual: 2027, programables: [2027, 2028], conDatos: [2027, 2026] });
+    render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    await waitFor(() => expect([...screen.getByLabelText('Año').options].map((o) => o.textContent))
+      .toEqual(['2028', '2027', '2026 · consulta']));
+    expect(screen.getByText('Asignación masiva')).toBeTruthy();       // 2027 se programa
+
+    await fireEvent.change(screen.getByLabelText('Año'), { target: { value: '2028' } });
+    await waitFor(() => expect(substationAdmin.obtenerCronograma).toHaveBeenCalledWith(2028));
+    expect(screen.getByText('Asignación masiva')).toBeTruthy();       // 2028 también, sin errores
+    expect(screen.queryByText(/es un año cerrado/)).toBeNull();
+
+    await fireEvent.change(screen.getByLabelText('Año'), { target: { value: '2026' } });
+    expect(await screen.findByText(/2026 es un año cerrado/)).toBeTruthy();
+    expect(screen.queryByText('Asignación masiva')).toBeNull();       // solo consulta
+    expect(screen.queryByText('+ Asignar actividades')).toBeNull();
+    expect(screen.queryByText(/Deshacer última publicación/)).toBeNull();
   });
 
   it('panel de celda: "Ver registro" de una cita cumplida cierra el panel y abre su registro', async () => {

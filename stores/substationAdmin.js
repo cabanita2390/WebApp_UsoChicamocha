@@ -47,6 +47,8 @@ export const substationAdmin = {
                 `&page=0&size=${size}&sort=fecha,desc&sort=id,desc`,
         ),
     obtenerEjecucion: (id) => fetchWithAuth(`substation/ejecuciones/${id}`),
+    /** { anioActual, programables: [actual, siguiente], conDatos: [años con citas o registros, desc] } */
+    aniosCronograma: () => fetchWithAuth('substation/cronograma/anios'),
     /** El registro con el que se cumplió una cita del cronograma (404 si la cita no se ejecutó). */
     ejecucionDeCita: (programacionId) => fetchWithAuth(`substation/ejecuciones/por-programacion/${programacionId}`),
     /** Registros fuera de cronograma (sin cita) de una estación en el año, del más reciente al más antiguo. */

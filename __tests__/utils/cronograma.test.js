@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     mesCerrado, estadoCita, chip, filtrarCitas, filasPorEstacion, filasPorActividad, totalesPorMes,
-    mesesDePreset, paresAsignacion, fechaHora, semaforoMes, porcentaje,
+    mesesDePreset, paresAsignacion, fechaHora, aniosParaSelector, semaforoMes, porcentaje,
 } from '../../utils/cronograma.js';
 
 const hoy = { anioActual: 2026, mesActual: 9 };
@@ -123,6 +123,18 @@ describe('utils/cronograma', () => {
     it('asignación: cuenta nuevas y duplicadas (incluye borradores vigentes)', () => {
         const vigentes = [cita(1, 1, 10, 10), cita(2, 2, 10, 11, { estado: 'BORRADOR' }), cita(3, 1, 11, 10)];
         expect(paresAsignacion(vigentes, 10, [1, 2], [10, 11])).toEqual({ nuevas: 2, duplicadas: 2 });
+    });
+
+    it('años del selector: el Cronograma ofrece el siguiente y los pasados con datos; la consulta, hasta el actual', () => {
+        const info = { anioActual: 2027, programables: [2027, 2028], conDatos: [2027, 2026, 2025] };
+        expect(aniosParaSelector(info, 2027, 'cronograma')).toEqual([2028, 2027, 2026, 2025]);
+        expect(aniosParaSelector(info, 2027, 'consulta')).toEqual([2027, 2026, 2025]);
+        // Año sin datos (recién empieza): igual aparece el actual; el elegido siempre está
+        expect(aniosParaSelector({ anioActual: 2030, programables: [2030, 2031], conDatos: [] }, 2030, 'consulta')).toEqual([2030]);
+        expect(aniosParaSelector(info, 2027, 'consulta', 2020)).toEqual([2027, 2026, 2025, 2020]);
+        // Sin respuesta del servidor: lo de antes
+        expect(aniosParaSelector(null, 2026, 'cronograma')).toEqual([2027, 2026, 2025]);
+        expect(aniosParaSelector(null, 2026, 'consulta')).toEqual([2026, 2025]);
     });
 
     it('formato de fecha de publicación', () => {

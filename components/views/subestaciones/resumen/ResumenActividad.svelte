@@ -7,7 +7,7 @@
   } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { disciplinaLabel, MESES_LARGOS } from "../../../../config/subestaciones.js";
-  import { IMPREVISTO, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
+  import { IMPREVISTO, porcentaje, semaforoMes, aniosParaSelector } from "../../../../utils/cronograma.js";
   import Loader from "../../../shared/Loader.svelte";
   import SubToast from "../SubToast.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
@@ -66,6 +66,14 @@
     }
   }
   cargar();
+
+  // Años con datos para el selector (si no llega, actual y anterior: no bloquea la vista).
+  let infoAnios = null;
+  Promise.resolve()
+    .then(() => substationAdmin.aniosCronograma())
+    .then((r) => (infoAnios = r))
+    .catch(() => {});
+  $: opcionesAnio = anioActual != null ? aniosParaSelector(infoAnios, anioActual, "consulta", anio) : [];
 
   // Llegó una ejecución del móvil (WebSocket): se recarga sin que el usuario refresque.
   onDestroy(alCambiarEjecuciones(() => $detalleActividadId == null && cargar()));
@@ -194,7 +202,7 @@
         {/if}
         <SelectorDisciplina on:change={cargar} />
         <select class="ctl" value={String(anio)} on:change={cambiarAnio} aria-label="Año">
-          {#each [anioActual, anioActual - 1] as y}<option value={String(y)}>{y}</option>{/each}
+          {#each opcionesAnio as y}<option value={String(y)}>{y}</option>{/each}
         </select>
       </div>
     </div>
