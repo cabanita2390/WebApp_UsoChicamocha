@@ -10,6 +10,7 @@ vi.mock('../../stores/ui.js', () => ({
 vi.mock('../../stores/substationAdmin.js', () => ({
   substationAdmin: {
     resumenPorActividad: vi.fn(),
+    indicadoresPorEstacion: vi.fn(),
     listarActividades: vi.fn(),
     listarEstaciones: vi.fn(),
     obtenerCronograma: vi.fn(),
@@ -69,6 +70,8 @@ describe('ResumenActividad', () => {
       ],
     });
     substationAdmin.noProgramadasDeActividad.mockResolvedValue({ totalElements: 0, content: [] });
+    // Mismos registros que las actividades (6 + 2 + 0, y 1 + 1 en el mes): sin registros libres.
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([{ estacionId: 1, ejecutadoTotal: 8, ejecutadoTotalMes: 2 }]);
     substationAdmin.ejecucionesDeActividad.mockResolvedValue({
       totalElements: 21,
       content: [
@@ -101,6 +104,21 @@ describe('ResumenActividad', () => {
     const { container } = render(ResumenActividad);
     await screen.findByText('Pintura muros');
     expect(container.textContent).not.toMatch(/undefined|NaN/);
+  });
+
+  it('imprevistos: aclara los registros sin actividad, que solo cuentan por estación (Dashboard ≠ Resumen)', async () => {
+    const { container } = render(ResumenActividad);
+    await screen.findByText('Pintura muros');
+    expect(container.querySelector('.libres')).toBeNull(); // sin registros libres, nada que aclarar
+
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([{ estacionId: 1, ejecutadoTotal: 12, ejecutadoTotalMes: 4 }]);
+    await fireEvent.change(screen.getByLabelText('Año'), { target: { value: '2026' } });
+    expect(await screen.findByText('+ 4 registros sin actividad (solo cuentan por estación)')).toBeTruthy();
+    await fireEvent.click(screen.getByText('Mes en curso'));
+    expect(screen.getByText('+ 2 registros sin actividad (solo cuentan por estación)')).toBeTruthy();
+    // Con una búsqueda activa no aplica (las tarjetas suman solo lo que se ve)
+    await fireEvent.input(screen.getByLabelText('Buscar actividad'), { target: { value: 'aseo' } });
+    expect(container.querySelector('.libres')).toBeNull();
   });
 
   it('una actividad del catálogo sin citas ni registros no sale en la tabla, se cuenta al pie', async () => {

@@ -19,6 +19,9 @@
   let anioActual = null;
   let mes = null;
   let transcurrido = null;
+  /** Registros sin actividad del catálogo (o de una desactivada): cuentan por estación, no aquí. */
+  let libres = 0;
+  let libresMes = 0;
   let cargando = true;
   let recargando = false;
   let errorCarga = "";
@@ -36,8 +39,16 @@
     else cargando = true;
     errorCarga = "";
     try {
-      const r = await substationAdmin.resumenPorActividad(anio, $disciplinaFiltro);
+      // Los indicadores por estación cuentan todos los registros; los de esta tabla, solo los de
+      // actividades del catálogo. La diferencia son los registros libres (para no mostrar otro número sin explicar).
+      const [r, est] = await Promise.all([
+        substationAdmin.resumenPorActividad(anio, $disciplinaFiltro),
+        substationAdmin.indicadoresPorEstacion(anio, $disciplinaFiltro),
+      ]);
       if (mia !== secuencia) return;
+      const sumar = (xs, k) => xs.reduce((t, x) => t + (x[k] ?? 0), 0);
+      libres = Math.max(0, sumar(est, "ejecutadoTotal") - sumar(r, "ejecutadoTotal"));
+      libresMes = Math.max(0, sumar(est, "ejecutadoTotalMes") - sumar(r, "ejecutadoTotalMes"));
       // Sin año pedido, el servidor responde con el actual.
       if (anio == null) anio = r[0]?.anio ?? new Date().getFullYear();
       if (anioActual == null) anioActual = anio;
@@ -199,6 +210,9 @@
           <div class="t-s">
             {total.impMes != null ? `${total.impMes}% de ${total.ejecutadoTotalMes} registros del mes` : "sin registros este mes"}
           </div>
+          {#if libresMes && !q}
+            <div class="t-s libres" title="Registros escritos como texto libre (sin actividad del catálogo) o de una actividad desactivada: no son de ninguna fila de esta tabla. Sí aparecen en el Dashboard y en el Detalle por estación.">+ {libresMes} {libresMes === 1 ? "registro" : "registros"} sin actividad (solo cuentan por estación)</div>
+          {/if}
         </div>
       {:else}
         <div class="sub-card tarjeta" data-kpi="anio">
@@ -230,6 +244,9 @@
           <div class="t-s">
             {total.impAnio != null ? `${total.impAnio}% de ${total.ejecutadoTotal} registros` : "sin registros todavía"}{hayMes ? ` · ${total.ejecutadoNoProgramadoMes} este mes` : ""}
           </div>
+          {#if libres && !q}
+            <div class="t-s libres" title="Registros escritos como texto libre (sin actividad del catálogo) o de una actividad desactivada: no son de ninguna fila de esta tabla. Sí aparecen en el Dashboard y en el Detalle por estación.">+ {libres} {libres === 1 ? "registro" : "registros"} sin actividad (solo cuentan por estación)</div>
+          {/if}
         </div>
       {/if}
     </div>
@@ -390,6 +407,10 @@
   }
   .imp-v {
     color: var(--imp-c);
+  }
+  .libres {
+    color: #898781;
+    cursor: help;
   }
 
   /* Tabla */
