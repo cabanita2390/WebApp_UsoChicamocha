@@ -72,6 +72,8 @@
   $: pagina = $data.substationEjecuciones ?? { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 };
   $: columns = createEjecucionesColumns();
   $: soloHallazgosActivo = filtros.resultado === HALLAZGOS_PRESET.join(",");
+  // "Solo imprevistos" es el mismo filtro Origen = Imprevisto: el botón y el select quedan sincronizados.
+  $: soloImprevistosActivo = filtros.esProgramada === "false";
 
   function filtrosParaFetch() {
     return {
@@ -111,6 +113,11 @@
 
   function toggleSoloHallazgos() {
     filtros = { ...filtros, resultado: soloHallazgosActivo ? "" : HALLAZGOS_PRESET.join(",") };
+    cargar(0);
+  }
+
+  function toggleSoloImprevistos() {
+    filtros = { ...filtros, esProgramada: soloImprevistosActivo ? "" : "false" };
     cargar(0);
   }
 
@@ -234,15 +241,27 @@
       </label>
       <button type="button" class="btn-filter" on:click={handleFiltrar}>Filtrar</button>
       <button type="button" class="btn-clear" on:click={handleLimpiarFiltro}>Limpiar</button>
-      <button
-        type="button"
-        class="chip-preset"
-        class:chip-preset--activo={soloHallazgosActivo}
-        on:click={toggleSoloHallazgos}
-      >
-        <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a1 1 0 00.87 1.5h18.62a1 1 0 00.87-1.5L13.71 3.86a1 1 0 00-1.72 0z" /></svg>
-        Solo hallazgos
-      </button>
+      <div class="presets">
+        <button
+          type="button"
+          class="chip-preset imprevistos"
+          class:chip-preset--activo={soloImprevistosActivo}
+          title="Trabajos registrados sin cita del cronograma"
+          on:click={toggleSoloImprevistos}
+        >
+          <span class="mas" aria-hidden="true">＋</span>
+          Solo imprevistos
+        </button>
+        <button
+          type="button"
+          class="chip-preset"
+          class:chip-preset--activo={soloHallazgosActivo}
+          on:click={toggleSoloHallazgos}
+        >
+          <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a1 1 0 00.87 1.5h18.62a1 1 0 00.87-1.5L13.71 3.86a1 1 0 00-1.72 0z" /></svg>
+          Solo hallazgos
+        </button>
+      </div>
     </div>
   </div>
 
@@ -404,9 +423,27 @@
     color: #8a5a00;
     font-size: 12px;
     font-weight: 700;
-    margin-left: auto;
     cursor: pointer;
     font-family: inherit;
+  }
+  .presets {
+    display: inline-flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+  /* Imprevistos: la misma terracota del resto del módulo */
+  .chip-preset.imprevistos {
+    border-color: var(--imp-c);
+    background: var(--imp-fila);
+    color: var(--imp-c);
+  }
+  .chip-preset.imprevistos.chip-preset--activo {
+    background: var(--imp-c);
+    color: #fff;
+  }
+  .mas {
+    font-size: 13px;
+    line-height: 1;
   }
   .chip-preset svg {
     width: 14px;

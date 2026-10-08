@@ -163,6 +163,27 @@ describe('SubestacionesEjecuciones', () => {
     expect(preset.className).not.toContain('chip-preset--activo');
   });
 
+  it('el preset "Solo imprevistos" filtra Origen = Imprevisto, se sincroniza con el select y combina con hallazgos', async () => {
+    const { container } = render(SubestacionesEjecuciones);
+    data.fetchSubstationEjecuciones.mockClear();
+
+    const preset = screen.getByRole('button', { name: /Solo imprevistos/ });
+    await fireEvent.click(preset);
+    expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, { ...filtrosDefault, esProgramada: false });
+    expect(preset.className).toContain('chip-preset--activo');
+    expect(chipControl(container, 'Origen').value).toBe('false');
+
+    // Se combina con "Solo hallazgos": imprevistos que dejaron hallazgos
+    await fireEvent.click(screen.getByRole('button', { name: /Solo hallazgos/ }));
+    expect(data.fetchSubstationEjecuciones).toHaveBeenLastCalledWith(0, 20, {
+      ...filtrosDefault, esProgramada: false, resultado: ['CON_HALLAZGOS', 'REQUIERE_INTERVENCION'],
+    });
+
+    await fireEvent.click(preset);
+    expect(preset.className).not.toContain('chip-preset--activo');
+    expect(chipControl(container, 'Origen').value).toBe('');
+  });
+
   it('cambiar de página reconsulta manteniendo el filtro activo', async () => {
     const { container, getByTestId } = render(SubestacionesEjecuciones);
     await fireEvent.change(chipControl(container, 'Estación'), { target: { value: '2' } });
