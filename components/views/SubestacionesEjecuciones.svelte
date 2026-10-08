@@ -16,18 +16,16 @@
   /** Imprevistos (sin cita del cronograma): fila en terracota suave para verlos de un vistazo. */
   const claseFila = (r) => (r.esProgramada === false ? "fila-imprevisto" : "");
 
+  // Sin "No programado": lo que no estaba en el cronograma lo dice el filtro Origen / "Solo imprevistos"
+  // (lo calcula el sistema). Los registros viejos con ese valor se siguen viendo con su etiqueta.
   const TIPOS_MANTENIMIENTO = [
     { value: "PREVENTIVO", label: "Preventivo" },
     { value: "CORRECTIVO", label: "Correctivo" },
     { value: "PREDICTIVO", label: "Predictivo" },
-    { value: "NO_PROGRAMADO", label: "No programado" },
   ];
-  // Civil no usa "OTRO" en tipo_actividad (decisión de negocio, ver
-  // docs/design/subestaciones-design-brief.md §5.1) — solo estos 3.
   const TIPOS_ACTIVIDAD = [
     { value: "INSPECCION", label: "Inspección" },
     { value: "MANTENIMIENTO", label: "Mantenimiento" },
-    { value: "NO_PROGRAMADO", label: "No programado" },
   ];
   const RESULTADOS = [
     { value: "CONFORME", label: "Conforme" },

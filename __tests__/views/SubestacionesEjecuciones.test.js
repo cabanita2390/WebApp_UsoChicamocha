@@ -184,6 +184,14 @@ describe('SubestacionesEjecuciones', () => {
     expect(chipControl(container, 'Origen').value).toBe('');
   });
 
+  it('los tipos de mantenimiento y de actividad ya no ofrecen "No programado" (eso lo dice Origen)', async () => {
+    const { container } = render(SubestacionesEjecuciones);
+    const opciones = (label) => [...chipControl(container, label).options].map((o) => o.textContent);
+    expect(opciones('Tipo de mantenimiento')).toEqual(['Todos', 'Preventivo', 'Correctivo', 'Predictivo']);
+    expect(opciones('Tipo de actividad')).toEqual(['Todos', 'Inspección', 'Mantenimiento']);
+    expect(opciones('Origen')).toEqual(['Todos', 'Cronograma', 'Imprevisto']);
+  });
+
   it('cambiar de página reconsulta manteniendo el filtro activo', async () => {
     const { container, getByTestId } = render(SubestacionesEjecuciones);
     await fireEvent.change(chipControl(container, 'Estación'), { target: { value: '2' } });
