@@ -269,6 +269,10 @@
     </div>
 
     <div class="seccion">Año {anio} · Programado vs. ejecutado por estación <span class="leyenda-imp" style="color:{IMPREVISTO.c};background:{IMPREVISTO.bg}">＋ imprevisto</span></div>
+    <p class="leyenda">
+      ✓ ejecutada · ✕ no se ejecutó (mes ya cerrado) · ⧗ en curso (mes actual) · ○ programada, todavía a tiempo · ＋ imprevisto
+      (click para verlo) · Click en una estación para ver su detalle.
+    </p>
     <div class="sub-card scroll-x">
       <div class="est est-h">
         <span>Estación</span>
@@ -300,10 +304,6 @@
         <div class="sub-empty">Sin citas publicadas ni imprevistos de esta actividad en {anio}.</div>
       {/each}
     </div>
-    <p class="leyenda">
-      ✓ ejecutada · ✕ no se ejecutó (mes ya cerrado) · ⧗ en curso (mes actual) · ○ programada, todavía a tiempo · ＋ imprevisto
-      (click para verlo) · Click en una estación para ver su detalle.
-    </p>
 
     <div class="sub-card scroll-x">
       <div class="card-t entre">
@@ -570,7 +570,7 @@
     vertical-align: middle;
   }
   .leyenda {
-    margin: -8px 0 0;
+    margin: -10px 0 0;
     font-size: 12px;
     color: #898781;
   }
