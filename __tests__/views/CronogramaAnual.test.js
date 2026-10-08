@@ -178,12 +178,23 @@ describe('CronogramaAnual', () => {
     expect(screen.getByText('Solo web · no se captura desde móvil')).toBeTruthy();
   });
 
-  it('click en el nombre de la estación abre su detalle en el Dashboard', async () => {
-    render(CronogramaAnual);
+  it('el nombre de la estación no es clickeable (su detalle ya está en el Dashboard)', async () => {
+    const { container } = render(CronogramaAnual);
     await fireEvent.click(await screen.findByText('Ayalas'));
 
-    expect(get(detalleEstacionId)).toBe(1);
-    expect(get(subestacionesActiveTab)).toBe('dashboard');
+    expect(get(detalleEstacionId)).toBeNull();
+    expect(get(subestacionesActiveTab)).not.toBe('dashboard');
+    expect(container.querySelector('button.nombre-fila')).toBeNull();
+  });
+
+  it('en filas por actividad, el nombre de la actividad filtra la grilla por esa actividad', async () => {
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('button', { name: 'Actividades', exact: true }));
+    const nombre = container.querySelector('button.nombre-fila');
+    expect(nombre.title).toBe('Ver esta actividad por estación');
+    await fireEvent.click(nombre);
+    expect(container.querySelector('button.nombre-fila')).toBeNull(); // volvió a filas por estación
   });
 
   it('año sin cronograma: ofrece copiar el año anterior como borrador', async () => {

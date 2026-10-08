@@ -9,7 +9,6 @@
     pantallaAmpliada,
     subestacionesActiveTab,
     ejecucionesFiltroInicial,
-    detalleEstacionId,
     disciplinaFiltro,
   } from "../../../../stores/subestacionesFilters.js";
   import { DISCIPLINAS, MESES, disciplinaLabel } from "../../../../config/subestaciones.js";
@@ -295,17 +294,11 @@
     flash(`${actividad.nombre} · ${resultado.creadas} citas en borrador — mostrando solo los cambios`);
   }
 
+  // Solo en filas por actividad: filtra la grilla por esa actividad. El nombre de una estación no
+  // lleva a ningún lado (su detalle ya está en el Dashboard; repetirlo aquí era redundante).
   function abrirFila(e) {
-    const fila = e.detail;
-    if (por === "act") {
-      actividadId = String(fila.id);
-      por = "est";
-      return;
-    }
-    // Detalle por estación: vive dentro de la pestaña Dashboard (P4).
-    detalleEstacionId.set(fila.id);
-    pantallaAmpliada.set(false);
-    subestacionesActiveTab.set("dashboard");
+    actividadId = String(e.detail.id);
+    por = "est";
   }
 
   // Descartar es la única acción que no se puede deshacer: pide confirmación en dos pasos.
@@ -488,7 +481,7 @@
       {hoy}
       {anio}
       etiquetaFila={por === "act" ? "Actividad" : "Estación"}
-      tituloFila={por === "act" ? "Ver esta actividad por estación" : "Ver detalle de estación"}
+      tituloFila={por === "act" ? "Ver esta actividad por estación" : null}
       conChips={vista === "act"}
       densidad={dens}
       dosColumnas={por === "act"}
