@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     mesCerrado, estadoCita, chip, filtrarCitas, filasPorEstacion, filasPorActividad, totalesPorMes,
-    mesesDePreset, paresAsignacion, pctBadge, fechaHora, semaforoMes, porcentaje,
+    mesesDePreset, paresAsignacion, fechaHora, semaforoMes, porcentaje,
 } from '../../utils/cronograma.js';
 
 const hoy = { anioActual: 2026, mesActual: 9 };
@@ -55,26 +55,35 @@ describe('utils/cronograma', () => {
         expect(filtrarCitas(citas, { anio: 2026, hoy, actividadId: 10 }).map((c) => c.id)).toEqual([1, 3]);
     });
 
-    it('fila por estación: % = ejecutadas / vencidas visibles; "—" sin vencidas; cambios primero en la celda', () => {
+    it('fila por estación: avance = ejecutadas / publicadas (como el Dashboard); "—" sin citas; cambios primero', () => {
         const citas = [
             cita(1, 1, 10, 3, { tieneEjecucion: true }), cita(2, 1, 10, 5), cita(3, 1, 11, 6, { tieneEjecucion: true }),
             cita(4, 1, 10, 10), cita(5, 1, 11, 10, { estado: 'BORRADOR' }), cita(6, 2, 10, 11),
         ];
         const filas = filasPorEstacion({ estaciones, citas, actividadesPorId: actividades, anio: 2026, hoy,
             densidad: 'normal', disciplinaFiltrada: true });
-        expect(filas[0].pct).toBe(67); // 2 de 3 vencidas
+        expect(filas[0].pct).toBe(50); // 2 de 4 publicadas (el borrador de octubre no cuenta)
+        expect(filas[0].pctL).toBe('2 de 4 · 50%');
         expect(filas[0].total).toBe(5);
         expect(filas[0].sub).toBe('Bombeo');
         expect(filas[0].celdas[9].chips.map((c) => c.id)).toEqual([5, 4]); // octubre: la nueva primero
-        expect(filas[1].pctL).toBe('—');
+        expect(filas[1].pctL).toBe('0 de 1 · 0%'); // la de noviembre ya es parte del año
         expect(filas[1].sub).toBe('Compl.');
     });
 
-    it('fila por estación: la cita ya ejecutada de un mes abierto suma al % (no queda "—")', () => {
+    it('fila por estación: las citas futuras cuentan en el total del año (avance, no "cumplimiento a la fecha")', () => {
         const citas = [cita(1, 1, 10, 9, { tieneEjecucion: true }), cita(2, 1, 11, 11)];
         const [fila] = filasPorEstacion({ estaciones: [estaciones[0]], citas, actividadesPorId: actividades, anio: 2026, hoy,
             densidad: 'normal', disciplinaFiltrada: true });
-        expect(fila.pct).toBe(100); // 1 de 1: la pendiente de noviembre todavía no cuenta
+        expect(fila.pct).toBe(50); // 1 de 2: igual que el Dashboard
+        expect(fila.badge.g).toBe(''); // sin semáforo en el año
+    });
+
+    it('chip: la pendiente del mes en curso se ve "En curso", no como una futura', () => {
+        const ch = chip(cita(1, 1, 10, hoy.mesActual), { anio: hoy.anioActual, hoy, actividad: actividades.get(10) });
+        expect(ch.g).toBe('⧗');
+        expect(ch.title).toMatch(/En curso$/);
+        expect(ch.estado).toBe('pen');
     });
 
     it('densidad: con más citas que el máximo muestra max-1 chips y "+N más"', () => {
@@ -116,10 +125,7 @@ describe('utils/cronograma', () => {
         expect(paresAsignacion(vigentes, 10, [1, 2], [10, 11])).toEqual({ nuevas: 2, duplicadas: 2 });
     });
 
-    it('umbrales de color y formato de fecha de publicación', () => {
-        expect(pctBadge(56).g).toBe('▲');
-        expect(pctBadge(55).g).toBe('■');
-        expect(pctBadge(35).g).toBe('▼');
+    it('formato de fecha de publicación', () => {
         expect(fechaHora('2026-09-29T14:21:51.374636')).toBe('29/09/2026 14:21');
     });
 

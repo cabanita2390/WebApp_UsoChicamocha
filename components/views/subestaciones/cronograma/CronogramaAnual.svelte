@@ -201,7 +201,7 @@
   $: mensajeVacio = verSoloCambios
     ? "No hay cambios en borrador para mostrar."
     : soloVencidas
-      ? "Sin citas vencidas pendientes para este filtro."
+      ? "Sin citas atrasadas para este filtro."
       : "Sin citas para el filtro seleccionado.";
   $: dens = DENSIDAD[por][densidad];
 
@@ -374,9 +374,10 @@
           <button class:on={por === "est"} on:click={() => ((por = "est"), (celda = null))}>Estaciones</button>
           <button class:on={por === "act"} on:click={() => ((por = "act"), (celda = null))}>Actividades</button>
         </div>
+        <span class="lbl">Celdas</span>
         <div class="sub-seg chico">
-          <button class:on={vista === "act"} on:click={() => (vista = "act")}>Actividades</button>
-          <button class:on={vista === "count"} on:click={() => (vista = "count")}>Conteo</button>
+          <button class:on={vista === "act"} on:click={() => (vista = "act")} title="Cada celda muestra las citas con su nombre y estado">Con nombres</button>
+          <button class:on={vista === "count"} on:click={() => (vista = "count")} title="Cada celda muestra solo cuántas citas tiene el mes">Solo cantidad</button>
         </div>
         <select class="ctl disc" value={disciplina} on:change={cambiarDisciplina} aria-label="Disciplina">
           <option value="">Todas las disciplinas</option>
@@ -413,11 +414,12 @@
     <div class="leyenda">
       <span class="ley"><span class="cuadro" style="background:#006300"></span>✓ Ejecutada</span>
       <span class="ley"><span class="cuadro" style="background:#d03b3b"></span>✕ No ejecutada</span>
+      <span class="ley"><span class="cuadro" style="background:#faf1de;border:1px solid #c98500"></span>⧗ En curso</span>
       <span class="ley"><span class="cuadro" style="background:#fff;border:1px solid rgba(11,11,11,0.25)"></span>○ Programada</span>
       <span class="ley"><span class="cuadro" style="background:#dbe9fb;border:1.5px solid #2a78d6"></span>+ Nueva (borrador)</span>
       <span class="sep"></span><span class="gris">Pase el cursor sobre una actividad para ver su nombre completo.</span>
-      <button class="vencidas" class:on={soloVencidas} on:click={() => (soloVencidas = !soloVencidas)}>
-        {soloVencidas ? "✓" : "✕"} Solo pendientes vencidas · {vencidasN}
+      <button class="vencidas" class:on={soloVencidas} title="Citas de meses ya cerrados que no se ejecutaron" on:click={() => (soloVencidas = !soloVencidas)}>
+        {soloVencidas ? "✓" : "✕"} Solo atrasadas · {vencidasN}
       </button>
       <div class="densidad">
         <span>Actividades por celda</span>

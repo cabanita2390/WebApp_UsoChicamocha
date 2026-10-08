@@ -42,7 +42,9 @@
           ? { ...BADGE.ok, g: "✓", l: `Ejecutada ${fechaCorta(c.fechaEjecucion).slice(0, 5)}` }
           : e === "bad"
             ? { ...BADGE.bad, g: "✕", l: "No ejecutada" }
-            : { ...BADGE.neu, g: "○", l: "Programada" },
+            : anio === hoy.anioActual && c.mes === hoy.mesActual
+              ? { ...BADGE.warn, g: "⧗", l: "En curso" }
+              : { ...BADGE.neu, g: "○", l: "Programada" },
       borrador: esNueva(c) ? "Nueva · borrador" : seQuita(c) ? "Se quitará al publicar" : "",
       soloWeb: act && !act.capturaMovilHabilitada,
       puedeQuitar: esAdmin && !c.tieneEjecucion && !seQuita(c) && !cerrado,

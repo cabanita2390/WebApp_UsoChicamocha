@@ -78,9 +78,9 @@ describe('CronogramaAnual', () => {
     expect(screen.getByText(/2 estaciones · 3 citas en 2026 · todas las disciplinas/)).toBeTruthy();
     expect(screen.getAllByText('Pintura puertas', { selector: '.corto' })).toHaveLength(2);
     expect(screen.getByText('Muros', { selector: '.corto' })).toBeTruthy();
-    expect(screen.getByText('■ 50%')).toBeTruthy(); // Ayalas: 1 de 2 vencidas → nivel medio
+    expect(screen.getByText('1 de 2 · 50%')).toBeTruthy(); // Ayalas: avance del año, como el Dashboard
     expect(screen.getByText(/Publicado a móvil · 20\/09\/2026 16:05 · sin cambios pendientes/)).toBeTruthy();
-    expect(screen.getByText(/Solo pendientes vencidas · 1/)).toBeTruthy();
+    expect(screen.getByText(/Solo atrasadas · 1/)).toBeTruthy();
     expect(screen.queryByText('↶ Deshacer última publicación')).toBeNull();
   });
 
@@ -134,11 +134,11 @@ describe('CronogramaAnual', () => {
     expect(screen.queryByText('Descartar')).toBeNull();
   });
 
-  it('"Solo pendientes vencidas" deja solo las filas con citas no ejecutadas de meses cerrados', async () => {
+  it('"Solo atrasadas" deja solo las filas con citas no ejecutadas de meses cerrados', async () => {
     render(CronogramaAnual);
     await screen.findByText('Ayalas');
 
-    await fireEvent.click(screen.getByText(/Solo pendientes vencidas/));
+    await fireEvent.click(screen.getByText(/Solo atrasadas/));
 
     expect(screen.getByText('Ayalas')).toBeTruthy();
     expect(screen.queryByText('CLAN')).toBeNull();
