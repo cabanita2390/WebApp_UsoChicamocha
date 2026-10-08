@@ -55,6 +55,12 @@ export const substationAdmin = {
     /** Una fila por actividad activa, con lo publicado y lo ejecutado del año (sin anio: el actual; sin disciplina: todas). */
     resumenPorActividad: (anio, disciplina) =>
         fetchWithAuth(`substation/indicadores/por-actividad${query({ anio, disciplina })}`),
+    /** Imprevistos (registros sin cita) de una actividad en el año, del más reciente al más antiguo. */
+    noProgramadasDeActividad: (actividadId, anio, size = 50) =>
+        fetchWithAuth(
+            `substation/ejecuciones?actividadId=${actividadId}&esProgramada=false&fechaInicio=${anio}-01-01` +
+                `&fechaFin=${anio}-12-31&page=0&size=${size}&sort=fecha,desc&sort=id,desc`,
+        ),
     /** Registros de una actividad en el año, del más reciente al más antiguo (página de Spring). */
     ejecucionesDeActividad: (actividadId, anio, page = 0, size = 20) =>
         fetchWithAuth(

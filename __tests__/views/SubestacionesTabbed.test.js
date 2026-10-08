@@ -63,7 +63,7 @@ describe('SubestacionesTabbed', () => {
     render(SubestacionesTabbed);
 
     await fireEvent.click(screen.getByRole('tab', { name: 'Resumen por Actividad' }));
-    expect(await screen.findByText('Resumen por actividad', { selector: 'h1' })).toBeTruthy();
+    expect(await screen.findByText(/Avance por actividad/, { selector: 'h1' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('tab', { name: 'Ejecuciones y Hallazgos' }));
     expect(screen.getByText('Solo hallazgos')).toBeTruthy();
