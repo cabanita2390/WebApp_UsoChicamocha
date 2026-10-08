@@ -38,9 +38,10 @@ export const createEjecucionesColumns = () => [
     { header: 'Fecha', accessorFn: (r) => formatLocalDate(r.fecha), id: 'ej_fecha', size: 100 },
     { header: 'Estación', accessorKey: 'estacionNombre', id: 'ej_estacion', size: 160 },
     { header: 'Actividad', accessorFn: (r) => r.actividadNombre ?? r.descripcionLibre ?? '—', id: 'ej_actividad', size: 240 },
-    { header: 'Tipo mant.', accessorFn: (r) => tipoMantenimientoLabel(r.tipoMantenimiento), id: 'ej_tipomant', size: 110 },
-    { header: 'Tipo act.', accessorFn: (r) => tipoActividadLabel(r.tipoActividad), id: 'ej_tipoact', size: 110 },
-    { header: 'Programada', accessorFn: (r) => (r.esProgramada ? 'Sí' : 'No · imprevisto'), id: 'ej_prog', size: 120 },
+    { header: 'Tipo de mantenimiento', accessorFn: (r) => tipoMantenimientoLabel(r.tipoMantenimiento), id: 'ej_tipomant', size: 130 },
+    { header: 'Tipo de actividad', accessorFn: (r) => tipoActividadLabel(r.tipoActividad), id: 'ej_tipoact', size: 120 },
+    // Mismo vocabulario que el resto del módulo: lo del cronograma o un imprevisto (sin cita).
+    { header: 'Origen', accessorFn: (r) => (r.esProgramada ? 'Cronograma' : 'Imprevisto'), id: 'ej_prog', size: 110 },
     {
         header: 'Resultado',
         accessorFn: (r) => resultadoBadge(r.resultado).label,

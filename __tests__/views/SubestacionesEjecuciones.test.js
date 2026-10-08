@@ -11,6 +11,7 @@ const filtrosDefault = {
   esProgramada: undefined,
   fechaInicio: undefined,
   fechaFin: undefined,
+  disciplina: undefined,
 };
 
 let mockState = {
@@ -49,7 +50,7 @@ vi.mock('../../components/shared/SubestacionEjecucionDetalleModal.svelte', async
 
 import { data } from '../../stores/data.js';
 import { addNotification } from '../../stores/ui.js';
-import { ejecucionesFiltroInicial } from '../../stores/subestacionesFilters.js';
+import { ejecucionesFiltroInicial, disciplinaFiltro } from '../../stores/subestacionesFilters.js';
 
 /** Ubica el <select>/<input> de un chip de filtro por su etiqueta visible. */
 function chipControl(container, label) {
@@ -62,6 +63,7 @@ function chipControl(container, label) {
 describe('SubestacionesEjecuciones', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    disciplinaFiltro.set('');
     mockState = {
       substationEstaciones: [
         { id: 1, nombre: 'Duitama' },
@@ -104,14 +106,32 @@ describe('SubestacionesEjecuciones', () => {
     });
   });
 
-  it('convierte "Programada" a booleano real, no a string', async () => {
+  it('convierte "Origen" a booleano real, no a string', async () => {
     const { container } = render(SubestacionesEjecuciones);
     data.fetchSubstationEjecuciones.mockClear();
 
-    await fireEvent.change(chipControl(container, 'Programada'), { target: { value: 'true' } });
+    await fireEvent.change(chipControl(container, 'Origen'), { target: { value: 'true' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
 
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, { ...filtrosDefault, esProgramada: true });
+  });
+
+  it('tiene título y explicación, y la disciplina es la misma de las otras pestañas', async () => {
+    mockState.substationActividades = [
+      { id: 10, nombre: 'Pintura muros', disciplina: 'CIVIL' },
+      { id: 20, nombre: 'Revisar tablero', disciplina: 'ELECTRICO' },
+    ];
+    disciplinaFiltro.set('CIVIL');
+    const { container } = render(SubestacionesEjecuciones);
+    expect(screen.getByRole('heading', { name: 'Ejecuciones y hallazgos' })).toBeTruthy();
+    expect(screen.getByText(/Civil · todo lo que se registró/)).toBeTruthy();
+    // Solo las actividades de la disciplina elegida
+    const opciones = [...chipControl(container, 'Actividad').options].map((o) => o.textContent);
+    expect(opciones).toEqual(['Todas', 'Civil · Pintura muros']);
+
+    data.fetchSubstationEjecuciones.mockClear();
+    await fireEvent.change(screen.getByLabelText('Disciplina'), { target: { value: 'ELECTRICO' } });
+    expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, { ...filtrosDefault, disciplina: 'ELECTRICO' });
   });
 
   it('el botón Limpiar vacía todos los filtros y vuelve a consultar', async () => {
@@ -203,7 +223,7 @@ describe('SubestacionesEjecuciones', () => {
   it('llegando desde "Fuera de cronograma" del Detalle por estación filtra solo las no programadas del año', async () => {
     ejecucionesFiltroInicial.set({ estacionId: 1, esProgramada: false, fechaInicio: '2026-01-01', fechaFin: '2026-12-31' });
     const { container } = render(SubestacionesEjecuciones);
-    expect(chipControl(container, 'Programada').value).toBe('false');
+    expect(chipControl(container, 'Origen').value).toBe('false');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, {

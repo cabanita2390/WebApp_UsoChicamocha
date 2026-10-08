@@ -7,10 +7,11 @@
   import SubestacionEjecucionDetalleModal from "../shared/SubestacionEjecucionDetalleModal.svelte";
   import { createEjecucionesColumns } from "../../config/table-definitions/substation.js";
   import { get } from "svelte/store";
-  import { ejecucionesFiltroInicial } from "../../stores/subestacionesFilters.js";
+  import { ejecucionesFiltroInicial, disciplinaFiltro } from "../../stores/subestacionesFilters.js";
   import { disciplinaLabel } from "../../config/subestaciones.js";
   import { alCambiarEjecuciones } from "../../stores/subestacionesEventos.js";
   import { IMPREVISTO } from "../../utils/cronograma.js";
+  import SelectorDisciplina from "./subestaciones/SelectorDisciplina.svelte";
 
   /** Imprevistos (sin cita del cronograma): fila en terracota suave para verlos de un vistazo. */
   const claseFila = (r) => (r.esProgramada === false ? "fila-imprevisto" : "");
@@ -67,7 +68,7 @@
 
   $: isLoading = $data.isLoading;
   $: estaciones = $data.substationEstaciones ?? [];
-  $: actividades = $data.substationActividades ?? [];
+  $: actividades = ($data.substationActividades ?? []).filter((a) => !$disciplinaFiltro || a.disciplina === $disciplinaFiltro);
   $: pagina = $data.substationEjecuciones ?? { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 };
   $: columns = createEjecucionesColumns();
   $: soloHallazgosActivo = filtros.resultado === HALLAZGOS_PRESET.join(",");
@@ -82,7 +83,17 @@
       esProgramada: filtros.esProgramada === "" ? undefined : filtros.esProgramada === "true",
       fechaInicio: filtros.fechaInicio || undefined,
       fechaFin: filtros.fechaFin || undefined,
+      // La disciplina es la misma de las otras pestañas (Dashboard, Resumen, Cronograma).
+      disciplina: $disciplinaFiltro || undefined,
     };
+  }
+
+  function cambiarDisciplina() {
+    // Una actividad de otra disciplina ya no aplica.
+    const disc = get(disciplinaFiltro);
+    const act = ($data.substationActividades ?? []).find((a) => String(a.id) === String(filtros.actividadId));
+    if (act && disc && act.disciplina !== disc) filtros.actividadId = "";
+    cargar(0);
   }
 
   function cargar(page = 0) {
@@ -147,6 +158,17 @@
 </script>
 
 <div class="ejecuciones" style="--imp-c:{IMPREVISTO.c};--imp-fila:{IMPREVISTO.fila}">
+  <div class="cabeza">
+    <div>
+      <h1 class="titulo">Ejecuciones y hallazgos</h1>
+      <p class="subtitulo">
+        {$disciplinaFiltro ? disciplinaLabel($disciplinaFiltro) : "Todas las disciplinas"} · todo lo que se registró en las
+        estaciones, lo más reciente primero. Las filas en terracota son imprevistos (trabajos sin cita del cronograma).
+        "Ver detalle" muestra las fotos y el hallazgo.
+      </p>
+    </div>
+    <SelectorDisciplina on:change={cambiarDisciplina} />
+  </div>
   <div class="filter-card">
     <div class="chip-row">
       <label class="filter-chip">
@@ -177,15 +199,15 @@
         </select>
       </label>
       <label class="filter-chip">
-        <span class="chip-lab">Programada</span>
+        <span class="chip-lab">Origen</span>
         <select bind:value={filtros.esProgramada}>
-          <option value="">Todas</option>
-          <option value="true">Sí</option>
-          <option value="false">No</option>
+          <option value="">Todos</option>
+          <option value="true">Cronograma</option>
+          <option value="false">Imprevisto</option>
         </select>
       </label>
       <label class="filter-chip">
-        <span class="chip-lab">Tipo mant.</span>
+        <span class="chip-lab">Tipo de mantenimiento</span>
         <select bind:value={filtros.tipoMantenimiento}>
           <option value="">Todos</option>
           {#each TIPOS_MANTENIMIENTO as t}
@@ -194,7 +216,7 @@
         </select>
       </label>
       <label class="filter-chip">
-        <span class="chip-lab">Tipo act.</span>
+        <span class="chip-lab">Tipo de actividad</span>
         <select bind:value={filtros.tipoActividad}>
           <option value="">Todos</option>
           {#each TIPOS_ACTIVIDAD as t}
@@ -282,6 +304,26 @@
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+  }
+  .cabeza {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .titulo {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .subtitulo {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--ink-secondary);
+    max-width: 820px;
   }
   .filter-card {
     background: var(--surface);

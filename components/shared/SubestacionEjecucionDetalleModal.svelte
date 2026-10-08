@@ -90,7 +90,7 @@
           <div class="dl"><span class="dl-lab">Tipo de mantenimiento</span><span class="dl-val">{tipoMantenimientoLabel(ejecucion.tipoMantenimiento)}</span></div>
           <div class="dl"><span class="dl-lab">Tipo de actividad</span><span class="dl-val">{tipoActividadLabel(ejecucion.tipoActividad)}</span></div>
           <div class="dl"><span class="dl-lab">Actividad</span><span class="dl-val">{ejecucion.actividadNombre ?? ejecucion.descripcionLibre ?? "—"}</span></div>
-          <div class="dl"><span class="dl-lab">Programada</span><span class="dl-val">{ejecucion.esProgramada ? "Sí" : "No"}</span></div>
+          <div class="dl"><span class="dl-lab">Origen</span><span class="dl-val">{ejecucion.esProgramada ? "Cronograma" : "Imprevisto (sin cita del cronograma, no suma al avance)"}</span></div>
           <div class="dl"><span class="dl-lab">Resultado</span><span><span class="badge-cell badge-{badge.color}">{badge.label}</span></span></div>
           <div class="dl"><span class="dl-lab">Responsable</span><span class="dl-val">{ejecucion.responsable}</span></div>
           <div class="dl full"><span class="dl-lab">Observaciones</span><span class="dl-val">{ejecucion.observaciones}</span></div>
