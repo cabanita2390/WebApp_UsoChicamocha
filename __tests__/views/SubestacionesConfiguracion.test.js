@@ -64,7 +64,7 @@ describe('SubestacionesConfiguracion', () => {
 
     expect(screen.getByText('Configuración disponible solo para ADMIN')).toBeTruthy();
     expect(substationAdmin.listarEstaciones).not.toHaveBeenCalled();
-    await fireEvent.click(screen.getByText('Volver a Consulta'));
+    await fireEvent.click(screen.getByText('Volver a Seguimiento'));
     expect(push).toHaveBeenCalledWith('/subestaciones');
   });
 

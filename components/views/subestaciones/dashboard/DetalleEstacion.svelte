@@ -5,7 +5,7 @@
   import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleActividadId, disciplinaFiltro } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { MESES, MESES_LARGOS, tipoLabel, frecuenciaLabel, disciplinaLabel } from "../../../../config/subestaciones.js";
-  import { BADGE, COLOR, IMPREVISTO, RESULTADO, SEGUIMIENTO, chip, fechaCorta, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
+  import { BADGE, IMPREVISTO, RESULTADO, chip, fechaCorta, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
   import Loader from "../../../shared/Loader.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
@@ -125,7 +125,6 @@
     ? semaforoMes(indicador.cumpleMes, indicador.programadoMes, indicador.porcentajeMesTranscurrido)
     : null;
   $: impAnio = indicador ? porcentaje(indicador.ejecutadoNoProgramado, indicador.ejecutadoTotal) : null;
-  $: abiertos = indicador?.hallazgosAbiertos ?? 0;
   $: kpis = indicador
     ? [
         {
@@ -142,7 +141,12 @@
               c: "#0b0b0b",
               sc: semaforo?.color,
             }
-          : { l: "Mes en curso", v: "—", s: `${anio} no es el año actual`, c: "#898781" },
+          : {
+              l: "Mes en curso",
+              v: "—",
+              s: hoy && anio !== hoy.anioActual ? `${anio} no es el año actual` : "sin datos del mes",
+              c: "#898781",
+            },
         {
           l: "Imprevistos",
           v: indicador.ejecutadoNoProgramado,
@@ -153,12 +157,6 @@
           c: indicador.ejecutadoNoProgramado ? IMPREVISTO.c : "#0b0b0b",
         },
         { l: "Con hallazgos", v: indicador.conHallazgos, s: `en ${anio}`, c: "#0b0b0b" },
-        {
-          l: "Hallazgos abiertos",
-          v: abiertos,
-          s: abiertos ? "requieren seguimiento" : "todo al día",
-          c: abiertos ? "#d03b3b" : "#006300",
-        },
       ]
     : [];
   $: celdas = hoy
@@ -182,11 +180,11 @@
           mes: MESES[c.mes - 1],
           act: actividadesPorId.get(c.actividadId)?.nombre ?? "",
           b: c.tieneEjecucion
-            ? { ...BADGE.ok, g: "✓", l: "Cumple" }
+            ? { ...BADGE.ok, g: "✓", l: "Ejecutada" }
             : cerrado
-              ? { ...BADGE.bad, g: "✕", l: "No cumple" }
+              ? { ...BADGE.bad, g: "✕", l: "No ejecutada" }
               : actual
-                ? { ...BADGE.warn, g: "◐", l: "En curso" }
+                ? { ...BADGE.warn, g: "⧗", l: "En curso" }
                 : { ...BADGE.neu, g: "○", l: "Programada" },
         };
       })
@@ -269,7 +267,7 @@
 
   <div class="dos">
     <div class="sub-card scroll-x">
-      <div class="card-t">Cumplimiento cita por cita</div>
+      <div class="card-t">Cita por cita</div>
       <div class="lista">
         {#each cumplimiento as r (r.id)}
           <div class="cita">
@@ -285,7 +283,7 @@
       </div>
     </div>
     <div class="sub-card">
-      <div class="card-t">Actividades más críticas <span class="normal">· histórico</span></div>
+      <div class="card-t">Actividades más intervenidas <span class="normal">· histórico, veces que se ha hecho cada una</span></div>
       <div class="crit">
         {#each criticas as t, i (t.actividadId)}
           <div class="crit-item">
@@ -294,7 +292,7 @@
               <strong>{t.intervenciones}</strong>
             </div>
             <div class="barra">
-              <div style="width:{(t.intervenciones / maxCrit) * 100}%;background:{i === 0 ? COLOR.bad : i < 2 ? COLOR.warn : '#898781'}"></div>
+              <div style="width:{(t.intervenciones / maxCrit) * 100}%;background:#3d3c39"></div>
             </div>
           </div>
         {:else}
@@ -323,7 +321,6 @@
         <span>{e.actividadNombre ?? e.descripcionLibre ?? "Registro libre"}</span>
         <span class="gris2">{tipoMantenimientoLabel(e.tipoMantenimiento)}</span>
         <span><span class="sub-badge" style="color:{rb.c};background:{rb.bg}">{rb.g} {rb.l}</span></span>
-        <span></span>
         <span class="gris2">{e.responsable ?? ""}</span>
       </div>
     {:else}
@@ -339,7 +336,6 @@
     </div>
     {#each ejecuciones as e (e.id)}
       {@const rb = RESULTADO[e.resultado] ?? RESULTADO.CONFORME}
-      {@const sb = e.seguimiento ? SEGUIMIENTO[e.seguimiento.estado] : null}
       <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
       <div class="ej" role="button" tabindex="0" on:click={() => abrirEjecucion(e.id)}
         on:keydown={(ev) => ev.key === "Enter" && abrirEjecucion(e.id)}>
@@ -347,7 +343,7 @@
         <span>{e.actividadNombre ?? e.descripcionLibre ?? "Registro libre"}</span>
         <span class="gris2">{tipoMantenimientoLabel(e.tipoMantenimiento)}</span>
         <span><span class="sub-badge" style="color:{rb.c};background:{rb.bg}">{rb.g} {rb.l}</span></span>
-        <span>{#if sb}<span class="sub-badge" style="color:{sb.c};background:{sb.bg}">{sb.g} {sb.l}</span>{/if}</span>
+        <!-- Estado del seguimiento (Abierto/En proceso/Resuelto) oculto: todavía no tiene flujo. -->
         <span class="gris2">{e.responsable ?? ""}</span>
       </div>
     {:else}
@@ -476,7 +472,7 @@
   }
   .kpis {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     border-top: 1px solid rgba(11, 11, 11, 0.08);
   }
   .kpi {
@@ -634,8 +630,8 @@
   }
   .ej {
     display: grid;
-    min-width: 900px;
-    grid-template-columns: 96px minmax(0, 1.5fr) 104px 176px 136px minmax(0, 1fr);
+    min-width: 740px;
+    grid-template-columns: 96px minmax(0, 1.5fr) 104px 176px minmax(0, 1fr);
     align-items: center;
     padding: 9px 18px;
     font-size: 13px;

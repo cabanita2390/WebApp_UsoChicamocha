@@ -99,7 +99,7 @@ describe('DashboardEstaciones', () => {
       ind(2, 'CLAN', { estacionTipo: 'COMPLEMENTARIA', programado: 0, cumple: 0, vencidas: 0, ejecutadasVencidas: 0 }),
     ]);
     const { container } = render(DashboardEstaciones);
-    expect(await screen.findByRole('heading', { name: 'Avance 2026' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Avance por estación 2026' })).toBeTruthy();
 
     // Tarjetas: suma de todas las estaciones
     const tarjeta = (k) => container.querySelector(`[data-kpi="${k}"]`).textContent.replace(/\s+/g, ' ');
@@ -129,7 +129,7 @@ describe('DashboardEstaciones', () => {
     const { container } = render(DashboardEstaciones);
     await fireEvent.click(await screen.findByText('Mes en curso'));
 
-    expect(screen.getByRole('heading', { name: 'Avance de Septiembre 2026' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Avance por estación · Septiembre 2026' })).toBeTruthy();
     expect(screen.getByText(/semáforo compara lo ejecutado/)).toBeTruthy();
     const [ayalas, clan, monquira] = container.querySelectorAll('.sub-tr.clickable');
     expect(ayalas.querySelector('.sub-badge').textContent).toBe('▲ 50% · Al día');
@@ -197,20 +197,21 @@ describe('DashboardEstaciones', () => {
     expect(screen.getByText('Septiembre (mes en curso)')).toBeTruthy();
     expect(screen.getByText('0 de 2')).toBeTruthy();
     expect(screen.getByText('▼ 0% · Atrasado')).toBeTruthy();
-    expect(screen.getByText('requieren seguimiento')).toBeTruthy();
+    // El seguimiento de hallazgos (Abierto/En proceso) está oculto: todavía no tiene flujo.
+    expect(screen.queryByText('Hallazgos abiertos')).toBeNull();
 
     // Cita por cita: 4 publicadas (sin la del borrador ni la de otra estación)
-    expect(screen.getByText('✓ Cumple')).toBeTruthy();
-    expect(screen.getByText('✕ No cumple')).toBeTruthy();
-    expect(screen.getByText('◐ En curso')).toBeTruthy();
+    expect(screen.getByText('✓ Ejecutada')).toBeTruthy();
+    expect(screen.getByText('✕ No ejecutada')).toBeTruthy();
+    expect(screen.getByText('⧗ En curso')).toBeTruthy();
     expect(screen.getByText('○ Programada')).toBeTruthy();
 
-    // Actividades más críticas, de más a menos
+    // Actividades más intervenidas, de más a menos
     expect([...container.querySelectorAll('.crit-top strong')].map((n) => n.textContent)).toEqual(['4', '1']);
     // Actividad reciente
     expect(screen.getByText('12/08/2026')).toBeTruthy();
     expect(screen.getByText('! Con hallazgos')).toBeTruthy();
-    expect(screen.getByText('● Abierto')).toBeTruthy();
+    expect(screen.queryByText('● Abierto')).toBeNull();
     expect(screen.getByText('J. Pérez')).toBeTruthy();
   });
 
@@ -281,17 +282,17 @@ describe('DashboardEstaciones', () => {
       citas: cron.citas.map((c) => (c.id === 3 ? { ...c, tieneEjecucion: true, fechaEjecucion: '2026-09-02' } : c)),
     });
     render(DashboardEstaciones);
-    await screen.findByText('Cumplimiento cita por cita');
+    await screen.findByText('Cita por cita');
     // Sep (mes en curso) ejecutada: suma al % de una vez, igual que el backend.
     expect(screen.queryByText('aún no suma al %')).toBeNull();
-    expect(screen.getAllByText('✓ Cumple').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('✓ Ejecutada').length).toBeGreaterThan(0);
   });
 
   it('detalle: click en una actividad abre su detalle en Resumen por actividad', async () => {
     detalleEstacionId.set(1);
     detalleActividadId.set(null);
     render(DashboardEstaciones);
-    await screen.findByText('Cumplimiento cita por cita');
+    await screen.findByText('Cita por cita');
     await fireEvent.click(screen.getAllByTitle('Ver la actividad en Resumen por actividad')[0]);
     expect(get(detalleActividadId)).toBe(10);
     expect(get(subestacionesActiveTab)).toBe('resumenActividad');
@@ -299,12 +300,12 @@ describe('DashboardEstaciones', () => {
 
   it('muestra todas las disciplinas por defecto y el selector filtra el dashboard', async () => {
     render(DashboardEstaciones);
-    expect(await screen.findByText(/Todas las disciplinas · citas ejecutadas/)).toBeTruthy();
+    expect(await screen.findByText(/Todas las disciplinas · cuánto se ha hecho en cada estación/)).toBeTruthy();
     expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(undefined, '');
 
     await fireEvent.change(screen.getByLabelText('Disciplina'), { target: { value: 'ELECTRICO' } });
     await waitFor(() => expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(undefined, 'ELECTRICO'));
-    expect(await screen.findByText(/Eléctrico · citas ejecutadas/)).toBeTruthy();
+    expect(await screen.findByText(/Eléctrico · cuánto se ha hecho en cada estación/)).toBeTruthy();
     expect(get(disciplinaFiltro)).toBe('ELECTRICO');
   });
 
@@ -312,7 +313,7 @@ describe('DashboardEstaciones', () => {
     disciplinaFiltro.set('ELECTRICO');
     detalleEstacionId.set(1);
     render(DashboardEstaciones);
-    await screen.findByText('Cumplimiento cita por cita');
+    await screen.findByText('Cita por cita');
     expect(substationAdmin.indicadoresPorEstacion).toHaveBeenCalledWith(null, 'ELECTRICO');
     expect(substationAdmin.criticidad).toHaveBeenCalledWith(1, 'ELECTRICO');
     // Las citas del fixture son todas civiles: con Eléctrico no queda ninguna.

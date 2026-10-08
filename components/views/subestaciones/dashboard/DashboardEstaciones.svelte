@@ -78,9 +78,10 @@
   $: pendientesMes = Math.max(0, total.programadoMes - total.cumpleMes);
   $: conCitasMes = filas.filter((f) => f.programadoMes);
   $: atrasadasMes = conCitasMes.filter((f) => f.semaforo && f.semaforo.l !== "Al día" && f.semaforo.l !== "Mes completo");
+  // Columnas que se encogen: a 1024 px la tabla cabe completa (Imprevistos incluida).
   $: cols = vista === "mes"
-    ? "minmax(190px,1fr) minmax(220px,1.4fr) 170px 96px 170px"
-    : "minmax(200px,1fr) minmax(280px,1.6fr) 110px 190px";
+    ? "minmax(140px,1fr) minmax(150px,1.4fr) minmax(150px,auto) 84px minmax(120px,auto)"
+    : "minmax(150px,1fr) minmax(200px,1.6fr) 84px minmax(120px,auto)";
 </script>
 
 <div class="sub-mod">
@@ -95,13 +96,13 @@
   {:else}
     <div class="sub-head">
       <div class="sub-head-text">
-        <h1 class="sub-title">{vista === "mes" ? `Avance de ${nombreMes} ${anio}` : `Avance ${anio}`}</h1>
+        <h1 class="sub-title">{vista === "mes" ? `Avance por estación · ${nombreMes} ${anio}` : `Avance por estación ${anio}`}</h1>
         <p class="sub-subtitle">
           {$disciplinaFiltro ? disciplinaLabel($disciplinaFiltro) : "Todas las disciplinas"} ·
           {#if vista === "mes"}
             va el {Math.round(transcurrido ?? 0)}% del mes; el semáforo compara lo ejecutado con el tiempo que ha pasado
           {:else}
-            citas ejecutadas de las programadas en el año
+            cuánto se ha hecho en cada estación de las citas del cronograma, sumando sus actividades
           {/if}
         </p>
       </div>
@@ -322,8 +323,8 @@
   }
   .sub-th,
   .sub-tr {
-    min-width: 760px;
-    column-gap: 24px;
+    min-width: 640px;
+    column-gap: 16px;
     align-items: center;
   }
   .der {
