@@ -90,7 +90,10 @@
         </span>
         <span class="badge" style="color:{it.b.c};background:{it.b.bg}">{it.b.g} {it.b.l}</span>
         <span class="acc">
-          {#if it.puedeRestaurar}
+          {#if it.cita.tieneEjecucion}
+            <!-- La cita cumplida lleva a su registro (puede haberse hecho en otro mes, si fue tardía). -->
+            <button class="lnk azul" on:click={() => dispatch("verRegistro", it.cita.id)}>Ver registro</button>
+          {:else if it.puedeRestaurar}
             <button class="lnk azul" disabled={ocupado} on:click={() => dispatch("restaurar", it.cita)}>Restaurar</button>
           {:else if it.mesCerrado}
             <span class="cerrado" title="No se puede quitar una cita de un mes cerrado">Mes cerrado</span>
@@ -102,7 +105,8 @@
       </div>
     {/each}
     {#if items.length && !esPorActividad}
-      <button class="lnk azul ver" on:click={() => dispatch("verEjecuciones")}>Ver ejecuciones de este mes →</button>
+      <button class="lnk azul ver" title="Todo lo que se registró en la estación ese mes: citas de este u otros meses e imprevistos"
+        on:click={() => dispatch("verEjecuciones")}>Todo lo registrado en {MESES_LARGOS[celda.mes - 1]} →</button>
     {/if}
   </div>
 

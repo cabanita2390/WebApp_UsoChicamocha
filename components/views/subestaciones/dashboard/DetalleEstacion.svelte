@@ -1,8 +1,9 @@
 <script>
   import { createEventDispatcher, onDestroy } from "svelte";
+  import { get } from "svelte/store";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import { flash } from "../../../../stores/subestacionesToast.js";
-  import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleActividadId, disciplinaFiltro } from "../../../../stores/subestacionesFilters.js";
+  import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleActividadId, disciplinaFiltro, anioDetalle } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { MESES, MESES_LARGOS, tipoLabel, frecuenciaLabel, disciplinaLabel } from "../../../../config/subestaciones.js";
   import { BADGE, IMPREVISTO, RESULTADO, chip, fechaCorta, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
@@ -15,7 +16,8 @@
 
   const dispatch = createEventDispatcher();
 
-  let anio = null;
+  // El año que se estaba viendo (sobrevive a ir a otra pestaña y volver); null = el actual.
+  let anio = get(anioDetalle);
   let hoy = null;
   let estacion = null;
   let indicador = null;
@@ -24,6 +26,8 @@
   let criticas = [];
   let ejecuciones = [];
   let noProgramadas = [];
+  /** Total del año (la lista trae hasta 50; si hay más, se avisa en vez de cortar callado). */
+  let totalNoProgramadas = 0;
   let cargando = true;
   let errorCarga = "";
 
@@ -41,18 +45,19 @@
     cargando = true;
     errorCarga = "";
     try {
-      const [indicadores, estaciones, actividades, crit, ult] = await Promise.all([
+      const [indicadores, estaciones, actividades, crit] = await Promise.all([
         substationAdmin.indicadoresPorEstacion(pedido, $disciplinaFiltro),
         substationAdmin.listarEstaciones(),
         substationAdmin.listarActividades(),
         substationAdmin.criticidad(estacionId, $disciplinaFiltro),
-        substationAdmin.ultimasEjecuciones(estacionId),
       ]);
       const ind = indicadores.find((i) => i.estacionId === estacionId) ?? null;
       const anioDatos = ind?.anio ?? pedido;
-      const [cron, fuera] = await Promise.all([
+      // Todo lo de abajo, del año y la disciplina del detalle (como el resto de la página).
+      const [cron, fuera, ult] = await Promise.all([
         substationAdmin.obtenerCronograma(anioDatos),
-        substationAdmin.noProgramadasDeEstacion(estacionId, anioDatos),
+        substationAdmin.noProgramadasDeEstacion(estacionId, anioDatos, $disciplinaFiltro),
+        substationAdmin.ultimasEjecuciones(estacionId, anioDatos, $disciplinaFiltro),
       ]);
       if (mia !== secuencia) return;
       indicador = ind;
@@ -61,7 +66,8 @@
       actividadesPorId = new Map(actividades.map((a) => [a.id, a]));
       criticas = crit.slice(0, 5);
       ejecuciones = ult?.content ?? [];
-      noProgramadas = (fuera?.content ?? []).filter((e) => !$disciplinaFiltro || e.disciplina === $disciplinaFiltro);
+      noProgramadas = fuera?.content ?? [];
+      totalNoProgramadas = fuera?.totalElements ?? noProgramadas.length;
       hoy = { anioActual: cron.anioActual, mesActual: cron.mesActual };
       // Solo lo publicado (lo que ve el móvil), como el mockup.
       citas = cron.citas
@@ -84,7 +90,13 @@
 
   function cambiarAnio(e) {
     anio = Number(e.target.value);
+    anioDetalle.set(anio);
     cargar();
+  }
+
+  function volver() {
+    anioDetalle.set(null);
+    dispatch("volver");
   }
 
   function irAEjecuciones(mes, extra = {}) {
@@ -100,8 +112,24 @@
 
   /** Enlace cruzado: la actividad abre su detalle en la pestaña Resumen por actividad. */
   function verActividad(id) {
+    anioDetalle.set(anio); // el detalle de la actividad abre en el mismo año
     detalleActividadId.set(id);
     subestacionesActiveTab.set("resumenActividad");
+  }
+
+  /** Una cita ejecutada abre directamente su registro (con fotos), no una lista del mes. */
+  async function abrirEjecucionDeCita(programacionId) {
+    mostrarDetalle = true;
+    detalleCargando = true;
+    detalle = null;
+    try {
+      detalle = await substationAdmin.ejecucionDeCita(programacionId);
+    } catch (e) {
+      flash(e.message, { error: true });
+      mostrarDetalle = false;
+    } finally {
+      detalleCargando = false;
+    }
   }
 
   async function abrirEjecucion(id) {
@@ -176,6 +204,7 @@
         const actual = anio === hoy.anioActual && c.mes === hoy.mesActual;
         return {
           id: c.id,
+          ejecutada: c.tieneEjecucion,
           actividadId: c.actividadId,
           mes: MESES[c.mes - 1],
           act: actividadesPorId.get(c.actividadId)?.nombre ?? "",
@@ -193,7 +222,7 @@
 </script>
 
 <div class="volver-fila">
-  <button class="sub-btn volver" on:click={() => dispatch("volver")}>← Volver al Dashboard</button>
+  <button class="sub-btn volver" on:click={volver}>← Volver al Dashboard</button>
   <span class="gris">Detalle por estación</span>
 </div>
 
@@ -250,9 +279,16 @@
         <div class="mes-col" class:actual={cel.actual}>
           <span class="mes-l" class:actual={cel.actual}>{cel.m}</span>
           {#each cel.chips as ch (ch.id)}
-            <button class="chip" title={ch.title} style="background:{ch.bg};border:{ch.bd}" on:click={() => irAEjecuciones(ch.mes)}>
-              <span class="g" style="color:{ch.c}">{ch.g}</span>{#if ch.dTag}<span class="dtag">{ch.dTag}</span>{/if}{ch.short}
-            </button>
+            <!-- Solo la ejecutada lleva a algo: su registro. Las demás no tienen registro que mostrar. -->
+            {#if ch.estado === "ok"}
+              <button class="chip" title="{ch.title} · ver el registro" style="background:{ch.bg};border:{ch.bd}" on:click={() => abrirEjecucionDeCita(ch.id)}>
+                <span class="g" style="color:{ch.c}">{ch.g}</span>{#if ch.dTag}<span class="dtag">{ch.dTag}</span>{/if}{ch.short}
+              </button>
+            {:else}
+              <span class="chip quieto" title={ch.title} style="background:{ch.bg};border:{ch.bd}">
+                <span class="g" style="color:{ch.c}">{ch.g}</span>{#if ch.dTag}<span class="dtag">{ch.dTag}</span>{/if}{ch.short}
+              </span>
+            {/if}
           {/each}
           {#each cel.imprevistos as e (e.id)}
             <button class="chip" title="Imprevisto · {fechaCorta(e.fecha)} · {e.actividadNombre ?? e.descripcionLibre ?? 'Registro libre'}"
@@ -274,7 +310,12 @@
             <span class="gris">{r.mes}</span>
             <button class="enlace" title="Ver la actividad en Resumen por actividad" on:click={() => verActividad(r.actividadId)}>{r.act}</button>
             <span class="der">
-              <span class="sub-badge" style="color:{r.b.c};background:{r.b.bg}">{r.b.g} {r.b.l}</span>
+              {#if r.ejecutada}
+                <button class="sub-badge enlace-badge" style="color:{r.b.c};background:{r.b.bg}" title="Ver el registro"
+                  on:click={() => abrirEjecucionDeCita(r.id)}>{r.b.g} {r.b.l}</button>
+              {:else}
+                <span class="sub-badge" style="color:{r.b.c};background:{r.b.bg}">{r.b.g} {r.b.l}</span>
+              {/if}
             </span>
           </div>
         {:else}
@@ -305,7 +346,7 @@
   <div class="sub-card scroll-x">
     <div class="card-t entre">
       <span><span class="punto-imp" style="background:{IMPREVISTO.c}"></span>Imprevistos · fuera de cronograma
-        <span class="normal">· {anio} · {noProgramadas.length} {noProgramadas.length === 1 ? "registro" : "registros"} · no suman al avance</span></span>
+        <span class="normal">· {anio} · {totalNoProgramadas} {totalNoProgramadas === 1 ? "registro" : "registros"} · no suman al avance</span></span>
       {#if noProgramadas.length}
         <button class="sub-link" on:click={() => irAEjecuciones(null, {
           esProgramada: false, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31`,
@@ -326,13 +367,21 @@
     {:else}
       <div class="sub-empty">Sin imprevistos en {anio}: todo lo hecho estaba programado.</div>
     {/each}
+    {#if totalNoProgramadas > noProgramadas.length}
+      <div class="mas-aviso">
+        Mostrando los {noProgramadas.length} más recientes de {totalNoProgramadas} ·
+        <button class="sub-link" on:click={() => irAEjecuciones(null, {
+          esProgramada: false, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31`,
+        })}>ver todos en Ejecuciones →</button>
+      </div>
+    {/if}
   </div>
 
   <div class="seccion">Actividad reciente</div>
   <div class="sub-card scroll-x">
     <div class="card-t entre">
-      <span>Últimas ejecuciones</span>
-      <button class="sub-link" on:click={() => irAEjecuciones(null)}>Ver todas en Ejecuciones →</button>
+      <span>Últimas ejecuciones de {anio}</span>
+      <button class="sub-link" on:click={() => irAEjecuciones(null, { fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31` })}>Ver todas en Ejecuciones →</button>
     </div>
     {#each ejecuciones as e (e.id)}
       {@const rb = RESULTADO[e.resultado] ?? RESULTADO.CONFORME}
@@ -347,7 +396,7 @@
         <span class="gris2">{e.responsable ?? ""}</span>
       </div>
     {:else}
-      <div class="sub-empty">Sin ejecuciones registradas.</div>
+      <div class="sub-empty">Sin ejecuciones registradas en {anio}.</div>
     {/each}
   </div>
   </div>
@@ -640,5 +689,21 @@
   }
   .ej:hover {
     background: #fafaf9;
+  }
+  .chip.quieto {
+    cursor: default;
+  }
+  .enlace-badge {
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+  }
+  .enlace-badge:hover {
+    text-decoration: underline;
+  }
+  .mas-aviso {
+    padding: 10px 18px;
+    font-size: 12px;
+    color: #898781;
   }
 </style>

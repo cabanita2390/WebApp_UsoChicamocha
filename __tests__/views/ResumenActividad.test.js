@@ -17,12 +17,13 @@ vi.mock('../../stores/substationAdmin.js', () => ({
     ejecucionesDeActividad: vi.fn(),
     noProgramadasDeActividad: vi.fn(),
     obtenerEjecucion: vi.fn(),
+    ejecucionDeCita: vi.fn(),
   },
 }));
 
 import ResumenActividad from '../../components/views/subestaciones/resumen/ResumenActividad.svelte';
 import { substationAdmin } from '../../stores/substationAdmin.js';
-import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab, disciplinaFiltro } from '../../stores/subestacionesFilters.js';
+import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab, disciplinaFiltro, anioDetalle } from '../../stores/subestacionesFilters.js';
 
 const fila = (id, nombre, extra = {}) => ({
   actividadId: id, actividadNombre: nombre, disciplina: 'CIVIL', programadoAnual: 8, ejecutadoAnual: 5,
@@ -40,6 +41,7 @@ describe('ResumenActividad', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     detalleActividadId.set(null);
+    anioDetalle.set(null);
     ejecucionesFiltroInicial.set(null);
     disciplinaFiltro.set('');
     subestacionesActiveTab.set('resumenActividad');
@@ -199,12 +201,12 @@ describe('ResumenActividad', () => {
 
     const estaciones = [...container.querySelectorAll('.est:not(.est-h) .est-n')].map((n) => n.textContent);
     expect(estaciones).toEqual(['Ayalas', 'CLAN']);
-    expect(screen.getByTitle('Febrero · Ejecutada 10/02/2026')).toBeTruthy();
+    expect(screen.getByTitle('Febrero · Ejecutada 10/02/2026 · ver el registro')).toBeTruthy();
     expect(screen.getByTitle('Mayo · No ejecutada')).toBeTruthy();
     expect(screen.getByTitle('Septiembre · En curso')).toBeTruthy();
     expect(screen.queryByTitle(/Noviembre/)).toBeNull(); // la cita en borrador no se muestra
     // Avance por estación: ejecutadas de todas sus citas del año (la de diciembre, hecha por adelantado, suma).
-    expect(screen.getByTitle('Diciembre · Ejecutada 02/09/2026')).toBeTruthy();
+    expect(screen.getByTitle('Diciembre · Ejecutada 02/09/2026 · ver el registro')).toBeTruthy();
     const ejec = [...container.querySelectorAll('.est:not(.est-h) .der')].map((n) => n.textContent.trim());
     expect(ejec).toEqual(['1 de 2', '1 de 2']);
 

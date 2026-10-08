@@ -6,6 +6,7 @@
   import { flash } from "../../../../stores/subestacionesToast.js";
   import {
     cronogramaAnioInicial,
+    cronogramaSoloAtrasadas,
     pantallaAmpliada,
     subestacionesActiveTab,
     ejecucionesFiltroInicial,
@@ -28,6 +29,7 @@
   import CeldaPanel from "./CeldaPanel.svelte";
   import AsignacionMasiva from "./AsignacionMasiva.svelte";
   import PublicarModal from "./PublicarModal.svelte";
+  import SubestacionEjecucionDetalleModal from "../../../shared/SubestacionEjecucionDetalleModal.svelte";
 
   $: esAdmin = $auth?.currentUser?.role === "ADMIN";
 
@@ -56,7 +58,28 @@
   let actividadId = "";
   let q = "";
   let densidad = "normal";
-  let soloVencidas = false;
+  // Desde la tarjeta "Atrasadas" del Dashboard / Resumen se llega con el filtro ya puesto.
+  let soloVencidas = get(cronogramaSoloAtrasadas);
+  cronogramaSoloAtrasadas.set(false);
+
+  // Registro de una cita cumplida (panel de celda → "Ver registro")
+  let registro = null;
+  let registroCargando = false;
+  let mostrarRegistro = false;
+  async function verRegistro(e) {
+    celda = null; // el panel se cierra: si no, su velo queda encima del registro y no se puede cerrar
+    mostrarRegistro = true;
+    registroCargando = true;
+    registro = null;
+    try {
+      registro = await substationAdmin.ejecucionDeCita(e.detail);
+    } catch (err) {
+      flash(err.message, { error: true });
+      mostrarRegistro = false;
+    } finally {
+      registroCargando = false;
+    }
+  }
   let soloCambios = false;
   let modoEdicion = false;
 
@@ -508,6 +531,7 @@
           on:restaurar={restaurar}
           on:asignar={asignarEnCelda}
           on:verEjecuciones={verEjecuciones}
+          on:verRegistro={verRegistro}
           on:masivaAqui={masivaAqui}
         />
       {/key}
@@ -528,6 +552,9 @@
 
     {#if publicarAbierto}
       <PublicarModal {anio} anioActual={hoy.anioActual} on:close={() => (publicarAbierto = false)} on:publicado={publicado} />
+    {/if}
+    {#if mostrarRegistro}
+      <SubestacionEjecucionDetalleModal ejecucion={registro} isLoading={registroCargando} on:close={() => (mostrarRegistro = false)} />
     {/if}
   {/if}
   <SubToast />

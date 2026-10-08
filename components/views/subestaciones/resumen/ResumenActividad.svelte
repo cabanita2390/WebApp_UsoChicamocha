@@ -1,7 +1,10 @@
 <script>
   import { onDestroy } from "svelte";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
-  import { detalleActividadId, disciplinaFiltro } from "../../../../stores/subestacionesFilters.js";
+  import {
+    detalleActividadId, disciplinaFiltro, anioDetalle, cronogramaAnioInicial, cronogramaSoloAtrasadas,
+    ejecucionesFiltroInicial, subestacionesActiveTab,
+  } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { disciplinaLabel, MESES_LARGOS } from "../../../../config/subestaciones.js";
   import { IMPREVISTO, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
@@ -73,7 +76,25 @@
   }
 
   function abrir(a) {
+    anioDetalle.set(anio); // el detalle abre en el año que se está viendo aquí
     detalleActividadId.set(a.actividadId);
+  }
+
+  // Tarjetas con acción: "Atrasadas" abre el Cronograma con "Solo atrasadas"; "Imprevistos", la
+  // pestaña Ejecuciones con "Solo imprevistos" del periodo. Solo si hay algo que ver.
+  function verAtrasadas() {
+    cronogramaAnioInicial.set(anio);
+    cronogramaSoloAtrasadas.set(true);
+    subestacionesActiveTab.set("cronograma");
+  }
+
+  function verImprevistos(soloMes) {
+    const a = anio;
+    const mm = String(mes).padStart(2, "0");
+    ejecucionesFiltroInicial.set(soloMes
+      ? { esProgramada: false, fechaInicio: `${a}-${mm}-01`, fechaFin: `${a}-${mm}-${new Date(a, mes, 0).getDate()}` }
+      : { esProgramada: false, fechaInicio: `${a}-01-01`, fechaFin: `${a}-12-31` });
+    subestacionesActiveTab.set("ejecuciones");
   }
 
   function conCalculos(a) {
@@ -204,7 +225,9 @@
           <div class="t-v" class:tenue={!atrasadasMes.length}>{atrasadasMes.length} <span class="t-de">de {conCitasMes.length}</span></div>
           <div class="t-s">con citas este mes, por detrás del tiempo</div>
         </div>
-        <div class="sub-card tarjeta" data-kpi="imprevistos">
+        <svelte:element this={total.ejecutadoNoProgramadoMes ? "button" : "div"} class="sub-card tarjeta" data-kpi="imprevistos"
+          class:accion={total.ejecutadoNoProgramadoMes} title={total.ejecutadoNoProgramadoMes ? "Ver cuáles en Ejecuciones" : null}
+          on:click={() => total.ejecutadoNoProgramadoMes && verImprevistos(true)} role={total.ejecutadoNoProgramadoMes ? "button" : null}>
           <div class="t-l">Imprevistos de {nombreMes}</div>
           <div class="t-v imp-v" class:tenue={!total.ejecutadoNoProgramadoMes}>{total.ejecutadoNoProgramadoMes}</div>
           <div class="t-s">
@@ -213,7 +236,7 @@
           {#if libresMes && !q}
             <div class="t-s libres" title="Registros escritos como texto libre (sin actividad del catálogo) o de una actividad desactivada: no son de ninguna fila de esta tabla. Sí aparecen en el Dashboard y en el Detalle por estación.">+ {libresMes} {libresMes === 1 ? "registro" : "registros"} sin actividad (solo cuentan por estación)</div>
           {/if}
-        </div>
+        </svelte:element>
       {:else}
         <div class="sub-card tarjeta" data-kpi="anio">
           <div class="t-l">Avance {anio}</div>
@@ -233,12 +256,16 @@
             <div class="t-s">va el {Math.round(transcurrido ?? 0)}% del mes</div>
           </div>
         {/if}
-        <div class="sub-card tarjeta" data-kpi="atrasadas">
+        <svelte:element this={total.atrasadas && anio === anioActual ? "button" : "div"} class="sub-card tarjeta" data-kpi="atrasadas"
+          class:accion={total.atrasadas && anio === anioActual} title={total.atrasadas && anio === anioActual ? "Ver cuáles en el Cronograma" : null}
+          on:click={() => total.atrasadas && anio === anioActual && verAtrasadas()} role={total.atrasadas && anio === anioActual ? "button" : null}>
           <div class="t-l">Atrasadas</div>
           <div class="t-v" class:tenue={!total.atrasadas}>{total.atrasadas}</div>
-          <div class="t-s">citas de meses cerrados sin ejecutar</div>
-        </div>
-        <div class="sub-card tarjeta" data-kpi="imprevistos">
+          <div class="t-s">citas de meses cerrados sin ejecutar{total.atrasadas && anio === anioActual ? " · ver cuáles →" : ""}</div>
+        </svelte:element>
+        <svelte:element this={total.ejecutadoNoProgramado ? "button" : "div"} class="sub-card tarjeta" data-kpi="imprevistos"
+          class:accion={total.ejecutadoNoProgramado} title={total.ejecutadoNoProgramado ? "Ver cuáles en Ejecuciones" : null}
+          on:click={() => total.ejecutadoNoProgramado && verImprevistos(false)} role={total.ejecutadoNoProgramado ? "button" : null}>
           <div class="t-l">Imprevistos</div>
           <div class="t-v imp-v">{total.ejecutadoNoProgramado}</div>
           <div class="t-s">
@@ -247,7 +274,7 @@
           {#if libres && !q}
             <div class="t-s libres" title="Registros escritos como texto libre (sin actividad del catálogo) o de una actividad desactivada: no son de ninguna fila de esta tabla. Sí aparecen en el Dashboard y en el Detalle por estación.">+ {libres} {libres === 1 ? "registro" : "registros"} sin actividad (solo cuentan por estación)</div>
           {/if}
-        </div>
+        </svelte:element>
       {/if}
     </div>
 
@@ -511,5 +538,15 @@
     margin: 0;
     font-size: 12px;
     color: #898781;
+  }
+  /* Tarjeta con acción (botón): se ve igual que las demás, con un borde al pasar el mouse */
+  .tarjeta.accion {
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .tarjeta.accion:hover {
+    border-color: rgba(11, 11, 11, 0.25);
   }
 </style>

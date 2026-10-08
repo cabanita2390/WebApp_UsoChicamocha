@@ -9,6 +9,13 @@ export const subestacionesActiveTab = writable('dashboard');
 // (ej. "Copiar a 2027" en Configuración › Programación). null = el año actual.
 export const cronogramaAnioInicial = writable(null);
 
+// El Cronograma abre con "Solo atrasadas" prendido (desde la tarjeta "Atrasadas"). Se consume una vez.
+export const cronogramaSoloAtrasadas = writable(false);
+
+// Año que se está viendo en los detalles (por estación / por actividad). Sobrevive a ir a otra
+// pestaña y volver, y viaja en los enlaces entre detalles; se limpia al volver a la tabla. null = el actual.
+export const anioDetalle = writable(null);
+
 // Pestaña interna de Configuración (Estaciones / Actividades / Programación).
 export const configuracionTab = writable('est');
 

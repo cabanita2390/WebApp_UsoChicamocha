@@ -40,15 +40,20 @@ export const substationAdmin = {
         fetchWithAuth(`substation/indicadores/por-estacion${query({ anio, disciplina })}`),
     criticidad: (estacionId, disciplina) =>
         fetchWithAuth(`substation/indicadores/criticidad${query({ estacionId, disciplina })}`),
-    /** Últimas ejecuciones de una estación (página de Spring: { content, totalElements, ... }). */
-    ultimasEjecuciones: (estacionId, size = 6) =>
-        fetchWithAuth(`substation/ejecuciones?estacionId=${estacionId}&page=0&size=${size}&sort=fecha,desc&sort=id,desc`),
-    obtenerEjecucion: (id) => fetchWithAuth(`substation/ejecuciones/${id}`),
-    /** Registros fuera de cronograma (sin cita) de una estación en el año, del más reciente al más antiguo. */
-    noProgramadasDeEstacion: (estacionId, anio, size = 50) =>
+    /** Últimas ejecuciones de una estación en el año y la disciplina del detalle (página de Spring). */
+    ultimasEjecuciones: (estacionId, anio, disciplina, size = 6) =>
         fetchWithAuth(
-            `substation/ejecuciones?estacionId=${estacionId}&esProgramada=false&fechaInicio=${anio}-01-01` +
-                `&fechaFin=${anio}-12-31&page=0&size=${size}&sort=fecha,desc&sort=id,desc`,
+            `substation/ejecuciones${query({ estacionId, disciplina, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31` })}` +
+                `&page=0&size=${size}&sort=fecha,desc&sort=id,desc`,
+        ),
+    obtenerEjecucion: (id) => fetchWithAuth(`substation/ejecuciones/${id}`),
+    /** El registro con el que se cumplió una cita del cronograma (404 si la cita no se ejecutó). */
+    ejecucionDeCita: (programacionId) => fetchWithAuth(`substation/ejecuciones/por-programacion/${programacionId}`),
+    /** Registros fuera de cronograma (sin cita) de una estación en el año, del más reciente al más antiguo. */
+    noProgramadasDeEstacion: (estacionId, anio, disciplina, size = 50) =>
+        fetchWithAuth(
+            `substation/ejecuciones${query({ estacionId, disciplina, esProgramada: false, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31` })}` +
+                `&page=0&size=${size}&sort=fecha,desc&sort=id,desc`,
         ),
 
     // Resumen por actividad

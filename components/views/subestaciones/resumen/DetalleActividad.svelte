@@ -1,8 +1,9 @@
 <script>
   import { createEventDispatcher, onDestroy } from "svelte";
+  import { get } from "svelte/store";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import { flash } from "../../../../stores/subestacionesToast.js";
-  import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleEstacionId } from "../../../../stores/subestacionesFilters.js";
+  import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleEstacionId, anioDetalle } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { MESES, MESES_LARGOS, disciplinaLabel } from "../../../../config/subestaciones.js";
   import { BADGE, IMPREVISTO, RESULTADO, estadoCita, fechaCorta, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
@@ -18,13 +19,16 @@
   const dispatch = createEventDispatcher();
   const TAM_PAGINA = 20;
 
-  let anio = anioInicial;
+  // El año que se estaba viendo (también si se llegó desde el detalle de una estación).
+  let anio = get(anioDetalle) ?? anioInicial;
   let hoy = null;
   let actividad = null;
   let resumen = null;
   let porEstacion = [];
   let registros = [];
   let imprevistos = [];
+  /** Total del año (la lista trae hasta 50; si hay más, se avisa). */
+  let totalImprevistos = 0;
   let totalRegistros = 0;
   let pagina = 0;
   let cargando = true;
@@ -57,6 +61,7 @@
       resumen = filas.find((f) => f.actividadId === actividadId) ?? null;
       hoy = { anioActual: cron.anioActual, mesActual: cron.mesActual };
       imprevistos = fuera?.content ?? [];
+      totalImprevistos = fuera?.totalElements ?? imprevistos.length;
       porEstacion = agruparPorEstacion(cron.citas, estaciones, imprevistos);
       registros = ejec?.content ?? [];
       totalRegistros = ejec?.totalElements ?? registros.length;
@@ -116,7 +121,13 @@
 
   function cambiarAnio(e) {
     anio = Number(e.target.value);
+    anioDetalle.set(anio);
     cargar();
+  }
+
+  function volver() {
+    anioDetalle.set(null);
+    dispatch("volver");
   }
 
   function irAEjecuciones(extra = {}) {
@@ -126,8 +137,24 @@
 
   /** Enlace cruzado: la estación abre su Detalle en la pestaña Dashboard. */
   function verEstacion(id) {
+    anioDetalle.set(anio); // el detalle de la estación abre en el mismo año
     detalleEstacionId.set(id);
     subestacionesActiveTab.set("dashboard");
+  }
+
+  /** Una cita ejecutada abre directamente su registro (con fotos). */
+  async function abrirEjecucionDeCita(programacionId) {
+    mostrarDetalle = true;
+    detalleCargando = true;
+    detalle = null;
+    try {
+      detalle = await substationAdmin.ejecucionDeCita(programacionId);
+    } catch (e) {
+      flash(e.message, { error: true });
+      mostrarDetalle = false;
+    } finally {
+      detalleCargando = false;
+    }
   }
 
   async function abrirEjecucion(id) {
@@ -206,7 +233,7 @@
             const c = g.citas.find((x) => x.mes === i + 1);
             // Imprevistos del mes (por la fecha del registro), en terracota junto a lo programado.
             const imp = g.imprevistos.filter((e) => Number(e.fecha?.slice(5, 7)) === i + 1);
-            return { m, i, e: c ? estadoMes(c) : null, fecha: c?.fechaEjecucion, imp };
+            return { m, i, e: c ? estadoMes(c) : null, fecha: c?.fechaEjecucion, citaId: c?.tieneEjecucion ? c.id : null, imp };
           }),
           // Avance de la estación: citas ejecutadas de todas las del año (como el Dashboard).
           ejecutadas: g.citas.filter((c) => c.tieneEjecucion).length,
@@ -217,7 +244,7 @@
 </script>
 
 <div class="volver-fila">
-  <button class="sub-btn volver" on:click={() => dispatch("volver")}>← Volver al Resumen</button>
+  <button class="sub-btn volver" on:click={volver}>← Volver al Resumen</button>
   <span class="gris">Detalle por actividad</span>
 </div>
 
@@ -284,7 +311,10 @@
           <button class="est-n enlace" title="Ver el detalle de {f.nombre}" on:click={() => verEstacion(f.estacionId)}>{f.nombre}</button>
           {#each f.meses as x (x.i)}
             <span class="mes">
-              {#if x.e}
+              {#if x.e && x.citaId}
+                <button class="punto" style="color:{x.e.c};background:{x.e.bg}" on:click={() => abrirEjecucionDeCita(x.citaId)}
+                  title="{MESES_LARGOS[x.i]} · {x.e.l}{x.fecha ? ` ${fechaCorta(x.fecha)}` : ''} · ver el registro">{x.e.g}</button>
+              {:else if x.e}
                 <span class="punto" style="color:{x.e.c};background:{x.e.bg}"
                   title="{MESES_LARGOS[x.i]} · {x.e.l}{x.fecha ? ` ${fechaCorta(x.fecha)}` : ''}">{x.e.g}</span>
               {/if}
@@ -308,7 +338,7 @@
     <div class="sub-card scroll-x">
       <div class="card-t entre">
         <span><span class="punto-imp" style="background:{IMPREVISTO.c}"></span>Imprevistos · fuera de cronograma
-          <span class="normal">· {anio} · {imprevistos.length} {imprevistos.length === 1 ? "registro" : "registros"} · no suman al avance</span></span>
+          <span class="normal">· {anio} · {totalImprevistos} {totalImprevistos === 1 ? "registro" : "registros"} · no suman al avance</span></span>
         {#if imprevistos.length}
           <button class="sub-link" on:click={() => irAEjecuciones({ esProgramada: false })}>Ver en Ejecuciones →</button>
         {/if}
@@ -328,6 +358,12 @@
       {:else}
         <div class="sub-empty">Sin imprevistos en {anio}: todo lo hecho de esta actividad estaba programado.</div>
       {/each}
+      {#if totalImprevistos > imprevistos.length}
+        <div class="mas-aviso">
+          Mostrando los {imprevistos.length} más recientes de {totalImprevistos} ·
+          <button class="sub-link" on:click={() => irAEjecuciones({ esProgramada: false })}>ver todos en Ejecuciones →</button>
+        </div>
+      {/if}
     </div>
 
     <div class="seccion">Registros de {anio}</div>
@@ -549,6 +585,8 @@
   button.punto {
     cursor: pointer;
     padding: 0;
+  }
+  button.punto.imp {
     margin-left: 2px;
     border-color: transparent;
   }
@@ -621,5 +659,10 @@
     display: flex;
     justify-content: center;
     padding: 12px;
+  }
+  .mas-aviso {
+    padding: 10px 18px;
+    font-size: 12px;
+    color: #898781;
   }
 </style>

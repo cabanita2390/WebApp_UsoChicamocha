@@ -18,6 +18,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
     publicar: vi.fn(),
     deshacerPublicacion: vi.fn(),
     copiarAnio: vi.fn(),
+    ejecucionDeCita: vi.fn(),
   },
 }));
 
@@ -145,7 +146,7 @@ describe('CronogramaAnual', () => {
     expect(screen.getByText(/2 estaciones · 1 citas en 2026/)).toBeTruthy();
   });
 
-  it('panel de celda: lista las citas y "Ver ejecuciones de este mes" abre Ejecuciones filtrada', async () => {
+  it('panel de celda: lista las citas y "Todo lo registrado en <mes>" abre Ejecuciones filtrada', async () => {
     const { container } = render(CronogramaAnual);
     await screen.findByText('Ayalas');
 
@@ -154,10 +155,20 @@ describe('CronogramaAnual', () => {
 
     expect(screen.getByText('Febrero 2026 · 1 actividad')).toBeTruthy();
     expect(screen.getByText('✓ Ejecutada 10/02')).toBeTruthy();
-    await fireEvent.click(screen.getByText('Ver ejecuciones de este mes →'));
+    await fireEvent.click(screen.getByText('Todo lo registrado en Febrero →'));
 
     expect(get(ejecucionesFiltroInicial)).toEqual({ estacionId: 1, fechaInicio: '2026-02-01', fechaFin: '2026-02-28' });
     expect(get(subestacionesActiveTab)).toBe('ejecuciones');
+  });
+
+  it('panel de celda: "Ver registro" de una cita cumplida cierra el panel y abre su registro', async () => {
+    substationAdmin.ejecucionDeCita.mockResolvedValue({ id: 900, fecha: '2026-02-10', evidencias: [] });
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(container.querySelectorAll('.fila')[0].querySelectorAll('.celda')[1]);
+    await fireEvent.click(screen.getByText('Ver registro'));
+    await waitFor(() => expect(substationAdmin.ejecucionDeCita).toHaveBeenCalledWith(100));
+    expect(screen.queryByText('Febrero 2026 · 1 actividad')).toBeNull(); // el panel ya no tapa el registro
   });
 
   it('panel de celda: quitar una cita futura y "Mes cerrado" en una pasada', async () => {

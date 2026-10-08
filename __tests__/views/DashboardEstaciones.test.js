@@ -17,12 +17,16 @@ vi.mock('../../stores/substationAdmin.js', () => ({
     noProgramadasDeEstacion: vi.fn(),
     obtenerCronograma: vi.fn(),
     obtenerEjecucion: vi.fn(),
+    ejecucionDeCita: vi.fn(),
   },
 }));
 
 import DashboardEstaciones from '../../components/views/subestaciones/dashboard/DashboardEstaciones.svelte';
 import { substationAdmin } from '../../stores/substationAdmin.js';
-import { detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab, disciplinaFiltro } from '../../stores/subestacionesFilters.js';
+import {
+  detalleActividadId, detalleEstacionId, ejecucionesFiltroInicial, subestacionesActiveTab, disciplinaFiltro,
+  anioDetalle, cronogramaAnioInicial, cronogramaSoloAtrasadas,
+} from '../../stores/subestacionesFilters.js';
 import { ejecucionCambio } from '../../stores/subestacionesEventos.js';
 
 const ind = (id, nombre, extra = {}) => ({
@@ -41,6 +45,8 @@ describe('DashboardEstaciones', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     detalleEstacionId.set(null);
+    anioDetalle.set(null);
+    cronogramaSoloAtrasadas.set(false);
     ejecucionesFiltroInicial.set(null);
     disciplinaFiltro.set('');
     subestacionesActiveTab.set('dashboard');
@@ -215,23 +221,61 @@ describe('DashboardEstaciones', () => {
     expect(screen.getByText('J. Pérez')).toBeTruthy();
   });
 
-  it('click en un chip de la tira abre Ejecuciones filtrada por estación y mes', async () => {
+  it('tira: la cita ejecutada abre su registro; las no ejecutadas no llevan a ningún lado', async () => {
     detalleEstacionId.set(1);
+    substationAdmin.ejecucionDeCita.mockResolvedValue({ id: 900, fecha: '2026-02-10', evidencias: [] });
     const { container } = render(DashboardEstaciones);
     await screen.findByText('Avance 2026');
 
-    await fireEvent.click(container.querySelectorAll('.tira .chip')[0]);
+    // Chips de citas (los de imprevistos, en terracota, abren su registro y no cuentan aquí)
+    const chips = [...container.querySelectorAll('.tira .chip')].filter((c) => !c.title.startsWith('Imprevisto'));
+    expect(chips[0].tagName).toBe('BUTTON');               // febrero, ejecutada
+    expect(chips.slice(1).every((c) => c.tagName === 'SPAN')).toBe(true);
+    await fireEvent.click(chips[0]);
+    expect(substationAdmin.ejecucionDeCita).toHaveBeenCalledWith(1);
+    expect(get(subestacionesActiveTab)).not.toBe('ejecuciones'); // no salta a una lista del mes
 
-    expect(get(ejecucionesFiltroInicial)).toEqual({ estacionId: 1, fechaInicio: '2026-02-01', fechaFin: '2026-02-28' });
-    expect(get(subestacionesActiveTab)).toBe('ejecuciones');
+    // "Cita por cita": la ejecutada también abre su registro
+    await fireEvent.click(screen.getByTitle('Ver el registro'));
+    expect(substationAdmin.ejecucionDeCita).toHaveBeenCalledTimes(2);
   });
 
-  it('"Ver todas en Ejecuciones" filtra solo por estación', async () => {
+  it('"Ver todas en Ejecuciones" filtra por la estación y el año del detalle', async () => {
     detalleEstacionId.set(1);
     render(DashboardEstaciones);
     await fireEvent.click(await screen.findByText('Ver todas en Ejecuciones →'));
 
-    expect(get(ejecucionesFiltroInicial)).toEqual({ estacionId: 1 });
+    expect(get(ejecucionesFiltroInicial)).toEqual({ estacionId: 1, fechaInicio: '2026-01-01', fechaFin: '2026-12-31' });
+  });
+
+  it('detalle: recuerda el año al ir a otra pestaña y volver; "Volver" lo olvida', async () => {
+    detalleEstacionId.set(1);
+    const { unmount } = render(DashboardEstaciones);
+    await screen.findByText('Avance 2026');
+    await fireEvent.change(screen.getByLabelText('Año'), { target: { value: '2025' } });
+    expect(get(anioDetalle)).toBe(2025);
+    unmount();                                   // se va a otra pestaña
+    render(DashboardEstaciones);                 // y vuelve
+    await waitFor(() => expect(substationAdmin.indicadoresPorEstacion).toHaveBeenLastCalledWith(2025, ''));
+    await fireEvent.click(await screen.findByText('← Volver al Dashboard'));
+    expect(get(anioDetalle)).toBeNull();
+  });
+
+  it('tarjetas: "Atrasadas" abre el Cronograma con "Solo atrasadas" e "Imprevistos" abre Ejecuciones con "Solo imprevistos"', async () => {
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([ind(1, 'Ayalas', { ejecutadoNoProgramado: 2, ejecutadoTotal: 5 })]);
+    const { container } = render(DashboardEstaciones);
+    await screen.findByText('Avance 2026');
+    const atrasadas = container.querySelector('[data-kpi="atrasadas"]');
+    expect(atrasadas.tagName).toBe('BUTTON');
+    await fireEvent.click(atrasadas);
+    expect(get(cronogramaSoloAtrasadas)).toBe(true);
+    expect(get(cronogramaAnioInicial)).toBe(2026);
+    expect(get(subestacionesActiveTab)).toBe('cronograma');
+
+    subestacionesActiveTab.set('dashboard');
+    await fireEvent.click(container.querySelector('[data-kpi="imprevistos"]'));
+    expect(get(ejecucionesFiltroInicial)).toEqual({ esProgramada: false, fechaInicio: '2026-01-01', fechaFin: '2026-12-31' });
+    expect(get(subestacionesActiveTab)).toBe('ejecuciones');
   });
 
   it('click en una ejecución reciente abre el modal de detalle', async () => {
@@ -334,7 +378,7 @@ describe('DashboardEstaciones', () => {
     const meses = [...container.querySelectorAll('.tira .mes-col')];
     expect(meses[9].textContent).toContain('Limpieza de canal');
     expect(meses[8].textContent).toContain('Cambio de breaker');
-    expect(substationAdmin.noProgramadasDeEstacion).toHaveBeenCalledWith(1, 2026);
+    expect(substationAdmin.noProgramadasDeEstacion).toHaveBeenCalledWith(1, 2026, '');
 
     await fireEvent.click(screen.getByText('Ver en Ejecuciones →'));
     expect(get(ejecucionesFiltroInicial)).toEqual({
@@ -343,11 +387,23 @@ describe('DashboardEstaciones', () => {
     expect(get(subestacionesActiveTab)).toBe('ejecuciones');
   });
 
-  it('detalle: con una disciplina elegida, "Fuera de cronograma" solo lista los de esa disciplina', async () => {
+  it('detalle: imprevistos y últimas ejecuciones se piden con el año y la disciplina del detalle', async () => {
     detalleEstacionId.set(1);
     disciplinaFiltro.set('CIVIL');
     render(DashboardEstaciones);
-    expect((await screen.findAllByText('Limpieza de canal')).length).toBeGreaterThan(0);
-    expect(screen.queryByText('Cambio de breaker')).toBeNull();
+    await screen.findByText('Cita por cita');
+    expect(substationAdmin.noProgramadasDeEstacion).toHaveBeenCalledWith(1, 2026, 'CIVIL');
+    expect(substationAdmin.ultimasEjecuciones).toHaveBeenCalledWith(1, 2026, 'CIVIL');
+    expect(screen.getByText('Últimas ejecuciones de 2026')).toBeTruthy();
+  });
+
+  it('detalle: si hay más imprevistos de los que trae la lista, lo dice y ofrece verlos todos', async () => {
+    detalleEstacionId.set(1);
+    substationAdmin.noProgramadasDeEstacion.mockResolvedValue({ totalElements: 63, content: [
+      { id: 950, fecha: '2026-10-02', descripcionLibre: 'Limpieza de canal', tipoMantenimiento: 'CORRECTIVO', resultado: 'CONFORME', esProgramada: false },
+    ] });
+    render(DashboardEstaciones);
+    expect(await screen.findByText(/Mostrando los 1 más recientes de 63/)).toBeTruthy();
+    expect(screen.getByText(/· 2026 · 63 registros · no suman al avance/)).toBeTruthy();
   });
 });
