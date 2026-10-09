@@ -19,6 +19,8 @@
   export let pageSize = 20;
   export let showPagination = true;
   export let variant = "classic";
+  export let manualSorting = false;
+  export let sorting = [];
 
   const dispatch = createEventDispatcher();
 </script>
@@ -33,6 +35,10 @@
   <button type="button" data-testid="stub-page-change" on:click={() => dispatch("pageChange", currentPage + 1)}>
     Página siguiente
   </button>
+  <button type="button" data-testid="stub-sort-estacion" on:click={() => dispatch("sortChange", [{ id: "ej_estacion", desc: false }])}>
+    Ordenar por estación
+  </button>
+  <div data-testid="stub-sorting">{JSON.stringify(sorting)}</div>
   <button type="button" data-testid="stub-size-change" on:click={() => dispatch("sizeChange", 50)}>
     Cambiar tamaño
   </button>

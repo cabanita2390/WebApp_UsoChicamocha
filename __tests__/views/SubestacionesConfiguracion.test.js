@@ -90,6 +90,27 @@ describe('SubestacionesConfiguracion', () => {
     expect(screen.getByText('12')).toBeTruthy();
   });
 
+  it('las tablas de estaciones y actividades se ordenan con clic en el encabezado', async () => {
+    const { container } = render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    const primera = () => container.querySelector('.sub-tr.clickable span').textContent.trim();
+
+    expect(primera()).toBe('Ayalas');
+    await fireEvent.click(screen.getByRole('button', { name: /^Nombre/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Nombre/ }));
+    expect(primera()).toBe('CLAN');
+    await fireEvent.click(screen.getByRole('button', { name: /^Frecuencia base/ }));
+    expect(primera()).toBe('Ayalas'); // trimestral antes que anual
+
+    await fireEvent.click(screen.getByRole('tab', { name: 'Actividades' }));
+    expect(primera()).toBe('Pintura muros estaciones (segun estado)');
+    await fireEvent.click(screen.getByRole('button', { name: /^Nombre corto/ }));
+    expect(primera()).toBe('Pintura muros estaciones (segun estado)'); // sin nombre corto, al final
+    await fireEvent.click(screen.getByRole('button', { name: /^Citas 2026/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Citas 2026/ }));
+    expect(primera()).toBe('Inspección infraestructura presa'); // 0 citas primero en ascendente
+  });
+
   it('nueva estación: guarda y vuelve a cargar', async () => {
     substationAdmin.crearEstacion.mockResolvedValue({ id: 3 });
     render(SubestacionesConfiguracion);

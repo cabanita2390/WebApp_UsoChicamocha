@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 
 vi.mock('../../stores/ui.js', () => ({
@@ -124,6 +124,29 @@ describe('DashboardEstaciones', () => {
     expect(ayalas.children[3].textContent.trim()).toBe('1 · 25% del total');
     expect(clan.children[1].textContent).toContain('Sin citas en 2026');
     expect(clan.children[3].textContent.trim()).toBe('—');
+  });
+
+  it('clic en el encabezado ordena la tabla; otro clic invierte; sin citas va siempre al final', async () => {
+    substationAdmin.indicadoresPorEstacion.mockResolvedValue([
+      ind(1, 'Ayalas', { programado: 4, cumple: 1, vencidas: 3, ejecutadasVencidas: 1 }),
+      ind(2, 'CLAN', { programado: 0, cumple: 0, vencidas: 0, ejecutadasVencidas: 0 }),
+      ind(3, 'Monquira', { programado: 4, cumple: 4, vencidas: 4, ejecutadasVencidas: 4 }),
+    ]);
+    const { container } = render(DashboardEstaciones);
+    await screen.findByRole('heading', { name: 'Avance por estación 2026' });
+    const nombres = () => [...container.querySelectorAll('.sub-tr.clickable .nombre')].map((n) => n.textContent.trim());
+    const encabezado = (t) => within(container.querySelector('.sub-th')).getByRole('button', { name: new RegExp(`^${t}`) });
+
+    expect(nombres()).toEqual(['Ayalas', 'CLAN', 'Monquira']);
+    await fireEvent.click(encabezado('Atrasadas'));
+    expect(nombres()).toEqual(['Ayalas', 'CLAN', 'Monquira']); // 2, 0, 0 → empate por nombre
+    await fireEvent.click(encabezado('Avance del año'));
+    expect(nombres()).toEqual(['Ayalas', 'Monquira', 'CLAN']); // 25%, 100%, sin citas al final
+    await fireEvent.click(encabezado('Avance del año'));
+    expect(nombres()).toEqual(['Monquira', 'Ayalas', 'CLAN']);
+    await fireEvent.click(encabezado('Estación'));
+    await fireEvent.click(encabezado('Estación'));
+    expect(nombres()).toEqual(['Monquira', 'CLAN', 'Ayalas']);
   });
 
   it('vista Mes en curso: "x de y" del mes con semáforo contra el tiempo transcurrido e imprevistos del mes', async () => {

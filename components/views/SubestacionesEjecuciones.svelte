@@ -5,7 +5,7 @@
   import Loader from "../shared/Loader.svelte";
   import DataGrid from "../shared/DataGrid.svelte";
   import SubestacionEjecucionDetalleModal from "../shared/SubestacionEjecucionDetalleModal.svelte";
-  import { createEjecucionesColumns } from "../../config/table-definitions/substation.js";
+  import { createEjecucionesColumns, ejecucionesSortParams } from "../../config/table-definitions/substation.js";
   import { get } from "svelte/store";
   import { ejecucionesFiltroInicial, disciplinaFiltro } from "../../stores/subestacionesFilters.js";
   import { disciplinaLabel } from "../../config/subestaciones.js";
@@ -63,6 +63,8 @@
     ejecucionesFiltroInicial.set(null);
   }
   let pageSize = 20;
+  /** Orden de la tabla (SortingState de TanStack); se aplica en el servidor. Por defecto, lo más reciente. */
+  let sorting = [{ id: "ej_fecha", desc: true }];
 
   $: isLoading = $data.isLoading;
   $: estaciones = $data.substationEstaciones ?? [];
@@ -85,6 +87,7 @@
       fechaFin: filtros.fechaFin || undefined,
       // La disciplina es la misma de las otras pestañas (Dashboard, Resumen, Cronograma).
       disciplina: $disciplinaFiltro || undefined,
+      sort: ejecucionesSortParams(sorting),
     };
   }
 
@@ -98,6 +101,11 @@
 
   function cargar(page = 0) {
     data.fetchSubstationEjecuciones(page, pageSize, filtrosParaFetch());
+  }
+
+  function handleSortChange(e) {
+    sorting = e.detail;
+    cargar(0);
   }
 
   function handleFiltrar() {
@@ -280,6 +288,9 @@
           on:action={handleGridAction}
           on:pageChange={handlePageChange}
           on:sizeChange={handleSizeChange}
+          manualSorting
+          {sorting}
+          on:sortChange={handleSortChange}
           variant="modern"
           rowClass={claseFila}
         />

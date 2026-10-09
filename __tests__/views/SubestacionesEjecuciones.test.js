@@ -12,6 +12,7 @@ const filtrosDefault = {
   fechaInicio: undefined,
   fechaFin: undefined,
   disciplina: undefined,
+  sort: ["fecha,desc"],
 };
 
 let mockState = {
@@ -201,6 +202,21 @@ describe('SubestacionesEjecuciones', () => {
     await fireEvent.click(getByTestId('stub-page-change'));
 
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(1, 20, { ...filtrosDefault, estacionId: 2 });
+  });
+
+  it('ordenar por una columna reconsulta en el servidor desde la página 0, con el filtro activo', async () => {
+    const { container, getByTestId } = render(SubestacionesEjecuciones);
+    expect(getByTestId('stub-sorting').textContent).toBe('[{"id":"ej_fecha","desc":true}]');
+    await fireEvent.change(chipControl(container, 'Estación'), { target: { value: '2' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    data.fetchSubstationEjecuciones.mockClear();
+
+    await fireEvent.click(getByTestId('stub-sort-estacion'));
+
+    expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, {
+      ...filtrosDefault, estacionId: 2, sort: ['estacion.nombre,asc'],
+    });
+    expect(getByTestId('stub-sorting').textContent).toBe('[{"id":"ej_estacion","desc":false}]');
   });
 
   it('cambiar el tamaño de página vuelve a la página 0 con el nuevo tamaño', async () => {

@@ -13,6 +13,8 @@
   import ErrorCarga from "../ErrorCarga.svelte";
   import DetalleActividad from "./DetalleActividad.svelte";
   import SelectorDisciplina from "../SelectorDisciplina.svelte";
+  import ThOrden from "../ThOrden.svelte";
+  import { ordenarFilas } from "../../../../utils/ordenTabla.js";
 
   // Resumen por actividad: cada actividad del cronograma en todas las estaciones. Mismo lenguaje
   // del Dashboard (avance del año sin semáforo, mes en curso con semáforo, imprevistos aparte),
@@ -29,7 +31,8 @@
   let recargando = false;
   let errorCarga = "";
   let q = "";
-  let orden = "nombre";
+  /** Orden por columna (clic en el encabezado); los botones A–Z / Más atrasadas son atajos. */
+  let orden = { campo: "nombre", dir: "asc" };
   /** "anio": avance del año (sin semáforo) · "mes": mes en curso (con semáforo contra el tiempo). */
   let vista = "anio";
 
@@ -128,20 +131,35 @@
     ? ` ${sinCitas} ${sinCitas === 1 ? "actividad del catálogo no tiene" : "actividades del catálogo no tienen"} citas en ${anio}.`
     : "";
 
-  // Ordenar por "más atrasadas": en el año, más citas atrasadas y menos avance primero; en el mes,
-  // las que más se alejan del tiempo transcurrido. Las que no tienen citas, al final.
+  // "Más atrasadas": en el año, más citas atrasadas y menos avance primero; en el mes, las que
+  // más se alejan del tiempo transcurrido. Sin citas en el periodo va siempre al final.
   function atraso(a, vista, transcurrido) {
-    if (vista === "mes") return a.programadoMes ? (transcurrido ?? 0) - a.avanceMes : -Infinity;
-    return a.programadoAnual ? a.atrasadas * 1000 + (100 - a.avanceAnio) : -Infinity;
+    if (vista === "mes") return a.programadoMes ? (transcurrido ?? 0) - a.avanceMes : null;
+    return a.programadoAnual ? a.atrasadas * 1000 + (100 - a.avanceAnio) : null;
   }
 
-  $: visibles = conDatos
-    .filter((a) => !q || a.actividadNombre.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) =>
-      orden === "atraso"
-        ? atraso(b, vista, transcurrido) - atraso(a, vista, transcurrido) || a.actividadNombre.localeCompare(b.actividadNombre)
-        : a.actividadNombre.localeCompare(b.actividadNombre),
-    );
+  $: valores = vista === "mes"
+    ? {
+        nombre: (a) => a.actividadNombre,
+        atraso: (a) => atraso(a, vista, transcurrido),
+        citas: (a) => (a.programadoMes ? a.avanceMes : null),
+        estado: (a) => atraso(a, vista, transcurrido),
+        pendientes: (a) => (a.programadoMes ? a.programadoMes - a.cumpleMes : null),
+        imp: (a) => a.ejecutadoNoProgramadoMes ?? 0,
+      }
+    : {
+        nombre: (a) => a.actividadNombre,
+        atraso: (a) => atraso(a, vista, transcurrido),
+        avance: (a) => (a.programadoAnual ? a.avanceAnio : null),
+        atrasadas: (a) => a.atrasadas,
+        imp: (a) => a.ejecutadoNoProgramado ?? 0,
+      };
+  const ordenar = (e) => (orden = e.detail);
+
+  $: visibles = ordenarFilas(
+    conDatos.filter((a) => !q || a.actividadNombre.toLowerCase().includes(q.toLowerCase())),
+    orden, valores, (a) => a.actividadNombre,
+  );
 
   // Tarjetas de arriba: mismas cuentas sobre la suma de las actividades que se ven.
   const CAMPOS_SUMA = [
@@ -289,23 +307,25 @@
     <div class="barra-tabla">
       <input class="ctl buscar" bind:value={q} placeholder="Buscar actividad…" aria-label="Buscar actividad" />
       <div class="sub-seg" role="group" aria-label="Ordenar">
-        <button class:on={orden === "nombre"} on:click={() => (orden = "nombre")}>A–Z</button>
-        <button class:on={orden === "atraso"} on:click={() => (orden = "atraso")}>Más atrasadas primero</button>
+        <button class:on={orden.campo === "nombre" && orden.dir === "asc"}
+          on:click={() => (orden = { campo: "nombre", dir: "asc" })}>A–Z</button>
+        <button class:on={orden.campo === "atraso" && orden.dir === "desc"}
+          on:click={() => (orden = { campo: "atraso", dir: "desc" })}>Más atrasadas primero</button>
       </div>
     </div>
 
     <div class="sub-card tabla" class:actualizando={recargando} style="--imp-c:{IMPREVISTO.c};--imp-bg:{IMPREVISTO.bg}">
       <div class="sub-th" style="grid-template-columns:{cols}">
-        <span>Actividad</span>
+        <ThOrden campo="nombre" {orden} on:orden={ordenar}>Actividad</ThOrden>
         {#if vista === "mes"}
-          <span title="La raya marca cuánto del mes ha pasado">Citas de {nombreMes}</span>
-          <span>Estado</span>
-          <span class="der">Pendientes</span>
+          <ThOrden campo="citas" {orden} on:orden={ordenar} title="La raya marca cuánto del mes ha pasado">Citas de {nombreMes}</ThOrden>
+          <ThOrden campo="estado" dirInicial="desc" {orden} on:orden={ordenar} title="Primero las que más van detrás del tiempo del mes">Estado</ThOrden>
+          <ThOrden campo="pendientes" dirInicial="desc" der {orden} on:orden={ordenar}>Pendientes</ThOrden>
         {:else}
-          <span>Avance del año</span>
-          <span class="der" title="Citas de meses ya cerrados que no se ejecutaron">Atrasadas</span>
+          <ThOrden campo="avance" {orden} on:orden={ordenar}>Avance del año</ThOrden>
+          <ThOrden campo="atrasadas" dirInicial="desc" der {orden} on:orden={ordenar} title="Citas de meses ya cerrados que no se ejecutaron">Atrasadas</ThOrden>
         {/if}
-        <span class="der" title="Registros de la actividad sin cita del cronograma y qué parte son del total">Imprevistos</span>
+        <ThOrden campo="imp" dirInicial="desc" der {orden} on:orden={ordenar} title="Registros de la actividad sin cita del cronograma y qué parte son del total">Imprevistos</ThOrden>
       </div>
       {#each visibles as a (a.actividadId)}
         <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->

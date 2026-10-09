@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 
 vi.mock('../../stores/ui.js', () => ({
@@ -165,6 +165,20 @@ describe('ResumenActividad', () => {
 
     await fireEvent.input(screen.getByLabelText('Buscar actividad'), { target: { value: 'zzz' } });
     expect(screen.getByText('Ninguna actividad coincide con "zzz".')).toBeTruthy();
+  });
+
+  it('clic en los encabezados ordena por esa columna; el botón A–Z vuelve al orden por nombre', async () => {
+    const { container } = render(ResumenActividad);
+    await screen.findByText('Pintura muros');
+    const nombres = () => [...container.querySelectorAll('.sub-tr.clickable .nombre')].map((n) => n.textContent.trim());
+
+    const encabezado = (re) => within(container.querySelector('.sub-th')).getByRole('button', { name: re });
+    await fireEvent.click(encabezado(/^Actividad/));
+    expect(nombres()).toEqual(['Pintura muros', 'Aseo de canales']);
+    await fireEvent.click(encabezado(/^Atrasadas/));
+    expect(nombres()).toEqual(['Pintura muros', 'Aseo de canales']);
+    await fireEvent.click(screen.getByText('A–Z'));
+    expect(nombres()).toEqual(['Aseo de canales', 'Pintura muros']);
   });
 
   it('cambiar el año recarga el resumen de ese año', async () => {

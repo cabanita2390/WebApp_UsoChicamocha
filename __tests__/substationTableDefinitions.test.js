@@ -5,6 +5,8 @@ import {
   tipoActividadLabel,
   estacionTipoLabel,
   createEjecucionesColumns,
+  ejecucionesSortParams,
+  EJECUCIONES_SORT,
 } from '../config/table-definitions/substation.js';
 
 describe('resultadoBadge', () => {
@@ -75,5 +77,29 @@ describe('definiciones de columnas', () => {
     const evCol = columns.find((c) => c.id === 'ej_evidencia');
     expect(evCol.meta.getBadge({ evidenciaPendiente: true })).toEqual({ label: 'Sin evidencia', color: 'yellow' });
     expect(evCol.meta.getBadge({ evidenciaPendiente: false })).toBeNull();
+  });
+});
+
+describe('ejecucionesSortParams', () => {
+  it('traduce el orden de la tabla a los campos de la entidad para el servidor', () => {
+    expect(ejecucionesSortParams([{ id: 'ej_estacion', desc: false }])).toEqual(['estacion.nombre,asc']);
+    expect(ejecucionesSortParams([{ id: 'ej_responsable', desc: true }])).toEqual(['usuario.username,desc']);
+  });
+
+  it('la actividad desempata por la descripción de los registros libres', () => {
+    expect(ejecucionesSortParams([{ id: 'ej_actividad', desc: true }]))
+      .toEqual(['actividad.nombre,desc', 'descripcionLibre,desc']);
+  });
+
+  it('sin orden o con una columna sin campo no manda nada', () => {
+    expect(ejecucionesSortParams([])).toEqual([]);
+    expect(ejecucionesSortParams(undefined)).toEqual([]);
+    expect(ejecucionesSortParams([{ id: 'ej_evidencia', desc: false }])).toEqual([]);
+  });
+
+  it('toda columna ordenable tiene campo en el servidor; Evidencia y Detalle no se ordenan', () => {
+    const cols = createEjecucionesColumns();
+    const ordenables = cols.filter((c) => c.enableSorting !== false && (c.accessorFn || c.accessorKey)).map((c) => c.id);
+    expect(ordenables.sort()).toEqual(Object.keys(EJECUCIONES_SORT).sort());
   });
 });

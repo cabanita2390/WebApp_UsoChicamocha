@@ -32,10 +32,32 @@ export function estacionTipoLabel(v) {
     return v === 'BOMBEO' ? 'Bombeo' : v === 'COMPLEMENTARIA' ? 'Complementaria' : (v ?? '—');
 }
 
+/**
+ * Campos de orden en el servidor (`sort` de Spring sobre EjecucionEntity) por columna.
+ * La lista es paginada: ordenar en el navegador solo reordenaría la página visible.
+ */
+export const EJECUCIONES_SORT = {
+    ej_fecha: ['fecha'],
+    ej_estacion: ['estacion.nombre'],
+    // Los registros libres no tienen actividad: se ordenan por su descripción.
+    ej_actividad: ['actividad.nombre', 'descripcionLibre'],
+    ej_tipomant: ['tipoMantenimiento'],
+    ej_tipoact: ['tipoActividad'],
+    ej_prog: ['esProgramada'],
+    // El código ya va de menos a más grave: CONFORME, CON_HALLAZGOS, REQUIERE_INTERVENCION.
+    ej_resultado: ['resultado'],
+    ej_responsable: ['usuario.username'],
+};
+
+/** SortingState de TanStack → parámetros `sort` ("campo,asc|desc") para el backend. */
+export function ejecucionesSortParams(sorting = []) {
+    return sorting.flatMap((s) => (EJECUCIONES_SORT[s.id] ?? []).map((campo) => `${campo},${s.desc ? 'desc' : 'asc'}`));
+}
+
 /** Pestaña 3 — Ejecuciones y Hallazgos. `onVerDetalle` no se usa acá: la acción
  * se captura vía el evento `action` estándar de DataGrid (type: 'verDetalle'). */
 export const createEjecucionesColumns = () => [
-    { header: 'Fecha', accessorFn: (r) => formatLocalDate(r.fecha), id: 'ej_fecha', size: 100 },
+    { header: 'Fecha', accessorFn: (r) => formatLocalDate(r.fecha), id: 'ej_fecha', size: 100, sortDescFirst: true },
     { header: 'Estación', accessorKey: 'estacionNombre', id: 'ej_estacion', size: 160 },
     { header: 'Actividad', accessorFn: (r) => r.actividadNombre ?? r.descripcionLibre ?? '—', id: 'ej_actividad', size: 240 },
     { header: 'Tipo de mantenimiento', accessorFn: (r) => tipoMantenimientoLabel(r.tipoMantenimiento), id: 'ej_tipomant', size: 130 },
@@ -55,6 +77,8 @@ export const createEjecucionesColumns = () => [
         accessorFn: (r) => `${r.evidencias?.length ?? 0} foto(s)`,
         id: 'ej_evidencia',
         size: 110,
+        // El conteo de fotos no es una columna de la tabla: no se puede ordenar en el servidor.
+        enableSorting: false,
         meta: {
             isTextBadge: true,
             // Solo se resalta como badge cuando falta evidencia (evidenciaPendiente,

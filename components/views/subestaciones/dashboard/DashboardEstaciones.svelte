@@ -13,6 +13,8 @@
   import ErrorCarga from "../ErrorCarga.svelte";
   import DetalleEstacion from "./DetalleEstacion.svelte";
   import SelectorDisciplina from "../SelectorDisciplina.svelte";
+  import ThOrden from "../ThOrden.svelte";
+  import { ordenarFilas } from "../../../../utils/ordenTabla.js";
 
   let filas = [];
   let anio = null;
@@ -104,6 +106,26 @@
   $: pendientesMes = Math.max(0, total.programadoMes - total.cumpleMes);
   $: conCitasMes = filas.filter((f) => f.programadoMes);
   $: atrasadasMes = conCitasMes.filter((f) => f.semaforo && f.semaforo.l !== "Al día" && f.semaforo.l !== "Mes completo");
+  // Orden por columna (clic en el encabezado). Sin citas en el periodo va siempre al final.
+  // "Estado" ordena por cuánto va detrás del tiempo transcurrido del mes.
+  let orden = { campo: "nombre", dir: "asc" };
+  $: valores = vista === "mes"
+    ? {
+        nombre: (s) => s.estacionNombre,
+        citas: (s) => (s.programadoMes ? s.avanceMes : null),
+        estado: (s) => (s.programadoMes ? (transcurrido ?? 0) - s.avanceMes : null),
+        pendientes: (s) => (s.programadoMes ? s.programadoMes - s.cumpleMes : null),
+        imp: (s) => s.ejecutadoNoProgramadoMes ?? 0,
+      }
+    : {
+        nombre: (s) => s.estacionNombre,
+        avance: (s) => (s.programado ? s.avanceAnio : null),
+        atrasadas: (s) => s.atrasadas,
+        imp: (s) => s.ejecutadoNoProgramado ?? 0,
+      };
+  $: filasOrdenadas = ordenarFilas(filas, orden, valores, (s) => s.estacionNombre);
+  const ordenar = (e) => (orden = e.detail);
+
   // Columnas que se encogen: a 1024 px la tabla cabe completa (Imprevistos incluida).
   $: cols = vista === "mes"
     ? "minmax(140px,1fr) minmax(150px,1.4fr) minmax(150px,auto) 84px minmax(120px,auto)"
@@ -218,18 +240,18 @@
 
     <div class="sub-card tabla" class:actualizando={recargando} style="--imp-c:{IMPREVISTO.c};--imp-bg:{IMPREVISTO.bg}">
       <div class="sub-th" style="grid-template-columns:{cols}">
-        <span>Estación</span>
+        <ThOrden campo="nombre" {orden} on:orden={ordenar}>Estación</ThOrden>
         {#if vista === "mes"}
-          <span title="La raya marca cuánto del mes ha pasado">Citas de {nombreMes}</span>
-          <span>Estado</span>
-          <span class="der">Pendientes</span>
+          <ThOrden campo="citas" {orden} on:orden={ordenar} title="La raya marca cuánto del mes ha pasado">Citas de {nombreMes}</ThOrden>
+          <ThOrden campo="estado" dirInicial="desc" {orden} on:orden={ordenar} title="Primero las que más van detrás del tiempo del mes">Estado</ThOrden>
+          <ThOrden campo="pendientes" dirInicial="desc" der {orden} on:orden={ordenar}>Pendientes</ThOrden>
         {:else}
-          <span>Avance del año</span>
-          <span class="der" title="Citas de meses ya cerrados que no se ejecutaron">Atrasadas</span>
+          <ThOrden campo="avance" {orden} on:orden={ordenar}>Avance del año</ThOrden>
+          <ThOrden campo="atrasadas" dirInicial="desc" der {orden} on:orden={ordenar} title="Citas de meses ya cerrados que no se ejecutaron">Atrasadas</ThOrden>
         {/if}
-        <span class="der" title="Registros sin cita del cronograma y qué parte son del total de registros">Imprevistos</span>
+        <ThOrden campo="imp" dirInicial="desc" der {orden} on:orden={ordenar} title="Registros sin cita del cronograma y qué parte son del total de registros">Imprevistos</ThOrden>
       </div>
-      {#each filas as s (s.estacionId)}
+      {#each filasOrdenadas as s (s.estacionId)}
         <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
         <div class="sub-tr clickable" style="grid-template-columns:{cols}" role="button" tabindex="0"
           title="Ver detalle de estación" on:click={() => abrirEstacion(s.estacionId)}

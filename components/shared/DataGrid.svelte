@@ -48,10 +48,17 @@
    */
   export let variant = "retro";
 
+  /**
+   * Orden en el servidor (opt-in, para listas paginadas): el grid no reordena la página,
+   * solo emite "sortChange" con el SortingState de TanStack y el padre vuelve a pedir los datos.
+   * `sorting` es el orden que muestran las flechas (el padre lo conserva entre recargas).
+   */
+  export let manualSorting = false;
+  export let sorting = [];
+
   const dispatch = createEventDispatcher();
 
   const globalFilter = writable("");
-  let sorting = [];
 
   /** Evita fallos de TanStack / Svelte si el padre pasa un objeto o undefined. */
   $: tableData = Array.isArray(data) ? data : [];
@@ -66,8 +73,10 @@
       sorting,
     },
     onGlobalFilterChange: globalFilter.set,
+    manualSorting,
     onSortingChange: (updater) => {
       sorting = typeof updater === "function" ? updater(sorting) : updater;
+      if (manualSorting) dispatch("sortChange", sorting);
     },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
