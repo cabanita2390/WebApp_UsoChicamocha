@@ -12,13 +12,23 @@
   export let estaciones = [];
   /** Citas vigentes del año (publicadas y borrador) para contar duplicados. */
   export let citasVigentes = [];
-  /** { disciplina, actividadId, estacionIds, meses } */
+  /** { modo?, disciplina, actividadId?, actividadIds?, estacionIds, meses } */
   export let inicial = {};
 
   const dispatch = createEventDispatcher();
 
+  // Dos formas de llenar el cronograma, como se piensa en cada caso:
+  //  - "actividad": una actividad → sus estaciones → meses (como la hoja CRONOGRAMA_POR_ESTACION del Excel).
+  //  - "estacion": una o varias estaciones → varias actividades → meses ("en octubre, en Ayalas, esto y esto").
+  const MODOS = [
+    { value: "actividad", label: "Por actividad", s: "Una actividad, varias estaciones y meses, en un solo paso." },
+    { value: "estacion", label: "Por estación", s: "Una estación, varias actividades y meses, en un solo paso." },
+  ];
+  let modo = inicial.modo === "estacion" ? "estacion" : "actividad";
   let disciplina = inicial.disciplina || "CIVIL";
   let actividadId = inicial.actividadId ?? null;
+  /** Modo estación: actividades marcadas (pueden ser de varias disciplinas). */
+  let actIds = [...(inicial.actividadIds ?? [])];
   let q = "";
   let sq = "";
   let st = [...(inicial.estacionIds ?? [])];
@@ -28,7 +38,10 @@
   let enviando = false;
   let error = "";
 
+  $: porEstacion = modo === "estacion";
   $: seleccionada = actividades.find((a) => a.id === actividadId) ?? null;
+  // Las actividades que se van a asignar, en el orden del catálogo.
+  $: elegidas = porEstacion ? actividades.filter((a) => actIds.includes(a.id)) : seleccionada ? [seleccionada] : [];
   $: deDisciplina = actividades.filter((a) => a.disciplina === disciplina);
   $: lista = deDisciplina.filter((a) => !q || a.nombre.toLowerCase().includes(q.toLowerCase()));
   $: estacionesFiltradas = estaciones.filter((s) => !sq || s.nombre.toLowerCase().includes(sq.toLowerCase()));
@@ -42,14 +55,53 @@
     ids,
     on: ids.length === st.length && ids.every((i) => st.includes(i)) && (ids.length > 0 || (l === "Ninguna" && !st.length)),
   }));
-  $: conteo = actividadId ? paresAsignacion(citasVigentes, actividadId, st, meses) : { nuevas: 0, duplicadas: 0 };
+  $: todasDeDisciplina = deDisciplina.length > 0 && deDisciplina.every((a) => actIds.includes(a.id));
+  $: conteo = elegidas.reduce(
+    (t, a) => {
+      const c = paresAsignacion(citasVigentes, a.id, st, meses);
+      return { nuevas: t.nuevas + c.nuevas, duplicadas: t.duplicadas + c.duplicadas };
+    },
+    { nuevas: 0, duplicadas: 0 },
+  );
   $: ok = conteo.nuevas > 0 && !enviando;
-  $: resumen = seleccionada ? `${seleccionada.nombre} · ${st.length} estaciones × ${meses.length} meses` : "Elija una actividad";
+  $: soloWeb = elegidas.filter((a) => !a.capturaMovilHabilitada);
+  $: nombreEstaciones = st.length === 1 ? (estaciones.find((s) => s.id === st[0])?.nombre ?? "1 estación") : `${st.length} estaciones`;
+  $: resumen = porEstacion
+    ? `${nombreEstaciones} · ${actIds.length} ${actIds.length === 1 ? "actividad" : "actividades"} × ${meses.length} ${meses.length === 1 ? "mes" : "meses"}`
+    : seleccionada
+      ? `${seleccionada.nombre} · ${st.length} estaciones × ${meses.length} meses`
+      : "Elija una actividad";
+  // El orden de las secciones sigue el modo; los meses van siempre al final.
+  $: secciones = porEstacion ? ["estaciones", "actividades"] : ["actividades", "estaciones"];
+  $: tituloActividades = porEstacion ? "Actividades" : "Disciplina y actividad";
+
+  // Cambiar de modo conserva estaciones y meses; la actividad elegida pasa a ser la primera marcada y viceversa.
+  function cambiarModo(m) {
+    if (m === modo) return;
+    if (m === "estacion") actIds = actividadId != null ? [actividadId] : actIds;
+    else actividadId = actIds.length === 1 ? actIds[0] : null;
+    modo = m;
+    error = "";
+  }
 
   function elegirDisciplina(d) {
     disciplina = d;
-    actividadId = null;
     q = "";
+    // En modo estación se pueden mezclar disciplinas: lo marcado se conserva.
+    if (!porEstacion) actividadId = null;
+  }
+
+  function toggleActividad(id) {
+    actIds = actIds.includes(id) ? actIds.filter((x) => x !== id) : [...actIds, id];
+  }
+
+  function marcarDisciplina() {
+    const ids = deDisciplina.map((a) => a.id);
+    actIds = todasDeDisciplina ? actIds.filter((id) => !ids.includes(id)) : [...new Set([...actIds, ...ids])];
+  }
+
+  function marcadasDe(d) {
+    return actividades.filter((a) => a.disciplina === d && actIds.includes(a.id)).length;
   }
 
   function aplicarPreset(nombre, desdeMes = desde) {
@@ -84,16 +136,29 @@
     if (!ok) return;
     enviando = true;
     error = "";
+    // El backend asigna una actividad por llamada: una por cada actividad que tenga algo nuevo
+    // (las que ya están completas en el cronograma no se envían). Repetir es seguro (lo que ya
+    // existe se omite), así que si una falla se puede volver a intentar.
+    const enviar = elegidas.filter((a) => paresAsignacion(citasVigentes, a.id, st, meses).nuevas > 0);
+    const total = { creadas: 0, omitidasDuplicadas: 0, omitidasMesCerrado: 0, omitidasEstacionInactiva: 0 };
+    const hechas = [];
     try {
-      const r = await substationAdmin.asignar({
-        anio,
-        actividadId,
-        estacionIds: st,
-        meses: [...meses].sort((a, b) => a - b),
-      });
-      dispatch("asignado", { resultado: r, actividad: seleccionada });
+      for (const a of enviar) {
+        const r = await substationAdmin.asignar({
+          anio,
+          actividadId: a.id,
+          estacionIds: st,
+          meses: [...meses].sort((x, y) => x - y),
+        });
+        for (const k of Object.keys(total)) total[k] += r?.[k] ?? 0;
+        hechas.push(a);
+      }
+      dispatch("asignado", { resultado: total, actividad: hechas.length === 1 ? hechas[0] : null, actividades: hechas });
     } catch (e) {
-      error = e.message;
+      error = hechas.length
+        ? `Se asignaron ${hechas.length} de ${enviar.length} actividades; falló “${enviar[hechas.length].nombre}”: ${e.message}. Vuelva a intentar: lo ya asignado no se duplica.`
+        : e.message;
+      if (hechas.length) dispatch("parcial");
     } finally {
       enviando = false;
     }
@@ -112,60 +177,84 @@
   <div class="head">
     <div>
       <div class="t">Asignación masiva</div>
-      <div class="s">Una actividad, varias estaciones y meses, en un solo paso.</div>
+      <div class="s">{MODOS.find((m) => m.value === modo).s}</div>
     </div>
     <button class="x" aria-label="Cerrar" on:click={() => dispatch("close")}>×</button>
   </div>
 
-  <div class="cuerpo">
-    <section>
-      <div class="sec">1 · Disciplina y actividad</div>
-      <div class="seg">
-        {#each DISCIPLINAS as d}
-          <button class:on={disciplina === d.value} on:click={() => elegirDisciplina(d.value)}>
-            {d.label} <span class="n">{actividades.filter((a) => a.disciplina === d.value).length}</span>
-          </button>
-        {/each}
-      </div>
-      <div class="fila">
-        <input class="inp flex" bind:value={q} placeholder="Buscar actividad…" />
-        <span class="total">{deDisciplina.length} en total</span>
-      </div>
-      {#if seleccionada}
-        <div class="elegida">
-          <span class="elipsis">✓ {seleccionada.nombre}</span>
-          <button class="cambiar" on:click={() => (actividadId = null)}>Cambiar</button>
-        </div>
-      {/if}
-      <div class="acts">
-        {#each lista as a (a.id)}
-          <button class="act" class:on={actividadId === a.id} on:click={() => (actividadId = a.id)}>
-            <span class="g">{actividadId === a.id ? "✓" : ""}</span>
-            <span class="act-text">{a.nombre}{#if !a.capturaMovilHabilitada}<span class="soloweb">Solo web</span>{/if}</span>
-          </button>
-        {:else}
-          <span class="vacio">Sin actividades en esta disciplina.</span>
-        {/each}
-      </div>
-    </section>
+  <div class="modos">
+    <div class="seg" role="group" aria-label="Forma de asignar">
+      {#each MODOS as m}
+        <button class:on={modo === m.value} aria-pressed={modo === m.value} on:click={() => cambiarModo(m.value)}>{m.label}</button>
+      {/each}
+    </div>
+  </div>
 
-    <section>
-      <div class="sec entre"><span>2 · Estaciones</span><span class="normal">{st.length} seleccionadas</span></div>
-      <input class="inp" bind:value={sq} placeholder="Buscar estación…" />
-      <div class="atajos">
-        {#each atajos as a}
-          <button class="chip" class:on={a.on} on:click={() => (st = [...a.ids])}>{a.l}</button>
-        {/each}
-      </div>
-      <div class="ests">
-        {#each estacionesFiltradas as s (s.id)}
-          <label class="est" class:on={st.includes(s.id)}>
-            <input type="checkbox" checked={st.includes(s.id)} on:change={() => toggleEstacion(s.id)} />
-            <span class="elipsis">{s.nombre}</span>
-          </label>
-        {/each}
-      </div>
-    </section>
+  <div class="cuerpo">
+    {#each secciones as sec, i (sec)}
+      {#if sec === "actividades"}
+        <section>
+          <div class="sec entre">
+            <span>{i + 1} · {tituloActividades}</span>
+            {#if porEstacion}<span class="normal">{actIds.length} {actIds.length === 1 ? "marcada" : "marcadas"}</span>{/if}
+          </div>
+          <div class="seg">
+            {#each DISCIPLINAS as d}
+              <button class:on={disciplina === d.value} on:click={() => elegirDisciplina(d.value)}>
+                {d.label}
+                <span class="n">{#if porEstacion && marcadasDe(d.value)}{marcadasDe(d.value)}/{/if}{actividades.filter((a) => a.disciplina === d.value).length}</span>
+              </button>
+            {/each}
+          </div>
+          <div class="fila">
+            <input class="inp flex" bind:value={q} placeholder="Buscar actividad…" />
+            {#if porEstacion}
+              <button class="chip" class:on={todasDeDisciplina} disabled={!deDisciplina.length} on:click={marcarDisciplina}>
+                {todasDeDisciplina ? "Desmarcar todas" : "Marcar todas"}
+              </button>
+            {:else}
+              <span class="total">{deDisciplina.length} en total</span>
+            {/if}
+          </div>
+          {#if !porEstacion && seleccionada}
+            <div class="elegida">
+              <span class="elipsis">✓ {seleccionada.nombre}</span>
+              <button class="cambiar" on:click={() => (actividadId = null)}>Cambiar</button>
+            </div>
+          {/if}
+          <div class="acts">
+            {#each lista as a (a.id)}
+              {@const on = porEstacion ? actIds.includes(a.id) : actividadId === a.id}
+              <button class="act" class:on aria-pressed={on}
+                on:click={() => (porEstacion ? toggleActividad(a.id) : (actividadId = a.id))}>
+                <span class="g" class:caja={porEstacion}>{on ? "✓" : ""}</span>
+                <span class="act-text">{a.nombre}{#if !a.capturaMovilHabilitada}<span class="soloweb">Solo web</span>{/if}</span>
+              </button>
+            {:else}
+              <span class="vacio">Sin actividades en esta disciplina.</span>
+            {/each}
+          </div>
+        </section>
+      {:else}
+        <section>
+          <div class="sec entre"><span>{i + 1} · Estaciones</span><span class="normal">{st.length} seleccionadas</span></div>
+          <input class="inp" bind:value={sq} placeholder="Buscar estación…" />
+          <div class="atajos">
+            {#each atajos as a}
+              <button class="chip" class:on={a.on} on:click={() => (st = [...a.ids])}>{a.l}</button>
+            {/each}
+          </div>
+          <div class="ests">
+            {#each estacionesFiltradas as s (s.id)}
+              <label class="est" class:on={st.includes(s.id)}>
+                <input type="checkbox" checked={st.includes(s.id)} on:change={() => toggleEstacion(s.id)} />
+                <span class="elipsis">{s.nombre}</span>
+              </label>
+            {/each}
+          </div>
+        </section>
+      {/if}
+    {/each}
 
     <section>
       <div class="sec entre"><span>3 · Meses</span><span class="normal">{meses.length} seleccionados</span></div>
@@ -197,8 +286,10 @@
       {#if conteo.duplicadas > 0}
         <div class="aviso">{conteo.duplicadas} ya existían en el cronograma y se omiten.</div>
       {/if}
-      {#if seleccionada && !seleccionada.capturaMovilHabilitada}
-        <div class="aviso">Esta actividad no tiene captura móvil: los técnicos la verán en su lista, pero deberá registrarse desde la web.</div>
+      {#if soloWeb.length === 1}
+        <div class="aviso">{porEstacion ? `“${soloWeb[0].nombre}” no tiene` : "Esta actividad no tiene"} captura móvil: los técnicos la verán en su lista, pero deberá registrarse desde la web.</div>
+      {:else if soloWeb.length > 1}
+        <div class="aviso">{soloWeb.length} de las actividades marcadas no tienen captura móvil: los técnicos las verán en su lista, pero deberán registrarse desde la web.</div>
       {/if}
       <div class="nota">
         {#if anio === hoy.anioActual}Meses anteriores a {MESES_LARGOS[hoy.mesActual - 1]} están cerrados. {/if}Se agregan como
@@ -210,9 +301,10 @@
 
   <div class="pie">
     <button class="sec-btn" on:click={() => dispatch("close")}>Cancelar</button>
-    <button class="primario" disabled={!ok} on:click={asignar}>{conteo.nuevas > 0 ? `Asignar ${conteo.nuevas} ${conteo.nuevas === 1 ? "cita" : "citas"}` : "Asignar"}</button>
+    <button class="primario" disabled={!ok} on:click={asignar}>{enviando ? "Asignando…" : conteo.nuevas > 0 ? `Asignar ${conteo.nuevas} ${conteo.nuevas === 1 ? "cita" : "citas"}` : "Asignar"}</button>
   </div>
 </aside>
+
 
 <style>
   .velo {
@@ -403,6 +495,28 @@
     font-weight: 700;
     width: 10px;
     flex: none;
+  }
+  /* Modo estación: casilla, porque se marcan varias. */
+  .g.caja {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid rgba(11, 11, 11, 0.3);
+    border-radius: 3px;
+    font-size: 10px;
+    line-height: 11px;
+    text-align: center;
+  }
+  .act.on .g.caja {
+    border-color: #2a78d6;
+    background: #2a78d6;
+    color: #fff;
+  }
+  .modos {
+    padding: 12px 22px 0;
+  }
+  .chip:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
   .act-text {
     display: flex;

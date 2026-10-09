@@ -99,7 +99,7 @@
       </svg>
       <strong>Configuración disponible solo para ADMIN</strong>
       <span class="denegado-sub">Su rol actual permite consultar. Solicite acceso a un administrador.</span>
-      <button class="sub-btn" on:click={() => push("/subestaciones")}>Volver a Consulta</button>
+      <button class="sub-btn" on:click={() => push("/subestaciones")}>Volver a Seguimiento</button>
     </div>
   {:else}
     <div class="sub-head">

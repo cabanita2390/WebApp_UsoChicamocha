@@ -42,7 +42,9 @@
           ? { ...BADGE.ok, g: "✓", l: `Ejecutada ${fechaCorta(c.fechaEjecucion).slice(0, 5)}` }
           : e === "bad"
             ? { ...BADGE.bad, g: "✕", l: "No ejecutada" }
-            : { ...BADGE.neu, g: "○", l: "Programada" },
+            : anio === hoy.anioActual && c.mes === hoy.mesActual
+              ? { ...BADGE.warn, g: "⧗", l: "En curso" }
+              : { ...BADGE.neu, g: "○", l: "Programada" },
       borrador: esNueva(c) ? "Nueva · borrador" : seQuita(c) ? "Se quitará al publicar" : "",
       soloWeb: act && !act.capturaMovilHabilitada,
       puedeQuitar: esAdmin && !c.tieneEjecucion && !seQuita(c) && !cerrado,
@@ -88,7 +90,10 @@
         </span>
         <span class="badge" style="color:{it.b.c};background:{it.b.bg}">{it.b.g} {it.b.l}</span>
         <span class="acc">
-          {#if it.puedeRestaurar}
+          {#if it.cita.tieneEjecucion}
+            <!-- La cita cumplida lleva a su registro (puede haberse hecho en otro mes, si fue tardía). -->
+            <button class="lnk azul" on:click={() => dispatch("verRegistro", it.cita.id)}>Ver registro</button>
+          {:else if it.puedeRestaurar}
             <button class="lnk azul" disabled={ocupado} on:click={() => dispatch("restaurar", it.cita)}>Restaurar</button>
           {:else if it.mesCerrado}
             <span class="cerrado" title="No se puede quitar una cita de un mes cerrado">Mes cerrado</span>
@@ -100,7 +105,8 @@
       </div>
     {/each}
     {#if items.length && !esPorActividad}
-      <button class="lnk azul ver" on:click={() => dispatch("verEjecuciones")}>Ver ejecuciones de este mes →</button>
+      <button class="lnk azul ver" title="Todo lo que se registró en la estación ese mes: citas de este u otros meses e imprevistos"
+        on:click={() => dispatch("verEjecuciones")}>Todo lo registrado en {MESES_LARGOS[celda.mes - 1]} →</button>
     {/if}
   </div>
 
@@ -131,6 +137,7 @@
         on:click={() => dispatch("asignar", { actividadId: Number(actividadId), meses: [...meses].sort((a, b) => a - b) })}>
         Asignar{meses.length > 1 ? ` en ${meses.length} meses` : ""}
       </button>
+      <button class="enlace-varias" on:click={() => dispatch("masivaEstacionAqui")}>Asignar varias actividades…</button>
     </div>
   {:else}
     <div class="pie bloqueado">
@@ -333,6 +340,20 @@
   }
   .asignar {
     align-self: flex-end;
+  }
+  .enlace-varias {
+    all: unset;
+    align-self: flex-end;
+    cursor: pointer;
+    font-size: 12px;
+    color: #2a78d6;
+  }
+  .enlace-varias:hover {
+    text-decoration: underline;
+  }
+  .enlace-varias:focus-visible {
+    outline: 2px solid #2a78d6;
+    outline-offset: 2px;
   }
   .bloqueado {
     flex-direction: row;

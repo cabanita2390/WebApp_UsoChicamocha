@@ -35,6 +35,8 @@
   export let pageSize = 20;
   export let totalElements = 0;
   export let fixedLayout = false;
+  /** Opcional: (fila) => clase CSS extra para el <tr> (la vista que lo usa define el estilo con :global). */
+  export let rowClass = null;
   /** Si es false, se oculta el pie de paginación (listas cargadas de una vez). */
   export let showPagination = true;
   /** Controla si se muestran los botones de eliminación en las acciones */
@@ -46,10 +48,17 @@
    */
   export let variant = "retro";
 
+  /**
+   * Orden en el servidor (opt-in, para listas paginadas): el grid no reordena la página,
+   * solo emite "sortChange" con el SortingState de TanStack y el padre vuelve a pedir los datos.
+   * `sorting` es el orden que muestran las flechas (el padre lo conserva entre recargas).
+   */
+  export let manualSorting = false;
+  export let sorting = [];
+
   const dispatch = createEventDispatcher();
 
   const globalFilter = writable("");
-  let sorting = [];
 
   /** Evita fallos de TanStack / Svelte si el padre pasa un objeto o undefined. */
   $: tableData = Array.isArray(data) ? data : [];
@@ -64,8 +73,10 @@
       sorting,
     },
     onGlobalFilterChange: globalFilter.set,
+    manualSorting,
     onSortingChange: (updater) => {
       sorting = typeof updater === "function" ? updater(sorting) : updater;
+      if (manualSorting) dispatch("sortChange", sorting);
     },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -347,6 +358,7 @@
         {#each $table.getRowModel().rows as row}
           <tr
             key={row.id}
+            class={rowClass?.(row.original) ?? ""}
             class:unexpected-row={row.original.isUnexpected}
             class:anomaly-row={row.original.isAnomaly}
             class:pending-row={row.original.order?.status?.toLowerCase() ===

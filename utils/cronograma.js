@@ -23,10 +23,35 @@ export const RESULTADO = {
 };
 export const SEGUIMIENTO = {
     ABIERTO: { ...BADGE.bad, g: '●', l: 'Abierto' },
-    EN_PROCESO: { ...BADGE.warn, g: '◐', l: 'En proceso' },
+    EN_PROCESO: { ...BADGE.warn, g: '⧗', l: 'En proceso' },
     RESUELTO: { ...BADGE.ok, g: '✓', l: 'Resuelto' },
 };
 export const DISC_TAG = { CIVIL: 'C', ELECTRICO: 'E', ELECTROMECANICO: 'M' };
+/**
+ * Imprevistos (ejecuciones sin cita): terracota suave. Distinto del rojo del semáforo y de los
+ * hallazgos: no es una alarma, es "ojo, esto no estaba planeado" para notar si se repite.
+ */
+export const IMPREVISTO = { c: '#a6532f', bg: '#f8ece4', fila: '#fbf3ee' };
+
+/** Porcentaje entero (0-100) de parte sobre total; null si total es 0. */
+export function porcentaje(parte, total) {
+    return total ? Math.round((parte / total) * 100) : null;
+}
+
+/**
+ * Semáforo del mes en curso: compara el avance de las citas del mes contra cuánto del mes ya
+ * pasó. Al empezar el mes nadie sale en rojo; al final, ir en 10% sí. null si no hay citas.
+ */
+export function semaforoMes(cumple, programado, transcurrido) {
+    if (!programado) return null;
+    const avance = (cumple / programado) * 100;
+    const pct = Math.round(avance);
+    if (avance >= 100) return { ...BADGE.ok, color: COLOR.ok, g: '▲', l: 'Mes completo', pct };
+    const diferencia = avance - Number(transcurrido ?? 0);
+    if (diferencia >= -10) return { ...BADGE.ok, color: COLOR.ok, g: '▲', l: 'Al día', pct };
+    if (diferencia >= -30) return { ...BADGE.warn, color: COLOR.warn, g: '■', l: 'Algo atrasado', pct };
+    return { ...BADGE.bad, color: COLOR.bad, g: '▼', l: 'Atrasado', pct };
+}
 
 /** Densidad: actividades por celda, alto de fila y ancho mínimo de columna (vista por estación / por actividad). */
 export const DENSIDAD = {
@@ -50,21 +75,6 @@ export const esNueva = (c) => c.estado === 'BORRADOR';
 export const seQuita = (c) => !!c.pendienteRetiro;
 export const esCambio = (c) => esNueva(c) || seQuita(c);
 
-/** Umbrales del mockup: >55 alto, 36–55 medio, <36 bajo. */
-export function nivel(pct) {
-    return pct > 55 ? 'ok' : pct >= 36 ? 'warn' : 'bad';
-}
-
-export function pctBadge(pct) {
-    const l = nivel(pct);
-    return {
-        ...BADGE[l],
-        color: COLOR[l],
-        g: l === 'ok' ? '▲' : l === 'warn' ? '■' : '▼',
-        l: l === 'ok' ? 'Cumplimiento alto' : l === 'warn' ? 'Cumplimiento medio' : 'Cumplimiento bajo',
-    };
-}
-
 export function fechaCorta(iso) {
     if (!iso) return '';
     const [y, m, d] = iso.split('-');
@@ -87,6 +97,8 @@ export function chip(cita, { anio, hoy, actividad, disciplinaFiltrada }) {
     let st;
     if (e === 'ok') st = { bg: BADGE.ok.bg, c: BADGE.ok.c, g: '✓', bd: '0', t: `Ejecutada ${fechaCorta(cita.fechaEjecucion)}` };
     else if (e === 'bad') st = { bg: BADGE.bad.bg, c: BADGE.bad.c, g: '✕', bd: '0', t: 'No ejecutada' };
+    // La pendiente del mes en curso se ve "En curso" igual que en los detalles (no como una futura).
+    else if (anio === hoy.anioActual && cita.mes === hoy.mesActual) st = { bg: BADGE.warn.bg, c: BADGE.warn.c, g: '⧗', bd: '0', t: 'En curso' };
     else st = { bg: '#fff', c: '#52514e', g: '', bd: '1px solid rgba(11,11,11,0.14)', t: 'Programada' };
     if (esNueva(cita)) st = { ...st, bd: '1.5px solid #2a78d6', bg: '#dbe9fb', c: '#1f5fae', g: '+', t: 'Borrador · nueva' };
     return {
@@ -144,7 +156,8 @@ function celda(lista, m, { anio, hoy, max, seleccion, modoEdicion, chipDe }) {
         n,
         okN: ok,
         badN: bad,
-        vencidasN: mesCerrado(anio, m, hoy) ? n : 0,
+        // Citas que cuentan para el avance: las publicadas (un borrador todavía no es del cronograma).
+        publicadasN: lista.filter((c) => !esNueva(c)).length,
         chips: chips.slice(0, n > max ? max - 1 : max),
         mas: n > max ? n - max + 1 : 0,
         mostrarMas: modoEdicion && n === 0,
@@ -158,12 +171,20 @@ function celda(lista, m, { anio, hoy, max, seleccion, modoEdicion, chipDe }) {
     };
 }
 
+/**
+ * Avance del año de la fila, el mismo del Dashboard y del Resumen: citas ejecutadas de las
+ * publicadas, neutro (sin semáforo). "—" si la fila no tiene citas publicadas.
+ */
 function pctFila(celdas) {
-    const vencidas = celdas.reduce((x, c) => x + c.vencidasN, 0);
-    const ejecutadas = celdas.reduce((x, c) => x + (c.vencidasN ? c.okN : 0), 0);
-    if (!vencidas) return { pct: null, pctL: '—', badge: { color: '#898781', g: '', l: 'Sin citas vencidas' } };
-    const pct = Math.round((ejecutadas / vencidas) * 100);
-    return { pct, pctL: `${pct}%`, badge: pctBadge(pct) };
+    const publicadas = celdas.reduce((x, c) => x + c.publicadasN, 0);
+    const ejecutadas = celdas.reduce((x, c) => x + c.okN, 0);
+    if (!publicadas) return { pct: null, pctL: '—', badge: { color: '#898781', g: '', l: 'Sin citas publicadas este año' } };
+    const pct = porcentaje(ejecutadas, publicadas);
+    return {
+        pct,
+        pctL: `${ejecutadas} de ${publicadas} · ${pct}%`,
+        badge: { color: '#3d3c39', g: '', l: `Avance del año: ${ejecutadas} de ${publicadas} citas ejecutadas` },
+    };
 }
 
 const MESES_1_12 = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -263,4 +284,19 @@ export function paresAsignacion(citasVigentes, actividadId, estacionIds, meses) 
         }
     }
     return { nuevas, duplicadas };
+}
+
+/**
+ * Años del selector. "cronograma": los años con datos + el actual y el siguiente (en 2027 ofrece
+ * 2028 solo; los pasados se ven en modo consulta). "consulta" (Resumen y detalles): los años con
+ * datos hasta el actual. Siempre incluye el que está elegido. Sin respuesta del servidor (null),
+ * lo de siempre: actual y siguiente / actual y anterior. Del más reciente al más antiguo.
+ */
+export function aniosParaSelector(info, anioActual, modo, seleccionado = null) {
+    const conDatos = info?.conDatos ?? [anioActual - 1];
+    const base = modo === 'cronograma'
+        ? [...conDatos, ...(info?.programables ?? [anioActual, anioActual + 1])]
+        : [...conDatos.filter((a) => a <= anioActual), anioActual];
+    if (seleccionado != null) base.push(Number(seleccionado));
+    return [...new Set(base.map(Number))].sort((a, b) => b - a);
 }

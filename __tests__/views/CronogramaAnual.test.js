@@ -18,6 +18,8 @@ vi.mock('../../stores/substationAdmin.js', () => ({
     publicar: vi.fn(),
     deshacerPublicacion: vi.fn(),
     copiarAnio: vi.fn(),
+    ejecucionDeCita: vi.fn(),
+    aniosCronograma: vi.fn(),
   },
 }));
 
@@ -78,9 +80,9 @@ describe('CronogramaAnual', () => {
     expect(screen.getByText(/2 estaciones · 3 citas en 2026 · todas las disciplinas/)).toBeTruthy();
     expect(screen.getAllByText('Pintura puertas', { selector: '.corto' })).toHaveLength(2);
     expect(screen.getByText('Muros', { selector: '.corto' })).toBeTruthy();
-    expect(screen.getByText('■ 50%')).toBeTruthy(); // Ayalas: 1 de 2 vencidas → nivel medio
+    expect(screen.getByText('1 de 2 · 50%')).toBeTruthy(); // Ayalas: avance del año, como el Dashboard
     expect(screen.getByText(/Publicado a móvil · 20\/09\/2026 16:05 · sin cambios pendientes/)).toBeTruthy();
-    expect(screen.getByText(/Solo pendientes vencidas · 1/)).toBeTruthy();
+    expect(screen.getByText(/Solo atrasadas · 1/)).toBeTruthy();
     expect(screen.queryByText('↶ Deshacer última publicación')).toBeNull();
   });
 
@@ -134,18 +136,18 @@ describe('CronogramaAnual', () => {
     expect(screen.queryByText('Descartar')).toBeNull();
   });
 
-  it('"Solo pendientes vencidas" deja solo las filas con citas no ejecutadas de meses cerrados', async () => {
+  it('"Solo atrasadas" deja solo las filas con citas no ejecutadas de meses cerrados', async () => {
     render(CronogramaAnual);
     await screen.findByText('Ayalas');
 
-    await fireEvent.click(screen.getByText(/Solo pendientes vencidas/));
+    await fireEvent.click(screen.getByText(/Solo atrasadas/));
 
     expect(screen.getByText('Ayalas')).toBeTruthy();
     expect(screen.queryByText('CLAN')).toBeNull();
     expect(screen.getByText(/2 estaciones · 1 citas en 2026/)).toBeTruthy();
   });
 
-  it('panel de celda: lista las citas y "Ver ejecuciones de este mes" abre Ejecuciones filtrada', async () => {
+  it('panel de celda: lista las citas y "Todo lo registrado en <mes>" abre Ejecuciones filtrada', async () => {
     const { container } = render(CronogramaAnual);
     await screen.findByText('Ayalas');
 
@@ -154,10 +156,44 @@ describe('CronogramaAnual', () => {
 
     expect(screen.getByText('Febrero 2026 · 1 actividad')).toBeTruthy();
     expect(screen.getByText('✓ Ejecutada 10/02')).toBeTruthy();
-    await fireEvent.click(screen.getByText('Ver ejecuciones de este mes →'));
+    await fireEvent.click(screen.getByText('Todo lo registrado en Febrero →'));
 
     expect(get(ejecucionesFiltroInicial)).toEqual({ estacionId: 1, fechaInicio: '2026-02-01', fechaFin: '2026-02-28' });
     expect(get(subestacionesActiveTab)).toBe('ejecuciones');
+  });
+
+  it('en 2027 ofrece 2028 para programar y 2026 para consultar; el año pasado queda en solo lectura', async () => {
+    // Simula que el servidor ya está en 2027
+    substationAdmin.obtenerCronograma.mockImplementation(async (anio) => cronograma({
+      anio, anioActual: 2027, mesActual: 3, puedeDeshacer: anio === 2026, citas: [cita(100, 1, 10, 2)],
+    }));
+    substationAdmin.aniosCronograma.mockResolvedValue({ anioActual: 2027, programables: [2027, 2028], conDatos: [2027, 2026] });
+    render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    await waitFor(() => expect([...screen.getByLabelText('Año').options].map((o) => o.textContent))
+      .toEqual(['2028', '2027', '2026 · consulta']));
+    expect(screen.getByText('Asignación masiva')).toBeTruthy();       // 2027 se programa
+
+    await fireEvent.change(screen.getByLabelText('Año'), { target: { value: '2028' } });
+    await waitFor(() => expect(substationAdmin.obtenerCronograma).toHaveBeenCalledWith(2028));
+    expect(screen.getByText('Asignación masiva')).toBeTruthy();       // 2028 también, sin errores
+    expect(screen.queryByText(/es un año cerrado/)).toBeNull();
+
+    await fireEvent.change(screen.getByLabelText('Año'), { target: { value: '2026' } });
+    expect(await screen.findByText(/2026 es un año cerrado/)).toBeTruthy();
+    expect(screen.queryByText('Asignación masiva')).toBeNull();       // solo consulta
+    expect(screen.queryByText('+ Asignar actividades')).toBeNull();
+    expect(screen.queryByText(/Deshacer última publicación/)).toBeNull();
+  });
+
+  it('panel de celda: "Ver registro" de una cita cumplida cierra el panel y abre su registro', async () => {
+    substationAdmin.ejecucionDeCita.mockResolvedValue({ id: 900, fecha: '2026-02-10', evidencias: [] });
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(container.querySelectorAll('.fila')[0].querySelectorAll('.celda')[1]);
+    await fireEvent.click(screen.getByText('Ver registro'));
+    await waitFor(() => expect(substationAdmin.ejecucionDeCita).toHaveBeenCalledWith(100));
+    expect(screen.queryByText('Febrero 2026 · 1 actividad')).toBeNull(); // el panel ya no tapa el registro
   });
 
   it('panel de celda: quitar una cita futura y "Mes cerrado" en una pasada', async () => {
@@ -178,12 +214,54 @@ describe('CronogramaAnual', () => {
     expect(screen.getByText('Solo web · no se captura desde móvil')).toBeTruthy();
   });
 
-  it('click en el nombre de la estación abre su detalle en el Dashboard', async () => {
-    render(CronogramaAnual);
+  it('asignación masiva: abre en el modo de la grilla, y la celda de una estación asigna varias actividades', async () => {
+    substationAdmin.asignar.mockResolvedValue({ creadas: 1, omitidasDuplicadas: 0, omitidasMesCerrado: 0, omitidasEstacionInactiva: 0 });
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    const titulos = () => [...container.querySelectorAll('.drawer .sec > span:first-child')].map((x) => x.textContent.trim());
+
+    // Filas por estación → "Por estación"; filas por actividad → "Por actividad".
+    await fireEvent.click(screen.getByText('Asignación masiva'));
+    expect(titulos()[0]).toBe('1 · Estaciones');
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Actividades', exact: true }));
+    await fireEvent.click(screen.getByText('Asignación masiva'));
+    expect(titulos()[0]).toBe('1 · Disciplina y actividad');
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Estaciones', exact: true }));
+
+    // CLAN · octubre → "Asignar varias actividades…": CLAN y octubre ya vienen marcados.
+    await fireEvent.click(container.querySelectorAll('.fila')[1].querySelectorAll('.celda')[9]);
+    await fireEvent.click(screen.getByText('Asignar varias actividades…'));
+    expect(screen.getByLabelText('CLAN').checked).toBe(true);
+    await fireEvent.click(container.querySelector('.drawer .act')); // Pintura puertas: ya está en oct → duplicada
+    await fireEvent.click(container.querySelectorAll('.drawer .act')[1]); // Pintura muros
+    expect(screen.getByText('CLAN · 2 actividades × 1 mes')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Asignar 1 cita' }));
+
+    // Pintura puertas ya estaba completa: solo se envía Pintura muros.
+    await waitFor(() => expect(get(subestacionesToast)?.text).toContain('Pintura muros · 1 cita en borrador'));
+    expect(substationAdmin.asignar).toHaveBeenCalledTimes(1);
+    expect(substationAdmin.asignar).toHaveBeenCalledWith({ anio: 2026, actividadId: 11, estacionIds: [2], meses: [10] });
+  });
+
+  it('el nombre de la estación no es clickeable (su detalle ya está en el Dashboard)', async () => {
+    const { container } = render(CronogramaAnual);
     await fireEvent.click(await screen.findByText('Ayalas'));
 
-    expect(get(detalleEstacionId)).toBe(1);
-    expect(get(subestacionesActiveTab)).toBe('dashboard');
+    expect(get(detalleEstacionId)).toBeNull();
+    expect(get(subestacionesActiveTab)).not.toBe('dashboard');
+    expect(container.querySelector('button.nombre-fila')).toBeNull();
+  });
+
+  it('en filas por actividad, el nombre de la actividad filtra la grilla por esa actividad', async () => {
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('button', { name: 'Actividades', exact: true }));
+    const nombre = container.querySelector('button.nombre-fila');
+    expect(nombre.title).toBe('Ver esta actividad por estación');
+    await fireEvent.click(nombre);
+    expect(container.querySelector('button.nombre-fila')).toBeNull(); // volvió a filas por estación
   });
 
   it('año sin cronograma: ofrece copiar el año anterior como borrador', async () => {

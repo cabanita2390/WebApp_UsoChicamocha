@@ -6,10 +6,10 @@
   import { flash } from "../../../../stores/subestacionesToast.js";
   import {
     cronogramaAnioInicial,
+    cronogramaSoloAtrasadas,
     pantallaAmpliada,
     subestacionesActiveTab,
     ejecucionesFiltroInicial,
-    detalleEstacionId,
     disciplinaFiltro,
   } from "../../../../stores/subestacionesFilters.js";
   import { DISCIPLINAS, MESES, disciplinaLabel } from "../../../../config/subestaciones.js";
@@ -21,6 +21,8 @@
     totalesPorMes,
     estadoCita,
     fechaHora,
+    aniosParaSelector,
+    mesCerrado,
   } from "../../../../utils/cronograma.js";
   import Loader from "../../../shared/Loader.svelte";
   import SubToast from "../SubToast.svelte";
@@ -29,8 +31,17 @@
   import CeldaPanel from "./CeldaPanel.svelte";
   import AsignacionMasiva from "./AsignacionMasiva.svelte";
   import PublicarModal from "./PublicarModal.svelte";
+  import SubestacionEjecucionDetalleModal from "../../../shared/SubestacionEjecucionDetalleModal.svelte";
 
   $: esAdmin = $auth?.currentUser?.role === "ADMIN";
+  // Un año pasado se consulta, no se edita (el backend tampoco deja programarlo).
+  $: soloLectura = anio < hoy.anioActual;
+  $: editable = esAdmin && !soloLectura;
+  $: if (soloLectura && modoEdicion) modoEdicion = false;
+
+  // Años del selector: los que tienen datos + el actual y el siguiente (en 2027 ofrece 2028).
+  let infoAnios = null;
+  $: opcionesAnio = aniosParaSelector(infoAnios, hoy.anioActual, "cronograma", anio);
 
   // "Hoy" lo manda el servidor en cada GET /cronograma; hasta entonces, el del navegador.
   const ahora = new Date();
@@ -57,7 +68,28 @@
   let actividadId = "";
   let q = "";
   let densidad = "normal";
-  let soloVencidas = false;
+  // Desde la tarjeta "Atrasadas" del Dashboard / Resumen se llega con el filtro ya puesto.
+  let soloVencidas = get(cronogramaSoloAtrasadas);
+  cronogramaSoloAtrasadas.set(false);
+
+  // Registro de una cita cumplida (panel de celda → "Ver registro")
+  let registro = null;
+  let registroCargando = false;
+  let mostrarRegistro = false;
+  async function verRegistro(e) {
+    celda = null; // el panel se cierra: si no, su velo queda encima del registro y no se puede cerrar
+    mostrarRegistro = true;
+    registroCargando = true;
+    registro = null;
+    try {
+      registro = await substationAdmin.ejecucionDeCita(e.detail);
+    } catch (err) {
+      flash(err.message, { error: true });
+      mostrarRegistro = false;
+    } finally {
+      registroCargando = false;
+    }
+  }
   let soloCambios = false;
   let modoEdicion = false;
 
@@ -92,6 +124,11 @@
         substationAdmin.listarEstaciones(),
         substationAdmin.listarActividades(),
       ]);
+      // Si no llega, el selector ofrece lo de siempre (actual y siguiente): no bloquea la grilla.
+      Promise.resolve()
+        .then(() => substationAdmin.aniosCronograma())
+        .then((r) => (infoAnios = r))
+        .catch(() => {});
       await cargarCronograma();
       if (anioPedido == null && anio !== hoy.anioActual) {
         anio = hoy.anioActual;
@@ -201,7 +238,7 @@
   $: mensajeVacio = verSoloCambios
     ? "No hay cambios en borrador para mostrar."
     : soloVencidas
-      ? "Sin citas vencidas pendientes para este filtro."
+      ? "Sin citas atrasadas para este filtro."
       : "Sin citas para el filtro seleccionado.";
   $: dens = DENSIDAD[por][densidad];
 
@@ -282,30 +319,38 @@
     celda = null;
   }
 
+  // Celda de una estación: varias actividades para esa estación y ese mes.
+  function masivaEstacionAqui() {
+    masiva = {
+      modo: "estacion",
+      disciplina: disciplina || "CIVIL",
+      estacionIds: [celda.estacionId],
+      meses: mesCerrado(anio, celda.mes, hoy) ? [] : [celda.mes],
+    };
+    celda = null;
+  }
+
+  // Abre en el modo de la grilla: filas por estación → "Por estación"; por actividad → "Por actividad".
   function abrirMasiva() {
     celda = null;
-    masiva = { disciplina: disciplina || "CIVIL" };
+    masiva = { modo: por === "est" ? "estacion" : "actividad", disciplina: disciplina || "CIVIL" };
   }
 
   async function asignado(e) {
-    const { resultado, actividad } = e.detail;
+    const { resultado, actividad, actividades } = e.detail;
     masiva = null;
     await recargar();
     soloCambios = true;
-    flash(`${actividad.nombre} · ${resultado.creadas} citas en borrador — mostrando solo los cambios`);
+    const que = actividad ? actividad.nombre : `${actividades.length} actividades`;
+    const n = resultado.creadas;
+    flash(`${que} · ${n} ${n === 1 ? "cita" : "citas"} en borrador — mostrando solo los cambios`);
   }
 
+  // Solo en filas por actividad: filtra la grilla por esa actividad. El nombre de una estación no
+  // lleva a ningún lado (su detalle ya está en el Dashboard; repetirlo aquí era redundante).
   function abrirFila(e) {
-    const fila = e.detail;
-    if (por === "act") {
-      actividadId = String(fila.id);
-      por = "est";
-      return;
-    }
-    // Detalle por estación: vive dentro de la pestaña Dashboard (P4).
-    detalleEstacionId.set(fila.id);
-    pantallaAmpliada.set(false);
-    subestacionesActiveTab.set("dashboard");
+    actividadId = String(e.detail.id);
+    por = "est";
   }
 
   // Descartar es la única acción que no se puede deshacer: pide confirmación en dos pasos.
@@ -374,9 +419,10 @@
           <button class:on={por === "est"} on:click={() => ((por = "est"), (celda = null))}>Estaciones</button>
           <button class:on={por === "act"} on:click={() => ((por = "act"), (celda = null))}>Actividades</button>
         </div>
+        <span class="lbl">Celdas</span>
         <div class="sub-seg chico">
-          <button class:on={vista === "act"} on:click={() => (vista = "act")}>Actividades</button>
-          <button class:on={vista === "count"} on:click={() => (vista = "count")}>Conteo</button>
+          <button class:on={vista === "act"} on:click={() => (vista = "act")} title="Cada celda muestra las citas con su nombre y estado">Con nombres</button>
+          <button class:on={vista === "count"} on:click={() => (vista = "count")} title="Cada celda muestra solo cuántas citas tiene el mes">Solo cantidad</button>
         </div>
         <select class="ctl disc" value={disciplina} on:change={cambiarDisciplina} aria-label="Disciplina">
           <option value="">Todas las disciplinas</option>
@@ -389,13 +435,13 @@
           {/each}
         </select>
         <select class="ctl anio" value={String(anio)} on:change={cambiarAnio} aria-label="Año">
-          {#each [hoy.anioActual, hoy.anioActual + 1] as y}<option value={String(y)}>{y}</option>{/each}
+          {#each opcionesAnio as y}<option value={String(y)}>{y}{y < hoy.anioActual ? " · consulta" : ""}</option>{/each}
         </select>
         <input class="ctl buscar" bind:value={q} placeholder="Buscar estación…" />
         <button class="sub-btn chico-btn" on:click={() => pantallaAmpliada.update((v) => !v)}>
           {$pantallaAmpliada ? "⤡ Salir de vista ampliada" : "⤢ Ampliar"}
         </button>
-        {#if esAdmin}
+        {#if editable}
           <button class="sub-btn-primary" on:click={abrirMasiva}>Asignación masiva</button>
           <button class="modo" class:on={modoEdicion} on:click={() => (modoEdicion = !modoEdicion)}>
             {modoEdicion ? "✓ Modo asignación" : "+ Asignar actividades"}
@@ -413,11 +459,12 @@
     <div class="leyenda">
       <span class="ley"><span class="cuadro" style="background:#006300"></span>✓ Ejecutada</span>
       <span class="ley"><span class="cuadro" style="background:#d03b3b"></span>✕ No ejecutada</span>
+      <span class="ley"><span class="cuadro" style="background:#faf1de;border:1px solid #c98500"></span>⧗ En curso</span>
       <span class="ley"><span class="cuadro" style="background:#fff;border:1px solid rgba(11,11,11,0.25)"></span>○ Programada</span>
       <span class="ley"><span class="cuadro" style="background:#dbe9fb;border:1.5px solid #2a78d6"></span>+ Nueva (borrador)</span>
       <span class="sep"></span><span class="gris">Pase el cursor sobre una actividad para ver su nombre completo.</span>
-      <button class="vencidas" class:on={soloVencidas} on:click={() => (soloVencidas = !soloVencidas)}>
-        {soloVencidas ? "✓" : "✕"} Solo pendientes vencidas · {vencidasN}
+      <button class="vencidas" class:on={soloVencidas} title="Citas de meses ya cerrados que no se ejecutaron" on:click={() => (soloVencidas = !soloVencidas)}>
+        {soloVencidas ? "✓" : "✕"} Solo atrasadas · {vencidasN}
       </button>
       <div class="densidad">
         <span>Actividades por celda</span>
@@ -441,11 +488,11 @@
           <button class="solo" on:click={() => (soloCambios = !soloCambios)}>
             {verSoloCambios ? "Mostrar todo el cronograma" : "Ver solo los cambios"}
           </button>
-          {#if esAdmin && confirmarDescarte}
+          {#if editable && confirmarDescarte}
             <span class="confirmar-txt">¿Descartar {nCambios} {nCambios === 1 ? "cambio" : "cambios"}? No se puede deshacer.</span>
             <button class="sub-btn chico-btn" disabled={ocupado} on:click={() => (confirmarDescarte = false)}>Cancelar</button>
             <button class="peligro" disabled={ocupado} on:click={descartar}>Sí, descartar</button>
-          {:else if esAdmin}
+          {:else if editable}
             <button class="sub-btn chico-btn" disabled={ocupado} on:click={() => (confirmarDescarte = true)}>Descartar</button>
             <button class="sub-btn-primary" on:click={() => (publicarAbierto = true)}>Revisar y publicar a móvil</button>
           {/if}
@@ -455,20 +502,31 @@
       <div class="publicado">
         <span class="punto"></span>
         <span>Publicado a móvil · {fechaHora(ultima.publicadoEn)} · sin cambios pendientes</span>
-        {#if cron.puedeDeshacer && esAdmin}
+        {#if cron.puedeDeshacer && editable}
           <button class="deshacer" disabled={ocupado} on:click={deshacer}>↶ Deshacer última publicación</button>
         {/if}
       </div>
     {/if}
 
-    {#if anioVacio}
+    {#if soloLectura}
+      <div class="consulta" role="note">
+        {anio} es un año cerrado: aquí solo se consulta lo que se programó y lo que se hizo. Para programar,
+        elija {hoy.anioActual} o {hoy.anioActual + 1}.
+      </div>
+    {/if}
+
+    {#if anioVacio && soloLectura}
+      <div class="sub-card vacio-anio">
+        <div class="va-t">{anio} no tuvo cronograma publicado</div>
+      </div>
+    {:else if anioVacio}
       <div class="sub-card vacio-anio">
         <div class="va-t">{anio} todavía no tiene cronograma</div>
         <div class="va-p">
           Copie el año actual como punto de partida y ajuste solo las excepciones. Todo queda en <strong>borrador</strong>:
           los técnicos no ven nada hasta que publique, y puede descartarlo completo.
         </div>
-        {#if esAdmin}
+        {#if editable}
           <div class="va-btns">
             <button class="sub-btn-primary" disabled={ocupado || citasOrigenCopia === 0} on:click={copiarAnio}>
               Copiar {anio - 1} como borrador · {citasOrigenCopia} citas
@@ -486,7 +544,7 @@
       {hoy}
       {anio}
       etiquetaFila={por === "act" ? "Actividad" : "Estación"}
-      tituloFila={por === "act" ? "Ver esta actividad por estación" : "Ver detalle de estación"}
+      tituloFila={por === "act" ? "Ver esta actividad por estación" : null}
       conChips={vista === "act"}
       densidad={dens}
       dosColumnas={por === "act"}
@@ -503,7 +561,7 @@
           citas={citasCelda}
           {anio}
           {hoy}
-          {esAdmin}
+          esAdmin={editable}
           {ocupado}
           {actividadesPorId}
           {estacionesPorId}
@@ -513,7 +571,9 @@
           on:restaurar={restaurar}
           on:asignar={asignarEnCelda}
           on:verEjecuciones={verEjecuciones}
+          on:verRegistro={verRegistro}
           on:masivaAqui={masivaAqui}
+          on:masivaEstacionAqui={masivaEstacionAqui}
         />
       {/key}
     {/if}
@@ -528,11 +588,15 @@
         inicial={masiva}
         on:close={() => (masiva = null)}
         on:asignado={asignado}
+        on:parcial={recargar}
       />
     {/if}
 
     {#if publicarAbierto}
       <PublicarModal {anio} anioActual={hoy.anioActual} on:close={() => (publicarAbierto = false)} on:publicado={publicado} />
+    {/if}
+    {#if mostrarRegistro}
+      <SubestacionEjecucionDetalleModal ejecucion={registro} isLoading={registroCargando} on:close={() => (mostrarRegistro = false)} />
     {/if}
   {/if}
   <SubToast />
@@ -766,5 +830,12 @@
     margin-top: 6px;
     flex-wrap: wrap;
     justify-content: center;
+  }
+  .consulta {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #f0f0ee;
+    color: #52514e;
+    font-size: 13px;
   }
 </style>

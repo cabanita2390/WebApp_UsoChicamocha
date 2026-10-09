@@ -15,7 +15,8 @@
   export let densidad;
   export let dosColumnas = false;
   export let vacio = "";
-  export let tituloFila = "Ver detalle de estación";
+  /** Ayuda del click en el nombre de la fila; null = el nombre no es clickeable. */
+  export let tituloFila = null;
   /** Atenúa la grilla mientras se recarga (cambio de año, después de guardar). */
   export let actualizando = false;
 
@@ -59,14 +60,15 @@
 
     {#each filas as fila (fila.key)}
       <div class="grid fila" class:alterna={fila.alterna} style="grid-template-columns:{cols}">
-        <button class="fija nombre-fila" class:alterna={fila.alterna} style="height:{altoCelda}" title={tituloFila}
-          on:click={() => dispatch("fila", fila)}>
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <svelte:element this={tituloFila ? "button" : "div"} class="fija nombre-fila" class:alterna={fila.alterna}
+          style="height:{altoCelda}" title={tituloFila} on:click={() => tituloFila && dispatch("fila", fila)}>
           <span class="nombre-col">
             <span class="nombre">{fila.nombre}</span>
             <span class="sub">{fila.sub}</span>
           </span>
           <span class="pct" style="color:{fila.badge.color}" title={fila.badge.l}>{fila.badge.g} {fila.pctL}</span>
-        </button>
+        </svelte:element>
         {#each fila.celdas as c (c.mes)}
           <div class="celda" role="button" tabindex="0"
             aria-label="{fila.nombre} · {MESES_LARGOS[c.mes - 1]} · {c.n} {c.n === 1 ? 'cita' : 'citas'}"
@@ -192,7 +194,6 @@
   .nombre-fila {
     all: unset;
     box-sizing: border-box;
-    cursor: pointer;
     z-index: 2;
     background: #fff;
     padding: 0 14px;
@@ -205,7 +206,10 @@
   .nombre-fila.alterna {
     background: #fcfcfb;
   }
-  .nombre-fila:hover {
+  button.nombre-fila {
+    cursor: pointer;
+  }
+  button.nombre-fila:hover {
     color: #2a78d6;
   }
   .nombre-col {
