@@ -214,6 +214,37 @@ describe('CronogramaAnual', () => {
     expect(screen.getByText('Solo web · no se captura desde móvil')).toBeTruthy();
   });
 
+  it('asignación masiva: abre en el modo de la grilla, y la celda de una estación asigna varias actividades', async () => {
+    substationAdmin.asignar.mockResolvedValue({ creadas: 1, omitidasDuplicadas: 0, omitidasMesCerrado: 0, omitidasEstacionInactiva: 0 });
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    const titulos = () => [...container.querySelectorAll('.drawer .sec > span:first-child')].map((x) => x.textContent.trim());
+
+    // Filas por estación → "Por estación"; filas por actividad → "Por actividad".
+    await fireEvent.click(screen.getByText('Asignación masiva'));
+    expect(titulos()[0]).toBe('1 · Estaciones');
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Actividades', exact: true }));
+    await fireEvent.click(screen.getByText('Asignación masiva'));
+    expect(titulos()[0]).toBe('1 · Disciplina y actividad');
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Estaciones', exact: true }));
+
+    // CLAN · octubre → "Asignar varias actividades…": CLAN y octubre ya vienen marcados.
+    await fireEvent.click(container.querySelectorAll('.fila')[1].querySelectorAll('.celda')[9]);
+    await fireEvent.click(screen.getByText('Asignar varias actividades…'));
+    expect(screen.getByLabelText('CLAN').checked).toBe(true);
+    await fireEvent.click(container.querySelector('.drawer .act')); // Pintura puertas: ya está en oct → duplicada
+    await fireEvent.click(container.querySelectorAll('.drawer .act')[1]); // Pintura muros
+    expect(screen.getByText('CLAN · 2 actividades × 1 mes')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Asignar 1 cita' }));
+
+    // Pintura puertas ya estaba completa: solo se envía Pintura muros.
+    await waitFor(() => expect(get(subestacionesToast)?.text).toContain('Pintura muros · 1 cita en borrador'));
+    expect(substationAdmin.asignar).toHaveBeenCalledTimes(1);
+    expect(substationAdmin.asignar).toHaveBeenCalledWith({ anio: 2026, actividadId: 11, estacionIds: [2], meses: [10] });
+  });
+
   it('el nombre de la estación no es clickeable (su detalle ya está en el Dashboard)', async () => {
     const { container } = render(CronogramaAnual);
     await fireEvent.click(await screen.findByText('Ayalas'));

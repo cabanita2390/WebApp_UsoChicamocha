@@ -22,6 +22,7 @@
     estadoCita,
     fechaHora,
     aniosParaSelector,
+    mesCerrado,
   } from "../../../../utils/cronograma.js";
   import Loader from "../../../shared/Loader.svelte";
   import SubToast from "../SubToast.svelte";
@@ -318,17 +319,31 @@
     celda = null;
   }
 
+  // Celda de una estación: varias actividades para esa estación y ese mes.
+  function masivaEstacionAqui() {
+    masiva = {
+      modo: "estacion",
+      disciplina: disciplina || "CIVIL",
+      estacionIds: [celda.estacionId],
+      meses: mesCerrado(anio, celda.mes, hoy) ? [] : [celda.mes],
+    };
+    celda = null;
+  }
+
+  // Abre en el modo de la grilla: filas por estación → "Por estación"; por actividad → "Por actividad".
   function abrirMasiva() {
     celda = null;
-    masiva = { disciplina: disciplina || "CIVIL" };
+    masiva = { modo: por === "est" ? "estacion" : "actividad", disciplina: disciplina || "CIVIL" };
   }
 
   async function asignado(e) {
-    const { resultado, actividad } = e.detail;
+    const { resultado, actividad, actividades } = e.detail;
     masiva = null;
     await recargar();
     soloCambios = true;
-    flash(`${actividad.nombre} · ${resultado.creadas} citas en borrador — mostrando solo los cambios`);
+    const que = actividad ? actividad.nombre : `${actividades.length} actividades`;
+    const n = resultado.creadas;
+    flash(`${que} · ${n} ${n === 1 ? "cita" : "citas"} en borrador — mostrando solo los cambios`);
   }
 
   // Solo en filas por actividad: filtra la grilla por esa actividad. El nombre de una estación no
@@ -558,6 +573,7 @@
           on:verEjecuciones={verEjecuciones}
           on:verRegistro={verRegistro}
           on:masivaAqui={masivaAqui}
+          on:masivaEstacionAqui={masivaEstacionAqui}
         />
       {/key}
     {/if}
@@ -572,6 +588,7 @@
         inicial={masiva}
         on:close={() => (masiva = null)}
         on:asignado={asignado}
+        on:parcial={recargar}
       />
     {/if}
 

@@ -137,6 +137,7 @@
         on:click={() => dispatch("asignar", { actividadId: Number(actividadId), meses: [...meses].sort((a, b) => a - b) })}>
         Asignar{meses.length > 1 ? ` en ${meses.length} meses` : ""}
       </button>
+      <button class="enlace-varias" on:click={() => dispatch("masivaEstacionAqui")}>Asignar varias actividades…</button>
     </div>
   {:else}
     <div class="pie bloqueado">
@@ -339,6 +340,20 @@
   }
   .asignar {
     align-self: flex-end;
+  }
+  .enlace-varias {
+    all: unset;
+    align-self: flex-end;
+    cursor: pointer;
+    font-size: 12px;
+    color: #2a78d6;
+  }
+  .enlace-varias:hover {
+    text-decoration: underline;
+  }
+  .enlace-varias:focus-visible {
+    outline: 2px solid #2a78d6;
+    outline-offset: 2px;
   }
   .bloqueado {
     flex-direction: row;
