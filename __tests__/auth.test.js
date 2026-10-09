@@ -93,9 +93,10 @@ describe('auth store', () => {
     });
 
     /**
-     * @test Inicio de sesión exitoso con rol ALMACEN (módulo de combustibles).
+     * @test Un rol que ya no existe (ALMACEN) no entra a la web: los roles son ADMIN,
+     * SUPERVISOR_OPERATIVO y OPERARIO (este último solo en el móvil).
      */
-    it('logs in successfully with ALMACEN role', async () => {
+    it('rejects the legacy ALMACEN role', async () => {
       const mockResponse = {
         status: 'success',
         jwt: 'mockAccessToken',
@@ -115,11 +116,9 @@ describe('auth store', () => {
 
       const result = await auth.login('almacenuser', 'password');
 
-      expect(result.success).toBe(true);
-      expect(result.error).toBe(null);
-      const storeState = get(auth);
-      expect(storeState.isAuthenticated).toBe(true);
-      expect(storeState.currentUser).toEqual({ name: 'almacenuser', role: 'ALMACEN' });
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Acceso denegado. Usa la app móvil 📱');
+      expect(get(auth).isAuthenticated).toBe(false);
     });
 
     /**
