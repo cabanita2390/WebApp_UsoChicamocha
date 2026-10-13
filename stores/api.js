@@ -170,7 +170,9 @@ export async function download(endpoint, filename, options = {}, retryCount = 0)
  */
 export function conAccesoArchivo(url) {
     if (typeof url !== 'string' || !url.includes('/uploads/')) return url;
-    const k = localStorage.getItem('archivosToken');
+    // Respaldo: una sesión iniciada antes del cambio aún no tiene token de archivos hasta el
+    // próximo refresco; el backend también acepta el access token en ?k=.
+    const k = localStorage.getItem('archivosToken') || localStorage.getItem('accessToken');
     if (!k) return url;
     const limpia = url.replace(/([?&])k=[^&]*(&|$)/, (m, a, b) => (b ? a : '')).replace(/[?&]$/, '');
     return `${limpia}${limpia.includes('?') ? '&' : '?'}k=${encodeURIComponent(k)}`;

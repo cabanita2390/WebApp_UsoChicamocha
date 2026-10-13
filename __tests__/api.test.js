@@ -294,6 +294,11 @@ describe('conAccesoArchivo', () => {
     expect(conAccesoArchivo('http://h/uploads/a.jpg?k=VIEJO')).toBe('http://h/uploads/a.jpg?k=K1');
   });
 
+  it('sin token de archivos usa el access token (sesiones de antes del cambio)', () => {
+    localStorageMock.getItem.mockImplementation((key) => (key === 'accessToken' ? 'ACC' : null));
+    expect(conAccesoArchivo('http://h/uploads/a.jpg')).toBe('http://h/uploads/a.jpg?k=ACC');
+  });
+
   it('no toca URL que no son de /uploads ni funciona sin token', () => {
     expect(conAccesoArchivo('https://cdn.test/file.pdf')).toBe('https://cdn.test/file.pdf');
     localStorageMock.getItem.mockReturnValue(null);
