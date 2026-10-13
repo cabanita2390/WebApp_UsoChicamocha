@@ -118,7 +118,12 @@
     if (!km || km <= 0) { editError = 'Ingrese un kilometraje válido.'; return; }
     const interval = parseInt(editForm.intervalKm, 10);
     if (!interval || interval <= 0) { editError = 'Ingrese un intervalo válido.'; return; }
+    // Mismos rangos que OilChangeValidationService del backend.
+    if (interval < 100 || interval > 100000) { editError = 'El intervalo debe estar entre 100 y 100000 km.'; return; }
     if (!editForm.brandId) { editError = 'Seleccione una marca de aceite.'; return; }
+    const quantity = parseFloat(String(editForm.quantity).replace(',', '.'));
+    if (!Number.isFinite(quantity)) { editError = 'Ingrese la cantidad de aceite (litros).'; return; }
+    if (quantity < 0.5 || quantity > 100) { editError = 'La cantidad debe estar entre 0.5 y 100 litros.'; return; }
 
     editSubmitting = true;
     try {
@@ -127,7 +132,7 @@
         dateStamp: editRow.dateStamp,
         oilType: editForm.oilType,
         brandId: Number(editForm.brandId),
-        quantity: editForm.quantity ? parseFloat(editForm.quantity) : null,
+        quantity,
         kmAtChange: km,
         intervalKm: interval,
         airFilterChanged: editForm.airFilterChanged,
@@ -177,7 +182,7 @@
         <span class="summary-value">{totalCambios}</span>
       </div>
       <div class="summary-card">
-        <span class="summary-label">Último cambio (km)</span>
+        <span class="summary-label">Km en último cambio</span>
         <span class="summary-value">{formatKm(ultimoCambio?.kmAtChange)}</span>
       </div>
       <div class="summary-card">
@@ -266,7 +271,7 @@
           </label>
         </div>
         <label class="oh-field" for="oh-quantity">
-          <span class="oh-field-label">Cantidad (L)</span>
+          <span class="oh-field-label">Cantidad (L) *</span>
           <input id="oh-quantity" type="number" step="0.1" min="0" bind:value={editForm.quantity} disabled={editSubmitting} />
         </label>
         <label class="oh-checkbox">
