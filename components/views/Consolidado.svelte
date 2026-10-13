@@ -116,12 +116,28 @@
     {:else}
       {#if distritoMachines.length > 0}
         <div class="vehicle-table-wrap vehicle-table-wrap--inset">
-          <DataGrid columns={distritoColumns} data={distritoMachines} fixedLayout={false} on:action={handleGridAction} showDeleteButton={isAdmin} />
+          <DataGrid
+            columns={distritoColumns}
+            data={distritoMachines}
+            totalElements={distritoMachines.length}
+            totalPages={1}
+            currentPage={0}
+            pageSize={Math.max(distritoMachines.length, 1)}
+            showPagination={false}
+            fixedLayout={false} on:action={handleGridAction} showDeleteButton={isAdmin} />
         </div>
       {/if}
       {#if asociacionMachines.length > 0}
         <div class="vehicle-table-wrap vehicle-table-wrap--inset">
-          <DataGrid columns={asociacionColumns} data={asociacionMachines} fixedLayout={false} on:action={handleGridAction} showDeleteButton={isAdmin} />
+          <DataGrid
+            columns={asociacionColumns}
+            data={asociacionMachines}
+            totalElements={asociacionMachines.length}
+            totalPages={1}
+            currentPage={0}
+            pageSize={Math.max(asociacionMachines.length, 1)}
+            showPagination={false}
+            fixedLayout={false} on:action={handleGridAction} showDeleteButton={isAdmin} />
         </div>
       {/if}
     {/if}
