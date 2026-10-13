@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import fetchWithAuth, { getFileUrl, MENSAJE_SIN_CONEXION } from '../stores/api.js';
+import fetchWithAuth, { getFileUrl, conAccesoArchivo, MENSAJE_SIN_CONEXION } from '../stores/api.js';
 
 /**
  * @fileoverview Suite de tests para la función fetchWithAuth.
@@ -235,6 +235,7 @@ describe('fetchWithAuth', () => {
 describe('getFileUrl', () => {
   beforeEach(() => {
     vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080');
+    localStorageMock.getItem.mockReturnValue(null); // sin credencial de archivos: solo se prueba la unión de rutas
   });
 
   afterEach(() => {
@@ -268,5 +269,39 @@ describe('getFileUrl', () => {
     vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080/');
     expect(getFileUrl('/uploads/documents/fuel/refueling/18/current.jpeg'))
       .toBe('http://localhost:8080/uploads/documents/fuel/refueling/18/current.jpeg');
+  });
+});
+// Auditoría QA 2026-10-13: /uploads/** era público. Las URL de archivos llevan ahora la
+// credencial de archivos (?k=) porque <img src> y window.open no envían el header Authorization.
+describe('conAccesoArchivo', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080');
+    localStorageMock.getItem.mockImplementation((key) => (key === 'archivosToken' ? 'K1' : null));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('agrega ?k= a las URL de /uploads', () => {
+    expect(conAccesoArchivo('http://localhost:8080/uploads/a/b/c.jpg'))
+      .toBe('http://localhost:8080/uploads/a/b/c.jpg?k=K1');
+  });
+
+  it('usa & si la URL ya tiene query y reemplaza un k viejo', () => {
+    expect(conAccesoArchivo('http://h/uploads/a.jpg?v=2')).toBe('http://h/uploads/a.jpg?v=2&k=K1');
+    expect(conAccesoArchivo('http://h/uploads/a.jpg?k=VIEJO')).toBe('http://h/uploads/a.jpg?k=K1');
+  });
+
+  it('no toca URL que no son de /uploads ni funciona sin token', () => {
+    expect(conAccesoArchivo('https://cdn.test/file.pdf')).toBe('https://cdn.test/file.pdf');
+    localStorageMock.getItem.mockReturnValue(null);
+    expect(conAccesoArchivo('http://h/uploads/a.jpg')).toBe('http://h/uploads/a.jpg');
+  });
+
+  it('getFileUrl ya devuelve la URL con la credencial', () => {
+    expect(getFileUrl('/uploads/documents/fuel/refueling/18/current.jpeg'))
+      .toBe('http://localhost:8080/uploads/documents/fuel/refueling/18/current.jpeg?k=K1');
   });
 });

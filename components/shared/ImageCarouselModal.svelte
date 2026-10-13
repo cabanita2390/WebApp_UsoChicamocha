@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   import Loader from './Loader.svelte';
-  import { openDocumentSafely } from '../../stores/api.js';
+  import { openDocumentSafely, conAccesoArchivo } from '../../stores/api.js';
 
   export let imageUrls = [];
   export let isLoading = false;
@@ -35,7 +35,7 @@
           return { ...img, blobUrl: null, isPdf: true };
         }
         try {
-          const response = await fetch(img.url);
+          const response = await fetch(conAccesoArchivo(img.url));
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const blob = await response.blob();
           const blobUrl = URL.createObjectURL(blob);
@@ -111,7 +111,7 @@
                   <span class="pdf-label">{blobImages[currentIndex].label ?? 'Documento PDF'}</span>
                   <a
                     class="pdf-open-btn"
-                    href={blobImages[currentIndex].url}
+                    href={conAccesoArchivo(blobImages[currentIndex].url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     on:click|preventDefault={() => openDocumentSafely(blobImages[currentIndex].url)}

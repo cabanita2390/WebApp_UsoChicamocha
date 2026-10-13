@@ -15,6 +15,7 @@ vi.mock('import.meta.env', () => ({
 // Mock fetchWithAuth
 vi.mock('../stores/api.js', () => ({
   default: vi.fn(),
+  conAccesoArchivo: (url) => url,
 }));
 
 import fetchWithAuth from '../stores/api.js';
