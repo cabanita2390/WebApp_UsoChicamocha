@@ -6,7 +6,7 @@ export const createConsolidadoColumns = (owner) => [
         columns: [
             { header: 'Máquina', accessorFn: row => row.machine.name, size: 200 },
             { header: 'Horómetro Actual', accessorFn: row => row.currentData?.currentHourMeter ?? 'N/A', id: 'horometro_actual', size: 120 },
-            { header: 'Última Actualización', accessorFn: row => formatDateTime(row.currentData?.lastUpdate), id: 'ultima_actualizacion', size: 150 },
+            { header: 'Fecha Lectura', accessorFn: row => formatDateTime(row.currentData?.lastUpdate), id: 'ultima_actualizacion', size: 150 },
         ]
     },
     {
@@ -14,11 +14,11 @@ export const createConsolidadoColumns = (owner) => [
         columns: [
             { header: 'Marca', size: 60, accessorFn: row => row.consolidateMotorOil?.brand?.name ?? 'N/A', id: 'motor_marca', meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Cant.', size: 60, accessorFn: row => row.consolidateMotorOil?.quantity ?? 'N/A', id: 'motor_cantidad', meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Prom. Cambio', size: 80, accessorFn: row => row.consolidateMotorOil?.averageChangeHours ?? 'N/A', id: 'motor_promedio_cambio', meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Intervalo (h)', size: 80, accessorFn: row => row.consolidateMotorOil?.averageChangeHours ?? 'N/A', id: 'motor_promedio_cambio', meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Fecha Últ. Cambio', size: 100, accessorFn: row => formatLocalDate(row.consolidateMotorOil?.dateLastUpdate), id: 'motor_fecha_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Horómetro Últ. Cambio', size: 100, accessorFn: row => row.consolidateMotorOil?.hourMeterLastUpdate ?? 'N/A', id: 'motor_horometro_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Próximo Cambio', size: 80, accessorFn: row => row.consolidateMotorOil?.hourMeterNextUpdate ?? 'N/A', id: 'motor_proximo_cambio', meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Tiempo Últ. Cambio', size: 100, accessorFn: row => row.consolidateMotorOil?.timeLastUpdateMouths ?? 'N/A', id: 'motor_tiempo_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Horómetro en Cambio', size: 100, accessorFn: row => row.consolidateMotorOil?.hourMeterLastUpdate ?? 'N/A', id: 'motor_horometro_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Próximo Cambio (h)', size: 80, accessorFn: row => row.consolidateMotorOil?.hourMeterNextUpdate ?? 'N/A', id: 'motor_proximo_cambio', meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Meses desde Cambio', size: 100, accessorFn: row => row.consolidateMotorOil?.timeLastUpdateMouths ?? 'N/A', id: 'motor_tiempo_ultimo_cambio', meta: { cellClass: 'motor-oil-cell' } },
             {
                 header: 'Horas Restantes',
                 size: 100,
@@ -49,11 +49,11 @@ export const createConsolidadoColumns = (owner) => [
         columns: [
             { header: 'Marca', size: 60, accessorFn: row => row.consolidateHydraulicOil?.brand?.name ?? 'N/A', id: 'hidraulico_marca', meta: { cellClass: 'hydraulic-oil-cell' } },
             { header: 'Cant.', size: 60, accessorFn: row => row.consolidateHydraulicOil?.quantity ?? 'N/A', id: 'hidraulico_cantidad', meta: { cellClass: 'hydraulic-oil-cell' } },
-            { header: 'Prom. Cambio', size: 80, accessorFn: row => row.consolidateHydraulicOil?.averageChangeHours ?? 'N/A', id: 'hidraulico_promedio_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
+            { header: 'Intervalo (h)', size: 80, accessorFn: row => row.consolidateHydraulicOil?.averageChangeHours ?? 'N/A', id: 'hidraulico_promedio_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
             { header: 'Fecha Últ. Cambio', size: 100, accessorFn: row => formatLocalDate(row.consolidateHydraulicOil?.dateLastUpdate), id: 'hidraulico_fecha_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
-            { header: 'Horómetro Últ. Cambio', size: 100, accessorFn: row => row.consolidateHydraulicOil?.hourMeterLastUpdate ?? 'N/A', id: 'hidraulico_horometro_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
-            { header: 'Próximo Cambio', size: 80, accessorFn: row => row.consolidateHydraulicOil?.hourMeterNextUpdate ?? 'N/A', id: 'hidraulico_proximo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
-            { header: 'Tiempo Últ. Cambio', size: 100, accessorFn: row => row.consolidateHydraulicOil?.timeLastUpdateMouths ?? 'N/A', id: 'hidraulico_tiempo_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
+            { header: 'Horómetro en Cambio', size: 100, accessorFn: row => row.consolidateHydraulicOil?.hourMeterLastUpdate ?? 'N/A', id: 'hidraulico_horometro_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
+            { header: 'Próximo Cambio (h)', size: 80, accessorFn: row => row.consolidateHydraulicOil?.hourMeterNextUpdate ?? 'N/A', id: 'hidraulico_proximo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
+            { header: 'Meses desde Cambio', size: 100, accessorFn: row => row.consolidateHydraulicOil?.timeLastUpdateMouths ?? 'N/A', id: 'hidraulico_tiempo_ultimo_cambio', meta: { cellClass: 'hydraulic-oil-cell' } },
             {
                 header: 'Horas Restantes',
                 size: 100,
@@ -103,13 +103,13 @@ export const createMachineOilHistoryColumns = (showActions = false) => {
             size: 90,
         },
         {
-            header: 'Horómetro',
+            header: 'Horómetro en cambio',
             accessorFn: (row) => (row.hourMeter != null ? row.hourMeter : 'N/A'),
             id: 'moh_horometro',
             size: 100,
         },
         {
-            header: 'Prom. cambio (h)',
+            header: 'Intervalo (h)',
             accessorFn: (row) => (row.averageHoursChange != null ? row.averageHoursChange : 'N/A'),
             id: 'moh_promedio',
             size: 110,
@@ -140,8 +140,8 @@ export const consolidadoVehicleColumns = [
             { header: 'Cant.', size: 60, accessorFn: row => row.maintenance?.quantity ?? 'N/A', id: 'cv_oil_cantidad', meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Intervalo', size: 80, accessorFn: row => (row.maintenance?.intervalKm ? formatKm(row.maintenance.intervalKm) + ' km' : 'N/A'), id: 'cv_oil_intervalo', meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Fecha Últ. Cambio', accessorFn: row => formatLocalDate(row.maintenance?.fechaUltimoCambio), id: 'cv_oil_fecha', size: 110, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.maintenance?.kmCambio), id: 'cv_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Próximo Cambio', accessorFn: row => formatKm(row.maintenance?.kmProximoCambio), id: 'cv_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km en Cambio', accessorFn: row => formatKm(row.maintenance?.kmCambio), id: 'cv_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Próximo Cambio (km)', accessorFn: row => formatKm(row.maintenance?.kmProximoCambio), id: 'cv_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Días desde Cambio', accessorFn: row => row.maintenance?.diasDesdeUltimoCambio ?? 'N/A', id: 'cv_oil_dias', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             {
                 header: 'Km Restantes',
@@ -192,8 +192,8 @@ export const consolidadoMotoColumns = [
             { header: 'Cant.', size: 60, accessorFn: row => row.oil?.quantity ?? 'N/A', id: 'cm_oil_cantidad', meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Intervalo', size: 80, accessorFn: row => (row.oil?.intervalKm ? formatKm(row.oil.intervalKm) + ' km' : 'N/A'), id: 'cm_oil_intervalo', meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Fecha Últ. Cambio', accessorFn: row => formatLocalDate(row.oil?.fechaUltimoCambio), id: 'cm_oil_fecha', size: 110, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Km Últ. Cambio', accessorFn: row => formatKm(row.oil?.kmCambio), id: 'cm_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
-            { header: 'Próximo Cambio', accessorFn: row => formatKm(row.oil?.kmProximoCambio), id: 'cm_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Km en Cambio', accessorFn: row => formatKm(row.oil?.kmCambio), id: 'cm_oil_km_cambio', size: 95, meta: { cellClass: 'motor-oil-cell' } },
+            { header: 'Próximo Cambio (km)', accessorFn: row => formatKm(row.oil?.kmProximoCambio), id: 'cm_oil_km_prox', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             { header: 'Días desde Cambio', accessorFn: row => row.oil?.diasDesdeUltimoCambio ?? 'N/A', id: 'cm_oil_dias', size: 95, meta: { cellClass: 'motor-oil-cell' } },
             {
                 header: 'Km Restantes',
