@@ -8,7 +8,8 @@
   export let asset = null;
   export let brands = [];
   export let locations = [];
-  export let isAdmin = false;
+  /** Muestra los campos de consumo estándar (combustibles): ADMIN y SUPERVISOR_OPERATIVO. */
+  export let canConfigFuel = false;
   export let isSubmitting = false;
   export let errorMessage = '';
   export let submitDisabled = false;
@@ -118,7 +119,7 @@
               <option value="0">Inactivo</option>
             </select>
           </label>
-          {#if isAdmin && fuelConfig}
+          {#if canConfigFuel && fuelConfig}
             <FuelConfigFields
               bind:fuelTypeDefaultId={fuelConfig.fuelTypeDefaultId}
               bind:consumoEstandar={fuelConfig.consumoEstandar}

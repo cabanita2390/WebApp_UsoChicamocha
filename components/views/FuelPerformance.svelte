@@ -11,7 +11,8 @@
   import FuelPerformanceSparkline from "../shared/FuelPerformanceSparkline.svelte";
   import { formatCantidad } from "../../config/table-definitions/helpers.js";
 
-  $: isAdmin = $auth?.currentUser?.role === "ADMIN";
+  // SUPERVISOR_OPERATIVO también configura el consumo estándar (CRUD completo en combustibles).
+  $: canConfigurar = ["ADMIN", "SUPERVISOR_OPERATIVO"].includes($auth?.currentUser?.role);
   let mostrarConfig = false;
 
   let tipo = "MAQUINARIA";
@@ -341,7 +342,7 @@
     </div>
 
     <div class="config-btn-wrap">
-      {#if isAdmin}
+      {#if canConfigurar}
         <button type="button" class="btn-filter btn-config" on:click={() => (mostrarConfig = !mostrarConfig)}>
           {mostrarConfig ? "Ocultar configuración" : "Configurar consumo estándar"}
         </button>
@@ -350,7 +351,7 @@
     </div>
   </div>
 
-  {#if isAdmin && mostrarConfig}
+  {#if canConfigurar && mostrarConfig}
     <AssetFuelConfigManagement on:close={() => (mostrarConfig = false)} />
   {/if}
 
