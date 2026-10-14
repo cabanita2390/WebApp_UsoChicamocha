@@ -66,20 +66,18 @@ describe('Sidebar', () => {
       mockAuth('SUPERVISOR_OPERATIVO');
     });
 
-    it('oculta el ítem de Usuarios pero mantiene el resto visible', async () => {
+    it('oculta Usuarios y Configuración de Subestaciones pero mantiene el resto visible', async () => {
       const { default: SidebarNonAdmin } = await import('../../components/shared/Sidebar.svelte');
       const { container } = render(SidebarNonAdmin);
 
       expect(screen.queryByTitle('Usuarios del sistema')).toBeNull();
+      // Igual que Usuarios: oculto en el menú y bloqueado por URL (config/route-access.js).
+      expect(screen.queryByTitle(CONFIG_TITLE)).toBeNull();
+      expect(screen.queryByText('Solo ADMIN')).toBeNull();
       for (const title of ADMIN_ITEM_TITLES.filter((t) => t !== 'Usuarios del sistema' && t !== CONFIG_TITLE)) {
         expect(screen.getByTitle(title)).toBeTruthy();
       }
-      // Configuración de Subestaciones: visible pero con candado, sin enlace (mockup §0.2)
-      expect(screen.queryByTitle(CONFIG_TITLE)).toBeNull();
-      const bloqueado = screen.getByTitle('Requiere rol ADMIN');
-      expect(bloqueado.tagName).not.toBe('A');
-      expect(bloqueado.textContent).toContain('Solo ADMIN');
-      expect(container.querySelectorAll('.nav-item').length).toBe(ADMIN_ITEM_COUNT - 1);
+      expect(container.querySelectorAll('.nav-item').length).toBe(ADMIN_ITEM_COUNT - 2);
     });
   });
 
