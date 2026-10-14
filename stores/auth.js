@@ -164,6 +164,12 @@ function createAuthStore() {
     },
     logout: () => {
       clearSession();
+      // Sin esto, la URL (#/users) sobrevive al logout y el siguiente login, quizá de otro
+      // usuario u otro rol, abre esa misma página. replaceState no dispara hashchange: el
+      // Router ya se desmontó y al montarse de nuevo lee la URL limpia.
+      if (typeof window !== 'undefined' && window.location.hash && window.location.hash !== '#/') {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/`);
+      }
       stopTokenRefreshMonitor();
       set({ isAuthenticated: false, currentUser: null, isRefreshing: false });
     },
