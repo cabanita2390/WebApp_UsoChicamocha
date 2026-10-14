@@ -280,6 +280,13 @@
     return "";
   }
 
+  // Los accessorFn devuelven 'N/A' cuando no hay dato (ej. máquina sin cambio
+  // hidráulico); formatearlo como número mostraba "NaN".
+  function formatStatusValue(v) {
+    if (v == null || v === "" || !Number.isFinite(Number(v))) return "N/A";
+    return new Intl.NumberFormat("es-CO").format(Number(v));
+  }
+
   function getStatusCellClass(color) {
     const classes = {
       'red': 'status-cell-red',
@@ -449,7 +456,7 @@
                     on:click={() =>
                       handleStatusClick(row.original, cell.column.columnDef)}
                   >
-                    {v == null || v === "" ? "N/A" : new Intl.NumberFormat("es-CO").format(Number(v))}
+                    {formatStatusValue(v)}
                   </button>
                 {:else if cell.column.columnDef.meta?.isMotoOilKmSemaforo}
                   {@const v = cell.getContext().getValue()}
@@ -459,7 +466,7 @@
                     on:click={() =>
                       handleStatusClick(row.original, cell.column.columnDef)}
                   >
-                    {v == null || v === "" ? "N/A" : new Intl.NumberFormat("es-CO").format(Number(v))}
+                    {formatStatusValue(v)}
                   </button>
                 {:else if cell.column.columnDef.meta?.isOilKmSemaforo}
                   {@const v = cell.getContext().getValue()}
@@ -469,7 +476,7 @@
                     on:click={() =>
                       handleStatusClick(row.original, cell.column.columnDef)}
                   >
-                    {v == null || v === "" ? "N/A" : new Intl.NumberFormat("es-CO").format(Number(v))}
+                    {formatStatusValue(v)}
                   </button>
                 {:else if cell.column.columnDef.meta?.isReportLagSemaforo}
                   {@const v = cell.getContext().getValue()}
@@ -490,7 +497,7 @@
                     class="status-btn status-cell-btn {colorClass}"
                     on:click={() => handleStatusClick(row.original, cell.column.columnDef)}
                   >
-                    {v == null || v === "" ? "N/A" : new Intl.NumberFormat("es-CO").format(Number(v))}
+                    {formatStatusValue(v)}
                   </button>
                 {:else if cell.column.columnDef.meta?.isOrigin || cell.column.columnDef.meta?.isCondition}
                   {@const cellValue = cell.getContext().getValue()}

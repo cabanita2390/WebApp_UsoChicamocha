@@ -5,7 +5,7 @@
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
   import { userColumns } from '../../config/table-definitions.js';
-  import { openDocumentSafely } from '../../stores/api.js';
+  import { openDocumentSafely, conAccesoArchivo } from '../../stores/api.js';
   import { syncPreventiveAlertsFromServer } from '../../composables/useAlerts.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
@@ -152,7 +152,7 @@
     if (type === 'edit') openEditModal(userData);
     else if (type === 'delete') openDeleteModal(userData);
     else if (type === 'view_license_doc' && userData.licenseDocumentUrl) {
-      window.open(userData.licenseDocumentUrl, '_blank', 'noopener,noreferrer');
+      window.open(conAccesoArchivo(userData.licenseDocumentUrl), '_blank', 'noopener,noreferrer');
     }
   }
 
@@ -401,7 +401,7 @@
           {#if userToEdit.licenseDocumentUrl}
             <a
               class="license-doc-card__preview"
-              href={userToEdit.licenseDocumentUrl}
+              href={conAccesoArchivo(userToEdit.licenseDocumentUrl)}
               target="_blank"
               rel="noopener noreferrer"
               on:click|preventDefault={() => openDocumentSafely(userToEdit.licenseDocumentUrl)}

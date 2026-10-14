@@ -629,7 +629,7 @@
               <option value="0">Inactivo</option>
             </select>
           </label>
-          {#if isAdmin}
+          {#if isAdmin || isSupervisorOperativo}
             <FuelConfigFields
               bind:fuelTypeDefaultId={fuelConfigNew.fuelTypeDefaultId}
               bind:consumoEstandar={fuelConfigNew.consumoEstandar}
@@ -730,7 +730,7 @@
   asset={vehicleInEditor}
   {brands}
   {locations}
-  {isAdmin}
+  canConfigFuel={isAdmin || isSupervisorOperativo}
   {isSubmitting}
   {errorMessage}
   fuelConfig={fuelConfigEdit}

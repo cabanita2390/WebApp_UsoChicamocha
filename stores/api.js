@@ -162,9 +162,25 @@ export async function download(endpoint, filename, options = {}, retryCount = 0)
     URL.revokeObjectURL(url);
 }
 
+/**
+ * /uploads/** ya no es público: la URL lleva la credencial de archivos (?k=) que entregan el
+ * login y el refresh, porque <img src> y window.open no pueden enviar el header Authorization.
+ * Las URL que no son de /uploads se devuelven igual.
+ * @param {string} url
+ */
+export function conAccesoArchivo(url) {
+    if (typeof url !== 'string' || !url.includes('/uploads/')) return url;
+    // Respaldo: una sesión iniciada antes del cambio aún no tiene token de archivos hasta el
+    // próximo refresco; el backend también acepta el access token en ?k=.
+    const k = localStorage.getItem('archivosToken') || localStorage.getItem('accessToken');
+    if (!k) return url;
+    const limpia = url.replace(/([?&])k=[^&]*(&|$)/, (m, a, b) => (b ? a : '')).replace(/[?&]$/, '');
+    return `${limpia}${limpia.includes('?') ? '&' : '?'}k=${encodeURIComponent(k)}`;
+}
+
 export function getFileUrl(relativePath) {
     if (!relativePath) return null;
-    if (relativePath.startsWith('http')) return relativePath;
+    if (relativePath.startsWith('http')) return conAccesoArchivo(relativePath);
     const BASE_URL = import.meta.env.VITE_API_BASE_URL;
     // Los *DocumentStorageService del backend devuelven la ruta con "/" inicial
     // (ej. "/uploads/documents/fuel/..."), así que concatenar sin normalizar deja
@@ -173,7 +189,7 @@ export function getFileUrl(relativePath) {
     // devolviendo 403 en vez de servir el archivo.
     const base = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
     const path = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
-    return `${base}${path}`;
+    return conAccesoArchivo(`${base}${path}`);
 }
 
 /**
@@ -188,6 +204,7 @@ export async function openDocumentSafely(url) {
         documentErrorVisible.set(true);
         return;
     }
+    url = conAccesoArchivo(url);
 
     try {
         const res = await fetch(url, { method: 'HEAD' });

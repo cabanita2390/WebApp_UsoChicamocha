@@ -166,11 +166,11 @@
         <span class="summary-value">{totalCambios}</span>
       </div>
       <div class="summary-card">
-        <span class="summary-label">Último horómetro</span>
+        <span class="summary-label">Horómetro en último cambio</span>
         <span class="summary-value">{ultimoCambio?.hourMeter ?? 'N/A'}</span>
       </div>
       <div class="summary-card">
-        <span class="summary-label">Promedio de cambio (h)</span>
+        <span class="summary-label">Intervalo (h)</span>
         <span class="summary-value summary-value--highlight">{ultimoCambio?.averageHoursChange ?? 'N/A'}</span>
       </div>
       <div class="summary-card">
@@ -243,7 +243,7 @@
             <input id="oh-hourmeter" type="number" min="0" step="0.1" bind:value={editForm.currentHourMeter} disabled={editSubmitting} />
           </label>
           <label class="oh-field" for="oh-avg">
-            <span class="oh-field-label">Promedio de cambio (h)</span>
+            <span class="oh-field-label">Intervalo (h)</span>
             <input id="oh-avg" type="number" min="1" bind:value={editForm.averageHoursChange} disabled={editSubmitting} />
           </label>
         </div>

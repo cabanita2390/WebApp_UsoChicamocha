@@ -49,12 +49,12 @@
 
   $: isLoading = $data.isLoading;
   $: isAdmin = $auth?.currentUser?.role === "ADMIN";
-  // Reintegrar y Editar exigen SUPERVISOR_OPERATIVO o ADMIN en el backend
-  // (FuelReintegrationController / SecurityConfig); Eliminar sigue siendo
-  // ADMIN-only (showDeleteButton más abajo).
+  // Combustibles: SUPERVISOR_OPERATIVO tiene CRUD completo, igual que ADMIN
+  // (reintegrar, editar y eliminar tanqueos; ver SecurityConfig).
   $: isSupervisorOperativo = $auth?.currentUser?.role === "SUPERVISOR_OPERATIVO";
   $: canReintegrar = isAdmin || isSupervisorOperativo;
   $: canEditar = isAdmin || isSupervisorOperativo;
+  $: canEliminar = isAdmin || isSupervisorOperativo;
   $: fuelTypes = $data.fuelTypes ?? [];
   $: fuelTypesById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.nombre]));
   $: unidadMedidaById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.unidadMedida]));
@@ -262,7 +262,7 @@
           on:action={handleResumenAction}
           on:pageChange={handleResumenPageChange}
           on:sizeChange={handleResumenSizeChange}
-          showDeleteButton={isAdmin}
+          showDeleteButton={canEliminar}
           variant="modern"
         />
       {:else}

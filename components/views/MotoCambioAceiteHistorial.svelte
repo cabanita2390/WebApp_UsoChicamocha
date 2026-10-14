@@ -73,7 +73,7 @@
         <span class="summary-value">{totalCambios}</span>
       </div>
       <div class="summary-card">
-        <span class="summary-label">Último cambio (km)</span>
+        <span class="summary-label">Km en último cambio</span>
         <span class="summary-value">{formatKm(ultimoCambio?.kmAtChange)}</span>
       </div>
       <div class="summary-card">

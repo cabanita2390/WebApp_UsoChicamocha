@@ -306,7 +306,7 @@
               disabled={isSubmitting}
             />
           </label>
-          {#if isAdmin}
+          {#if isAdmin || isSupervisorOperativo}
             <FuelConfigFields
               bind:fuelTypeDefaultId={fuelConfigNew.fuelTypeDefaultId}
               bind:consumoEstandar={fuelConfigNew.consumoEstandar}
@@ -391,7 +391,7 @@
               on:change={(e) => machineInEditor.runt = e.target.value}
             />
           </label>
-          {#if isAdmin}
+          {#if isAdmin || isSupervisorOperativo}
             <FuelConfigFields
               bind:fuelTypeDefaultId={fuelConfigEdit.fuelTypeDefaultId}
               bind:consumoEstandar={fuelConfigEdit.consumoEstandar}
