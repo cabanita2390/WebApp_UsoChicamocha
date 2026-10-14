@@ -205,6 +205,18 @@ describe('auth store', () => {
       expect(storeState.isAuthenticated).toBe(false);
       expect(storeState.currentUser).toBe(null);
     });
+
+    /**
+     * @test El siguiente login, quizá con otro rol, no reabre la página en la que se cerró sesión.
+     */
+    it('vuelve la URL al inicio', () => {
+      window.history.replaceState(null, '', '/?x=1#/users');
+
+      auth.logout();
+
+      expect(window.location.hash).toBe('#/');
+      expect(window.location.search).toBe('?x=1');
+    });
   });
 
   /**

@@ -1,8 +1,10 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { get } from "svelte/store";
-  import Router, { location } from "svelte-spa-router";
+  import Router, { location, replace } from "svelte-spa-router";
+  import { wrap } from "svelte-spa-router/wrap";
   import { getPageTitle } from "./config/page-titles.js";
+  import { puedeVerRuta } from "./config/route-access.js";
   import MainLayout from "./components/layouts/MainLayout.svelte";
   import WorkOrderModal from "./components/shared/WorkOrderModal.svelte";
   import Login from "./components/views/Login.svelte";
@@ -54,9 +56,17 @@
   import ImageCarouselModal from "./components/shared/ImageCarouselModal.svelte";
 
   // --- ROUTES DEFINITION ---
+  // Las rutas de RUTAS_SOLO_ADMIN se protegen aquí, no solo en el Sidebar: la URL abre la
+  // página aunque el enlace esté oculto (ver handleConditionsFailed).
+  const soloSiPuedeVer = (component) =>
+    wrap({
+      component,
+      conditions: [(detail) => puedeVerRuta(detail.location, get(auth).currentUser?.role)],
+    });
+
   const routes = {
     "/": DashboardTabbed,
-    "/users": UserManagement,
+    "/users": soloSiPuedeVer(UserManagement),
     "/inventory": InventoryTabbed,
     "/work-orders": WorkOrdersTabbed,
     "/consolidado": ConsolidadoTabbed,
@@ -69,7 +79,7 @@
     "/fuel-history/:tipoElemento/:id": FuelHistory,
     "/fuel-performance-history/:tipoElemento/:id": FuelPerformanceHistory,
     "/subestaciones": SubestacionesTabbed,
-    "/subestaciones/configuracion": SubestacionesConfiguracion,
+    "/subestaciones/configuracion": soloSiPuedeVer(SubestacionesConfiguracion),
   };
 
   function handleActivateSound() {
@@ -182,6 +192,11 @@
     } finally {
       ui.setSaving(false);
     }
+  }
+
+  function handleConditionsFailed() {
+    addNotification({ id: Date.now(), text: "No tienes permiso para ver esa página." });
+    replace("/");
   }
 
   function handleCancelWorkOrder() {
@@ -313,7 +328,7 @@
     isAutoRefreshActive={$isAutoRefreshActive}
     on:toggleAutoRefresh={toggleAutoRefresh}
   >
-    <Router {routes} on:routeLoaded={routeLoaded} />
+    <Router {routes} on:routeLoaded={routeLoaded} on:conditionsFailed={handleConditionsFailed} />
   </MainLayout>
 
   {#if $ui.showWorkOrderModal}
