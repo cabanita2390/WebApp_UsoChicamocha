@@ -37,3 +37,6 @@ export const detalleActividadId = writable(null);
 // Disciplina que filtra Dashboard, Resumen por actividad, sus detalles y el Cronograma.
 // "" = todas (el módulo ya tiene catálogo para Civil, Eléctrico y Electromecánico).
 export const disciplinaFiltro = writable('');
+
+// Orden de trabajo que abre la pestaña Órdenes de trabajo (desde el detalle de un hallazgo). null = la lista.
+export const ordenDetalleId = writable(null);

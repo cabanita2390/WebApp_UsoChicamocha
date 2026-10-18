@@ -22,8 +22,9 @@ export const RESULTADO = {
     REQUIERE_INTERVENCION: { ...BADGE.bad, g: '✕', l: 'Requiere intervención' },
 };
 export const SEGUIMIENTO = {
-    ABIERTO: { ...BADGE.bad, g: '●', l: 'Abierto' },
-    EN_PROCESO: { ...BADGE.warn, g: '⧗', l: 'En proceso' },
+    // "Abierto" se leía como "ya se abrió una orden": es lo contrario, nadie lo atiende todavía.
+    ABIERTO: { ...BADGE.bad, g: '●', l: 'Sin atender' },
+    EN_PROCESO: { ...BADGE.warn, g: '⧗', l: 'En corrección' },
     RESUELTO: { ...BADGE.ok, g: '✓', l: 'Resuelto' },
 };
 export const DISC_TAG = { CIVIL: 'C', ELECTRICO: 'E', ELECTROMECANICO: 'M' };

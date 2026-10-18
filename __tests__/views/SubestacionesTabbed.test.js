@@ -51,10 +51,10 @@ describe('SubestacionesTabbed', () => {
     detalleEstacionId.set(null);
   });
 
-  it('muestra las 4 pestañas y el Dashboard de Estaciones por defecto', async () => {
+  it('muestra las 5 pestañas y el Dashboard de Estaciones por defecto', async () => {
     render(SubestacionesTabbed);
     expect(screen.getAllByRole('tab').map((t) => t.textContent.trim())).toEqual([
-      'Dashboard de Estaciones', 'Resumen por Actividad', 'Ejecuciones y Hallazgos', 'Cronograma Anual',
+      'Dashboard de Estaciones', 'Resumen por Actividad', 'Ejecuciones y Hallazgos', 'Órdenes de trabajo', 'Cronograma Anual',
     ]);
     expect(await screen.findByText('Avance del año')).toBeTruthy();
   });

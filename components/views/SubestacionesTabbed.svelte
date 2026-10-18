@@ -4,12 +4,14 @@
   import ResumenActividad from "./subestaciones/resumen/ResumenActividad.svelte";
   import SubestacionesEjecuciones from "./SubestacionesEjecuciones.svelte";
   import CronogramaAnual from "./subestaciones/cronograma/CronogramaAnual.svelte";
+  import OrdenesTrabajo from "./subestaciones/ordenes/OrdenesTrabajo.svelte";
   import { subestacionesActiveTab, pantallaAmpliada } from "../../stores/subestacionesFilters.js";
 
   const tabs = [
     { id: "dashboard", label: "Dashboard de Estaciones" },
     { id: "resumenActividad", label: "Resumen por Actividad" },
     { id: "ejecuciones", label: "Ejecuciones y Hallazgos" },
+    { id: "ordenes", label: "Órdenes de trabajo" },
     { id: "cronograma", label: "Cronograma Anual" },
   ];
 
@@ -26,6 +28,8 @@
       <ResumenActividad />
     {:else if $subestacionesActiveTab === "ejecuciones"}
       <SubestacionesEjecuciones />
+    {:else if $subestacionesActiveTab === "ordenes"}
+      <OrdenesTrabajo />
     {:else if $subestacionesActiveTab === "cronograma"}
       <CronogramaAnual />
     {/if}

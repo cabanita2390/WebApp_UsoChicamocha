@@ -6,8 +6,9 @@
   import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleEstacionId, anioDetalle } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { MESES, MESES_LARGOS, disciplinaLabel } from "../../../../config/subestaciones.js";
-  import { BADGE, IMPREVISTO, RESULTADO, estadoCita, fechaCorta, porcentaje, semaforoMes, aniosParaSelector } from "../../../../utils/cronograma.js";
+  import { BADGE, IMPREVISTO, RESULTADO, SEGUIMIENTO, estadoCita, fechaCorta, porcentaje, semaforoMes, aniosParaSelector } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
+  import { origenEjecucion, seguimientoTexto } from "../../../../utils/ordenes.js";
   import Loader from "../../../shared/Loader.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
   import SubestacionEjecucionDetalleModal from "../../../shared/SubestacionEjecucionDetalleModal.svelte";
@@ -388,10 +389,13 @@
           <span class="gris2 num">{fechaCorta(e.fecha)}</span>
           <span>{e.estacionNombre ?? ""}</span>
           <span class="gris2 tipo">
-            {tipoMantenimientoLabel(e.tipoMantenimiento)}{#if !e.esProgramada}<span class="fuera" style="color:{IMPREVISTO.c};background:{IMPREVISTO.bg}" title="Registro sin cita del cronograma: no suma al avance">Imprevisto</span>{/if}
+            {tipoMantenimientoLabel(e.tipoMantenimiento)}{#if origenEjecucion(e).tipo !== "cronograma"}{@const o = origenEjecucion(e)}<span class="fuera" style="color:{o.c};background:{o.bg}" title={o.tipo === "orden" ? "Corrige un hallazgo con una orden de trabajo: no suma al avance" : "Registro sin cita del cronograma: no suma al avance"}>{o.tipo === "orden" ? o.l : "Imprevisto"}</span>{/if}
           </span>
-          <span><span class="sub-badge" style="color:{rb.c};background:{rb.bg}">{rb.g} {rb.l}</span></span>
-          <!-- Estado del seguimiento (Abierto/En proceso/Resuelto) oculto: todavía no tiene flujo. -->
+          <span class="res-col">
+            <span class="sub-badge" style="color:{rb.c};background:{rb.bg}">{rb.g} {rb.l}</span>
+            <!-- Seguimiento del hallazgo y su orden de trabajo (ya tiene flujo: órdenes OT-EB). -->
+            {#if e.seguimiento}<span class="seg-txt" style="color:{(SEGUIMIENTO[e.seguimiento.estado] ?? SEGUIMIENTO.ABIERTO).c}">{(SEGUIMIENTO[e.seguimiento.estado] ?? SEGUIMIENTO.ABIERTO).g} {seguimientoTexto(e.seguimiento)}</span>{/if}
+          </span>
           <span class="gris2 num">{e.evidencias?.length ?? 0} foto(s)</span>
           <span class="gris2">{e.responsable ?? ""}</span>
         </div>
@@ -672,5 +676,16 @@
     padding: 10px 18px;
     font-size: 12px;
     color: #898781;
+  }
+  .res-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .seg-txt {
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
   }
 </style>

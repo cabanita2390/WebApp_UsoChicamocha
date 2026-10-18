@@ -1,4 +1,5 @@
 import { formatLocalDate } from './helpers.js';
+import { origenEjecucion, seguimientoTexto, SEGUIMIENTO_COLOR } from '../../utils/ordenes.js';
 
 const RESULTADO_LABELS = {
     CONFORME: 'Conforme',
@@ -62,14 +63,27 @@ export const createEjecucionesColumns = () => [
     { header: 'Actividad', accessorFn: (r) => r.actividadNombre ?? r.descripcionLibre ?? '—', id: 'ej_actividad', size: 240 },
     { header: 'Tipo de mantenimiento', accessorFn: (r) => tipoMantenimientoLabel(r.tipoMantenimiento), id: 'ej_tipomant', size: 130 },
     { header: 'Tipo de actividad', accessorFn: (r) => tipoActividadLabel(r.tipoActividad), id: 'ej_tipoact', size: 120 },
-    // Mismo vocabulario que el resto del módulo: lo del cronograma o un imprevisto (sin cita).
-    { header: 'Origen', accessorFn: (r) => (r.esProgramada ? 'Cronograma' : 'Imprevisto'), id: 'ej_prog', size: 110 },
+    // Mismo vocabulario que el resto del módulo: cronograma, orden de trabajo o imprevisto (sin cita).
+    { header: 'Origen', accessorFn: (r) => origenEjecucion(r).corto, id: 'ej_prog', size: 130 },
     {
         header: 'Resultado',
         accessorFn: (r) => resultadoBadge(r.resultado).label,
         id: 'ej_resultado',
         size: 150,
         meta: { isTextBadge: true, getBadge: (row) => resultadoBadge(row.resultado) },
+    },
+    {
+        header: 'Seguimiento',
+        accessorFn: (r) => seguimientoTexto(r.seguimiento) ?? '—',
+        id: 'ej_seguimiento',
+        size: 170,
+        enableSorting: false,
+        meta: {
+            isTextBadge: true,
+            getBadge: (row) => (row.seguimiento
+                ? { label: seguimientoTexto(row.seguimiento), color: SEGUIMIENTO_COLOR[row.seguimiento.estado] ?? 'gray' }
+                : null),
+        },
     },
     { header: 'Responsable', accessorKey: 'responsable', id: 'ej_responsable', size: 140 },
     {

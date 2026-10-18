@@ -190,7 +190,7 @@ describe('SubestacionesEjecuciones', () => {
     const opciones = (label) => [...chipControl(container, label).options].map((o) => o.textContent);
     expect(opciones('Tipo de mantenimiento')).toEqual(['Todos', 'Preventivo', 'Correctivo', 'Predictivo']);
     expect(opciones('Tipo de actividad')).toEqual(['Todos', 'Inspección', 'Mantenimiento']);
-    expect(opciones('Origen')).toEqual(['Todos', 'Cronograma', 'Imprevisto']);
+    expect(opciones('Origen')).toEqual(['Todos', 'Cronograma', 'Orden de trabajo', 'Imprevisto']);
   });
 
   it('cambiar de página reconsulta manteniendo el filtro activo', async () => {

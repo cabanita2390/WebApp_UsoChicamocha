@@ -29,6 +29,8 @@ export function createSubstationActions({ fetchWithAuth, fetchAll, fetchPaginate
             if (filtros.tipoMantenimiento) params.set('tipoMantenimiento', filtros.tipoMantenimiento);
             if (filtros.tipoActividad) params.set('tipoActividad', filtros.tipoActividad);
             if (filtros.disciplina) params.set('disciplina', filtros.disciplina);
+            if (Array.isArray(filtros.seguimiento) && filtros.seguimiento.length) params.set('seguimiento', filtros.seguimiento.join(','));
+            if (filtros.conOrden != null) params.set('conOrden', filtros.conOrden);
             // Orden elegido en la tabla (`filtros.sort`, p. ej. ['estacion.nombre,asc']) y después
             // el de siempre: más reciente primero — sin esto Spring Data no aplica ningún orden
             // garantizado (en la práctica salía por id de inserción, más viejo primero).

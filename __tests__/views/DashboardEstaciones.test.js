@@ -226,7 +226,7 @@ describe('DashboardEstaciones', () => {
     expect(screen.getByText('Septiembre (mes en curso)')).toBeTruthy();
     expect(screen.getByText('0 de 2')).toBeTruthy();
     expect(screen.getByText('▼ 0% · Atrasado')).toBeTruthy();
-    // El seguimiento de hallazgos (Abierto/En proceso) está oculto: todavía no tiene flujo.
+    // Sin KPI de hallazgos abiertos en el detalle: lo pendiente se ve en la pestaña Órdenes de trabajo.
     expect(screen.queryByText('Hallazgos abiertos')).toBeNull();
 
     // Cita por cita: 4 publicadas (sin la del borrador ni la de otra estación)
@@ -240,7 +240,8 @@ describe('DashboardEstaciones', () => {
     // Actividad reciente
     expect(screen.getByText('12/08/2026')).toBeTruthy();
     expect(screen.getByText('! Con hallazgos')).toBeTruthy();
-    expect(screen.queryByText('● Abierto')).toBeNull();
+    // El seguimiento del hallazgo vuelve a verse: ya tiene flujo (órdenes de trabajo).
+    expect(screen.getByText('● Sin atender')).toBeTruthy();
     expect(screen.getByText('J. Pérez')).toBeTruthy();
   });
 
