@@ -53,11 +53,37 @@ export function semaforoMes(cumple, programado, transcurrido) {
     return { ...BADGE.bad, color: COLOR.bad, g: '▼', l: 'Atrasado', pct };
 }
 
-/** Densidad: actividades por celda, alto de fila y ancho mínimo de columna (vista por estación / por actividad). */
-export const DENSIDAD = {
-    est: { compacta: { max: 2, h: 46, w: 92 }, normal: { max: 3, h: 66, w: 104 }, amplia: { max: 5, h: 104, w: 132 } },
-    act: { compacta: { max: 4, h: 50, w: 150 }, normal: { max: 6, h: 70, w: 172 }, amplia: { max: 10, h: 108, w: 190 } },
+/**
+ * Tamaño Normal de la grilla (vista por estación / por actividad): alto de fila y ancho mínimo
+ * de cada mes. El usuario puede arrastrar bordes para leer mejor, pero siempre abre así.
+ */
+export const NORMAL = {
+    est: { h: 66, w: 104 },
+    act: { h: 70, w: 172 },
 };
+export const NOMBRE_W = 220;
+export const TOTAL_W = 64;
+/** Límites del arrastre: columna de nombres, cada mes y cada fila (px). */
+export const LIMITES = { nombre: [160, 480], mes: [72, 420], fila: [44, 360] };
+/** Alto de un chip más el espacio entre chips, y el relleno de la celda (px). */
+const ALTO_CHIP = 19;
+const RELLENO_CELDA = 6;
+
+/** Cuántos chips caben en una celda de alto `h` (con `columnas` chips por renglón). */
+export function capacidadCelda(h, columnas = 1) {
+    return Math.max(1, Math.floor((h - RELLENO_CELDA) / ALTO_CHIP)) * columnas;
+}
+
+/** Alto para que `n` chips se vean todos. */
+export function altoParaChips(n, columnas = 1) {
+    return ALTO_CHIP * Math.ceil(Math.max(1, n) / columnas) + RELLENO_CELDA;
+}
+
+/** Chips que se muestran en la celda y cuántos quedan en "+N más" (el botón ocupa el lugar de uno). */
+export function recortarChips(chips, capacidad) {
+    if (chips.length <= capacidad) return { chips, mas: 0 };
+    return { chips: chips.slice(0, capacidad - 1), mas: chips.length - capacidad + 1 };
+}
 
 /** Mes cerrado = anterior al actual del año en curso; años pasados cerrados completos, futuros abiertos. */
 export function mesCerrado(anio, mes, { anioActual, mesActual }) {
@@ -91,6 +117,26 @@ export function fechaHora(iso) {
 /** Nombre que va en el chip: el nombre corto (P2) o el nombre completo (se recorta con CSS). */
 export const nombreChip = (actividad) => actividad?.nombreCorto || actividad?.nombre || '';
 
+/**
+ * Estado que ve el usuario (leyenda y filtro de Estado): 'new' borrador nuevo, 'ok' ejecutada,
+ * 'bad' no ejecutada, 'cur' en curso (pendiente del mes actual), 'pen' programada.
+ */
+export function estadoVisible(cita, anio, hoy) {
+    if (esNueva(cita)) return 'new';
+    const e = estadoCita(cita, anio, hoy);
+    if (e === 'pen' && anio === hoy.anioActual && cita.mes === hoy.mesActual) return 'cur';
+    return e;
+}
+
+/** Estados de la leyenda y del filtro, en el orden del panel de Filtros. */
+export const ESTADOS_CITA = [
+    { value: 'bad', l: 'No ejecutada', g: '✕', c: BADGE.bad.c, bg: BADGE.bad.bg, bd: '0', ayuda: 'Mes cerrado sin registro' },
+    { value: 'cur', l: 'En curso', g: '⧗', c: BADGE.warn.c, bg: BADGE.warn.bg, bd: '0', ayuda: 'Del mes actual, sin registro' },
+    { value: 'ok', l: 'Ejecutada', g: '✓', c: BADGE.ok.c, bg: BADGE.ok.bg, bd: '0', ayuda: 'Con registro desde el móvil' },
+    { value: 'pen', l: 'Programada', g: '', c: '#52514e', bg: '#fff', bd: '1px solid rgba(11,11,11,0.14)', ayuda: 'Meses que vienen' },
+    { value: 'new', l: 'Nueva (borrador)', g: '+', c: '#1f5fae', bg: '#dbe9fb', bd: '1.5px solid #2a78d6', ayuda: 'Sin publicar a móvil' },
+];
+
 /** Datos de un chip de cita (mockup: chip()). */
 export function chip(cita, { anio, hoy, actividad, disciplinaFiltrada }) {
     const e = estadoCita(cita, anio, hoy);
@@ -115,16 +161,26 @@ export function chip(cita, { anio, hoy, actividad, disciplinaFiltrada }) {
     };
 }
 
+/** Filtros del panel "Filtros": cada uno es una lista de valores; vacía = todos. */
+export const filtrosVacios = () => ({ disciplinas: [], estados: [], tipos: [], estacionIds: [], actividadIds: [], meses: [] });
+
+/** Cuántos grupos de filtro están puestos (el número del botón "Filtros"). */
+export const filtrosActivos = (f) => Object.values(f).filter((v) => v.length > 0).length;
+
 /**
  * Citas visibles del año según los filtros (mockup: fC). Con "ver solo los cambios" se
- * ignoran los demás filtros.
+ * ignoran los demás filtros. `estacionesPorId` hace falta solo para filtrar por tipo de estación.
  */
-export function filtrarCitas(citas, { anio, hoy, disciplina, actividadId, soloVencidas, soloCambios }) {
+export function filtrarCitas(citas, { anio, hoy, filtros = filtrosVacios(), soloCambios, estacionesPorId }) {
+    const { disciplinas, estados, tipos, estacionIds, actividadIds, meses } = filtros;
     return citas.filter((c) => {
         if (soloCambios) return esCambio(c);
-        if (disciplina && c.disciplina !== disciplina) return false;
-        if (actividadId && c.actividadId !== actividadId) return false;
-        if (soloVencidas && estadoCita(c, anio, hoy) !== 'bad') return false;
+        if (disciplinas.length && !disciplinas.includes(c.disciplina)) return false;
+        if (actividadIds.length && !actividadIds.includes(c.actividadId)) return false;
+        if (estacionIds.length && !estacionIds.includes(c.estacionId)) return false;
+        if (meses.length && !meses.includes(c.mes)) return false;
+        if (tipos.length && !tipos.includes(estacionesPorId?.get(c.estacionId)?.tipo)) return false;
+        if (estados.length && !estados.includes(estadoVisible(c, anio, hoy))) return false;
         return true;
     });
 }
@@ -143,8 +199,8 @@ function agrupar(citas, clave) {
     return idx;
 }
 
-/** Celda (mockup: cells.map): chips recortados por densidad, conteos para el modo Conteo. */
-function celda(lista, m, { anio, hoy, max, seleccion, modoEdicion, chipDe }) {
+/** Celda (mockup: cells.map): todos los chips (la grilla recorta según el alto de la fila) y conteos. */
+function celda(lista, m, { anio, hoy, seleccion, modoEdicion, chipDe }) {
     const chips = lista.map(chipDe);
     const n = lista.length;
     const ok = chips.filter((c) => c.estado === 'ok').length;
@@ -158,8 +214,7 @@ function celda(lista, m, { anio, hoy, max, seleccion, modoEdicion, chipDe }) {
         badN: bad,
         // Citas que cuentan para el avance: las publicadas (un borrador todavía no es del cronograma).
         publicadasN: lista.filter((c) => !esNueva(c)).length,
-        chips: chips.slice(0, n > max ? max - 1 : max),
-        mas: n > max ? n - max + 1 : 0,
+        chips,
         mostrarMas: modoEdicion && n === 0,
         seleccionada: seleccion,
         hayCambios,
@@ -193,13 +248,12 @@ const MESES_1_12 = Array.from({ length: 12 }, (_, i) => i + 1);
  * Filas de la grilla por estación (mockup: cronRows). `estaciones` ya viene filtrada
  * (activas + buscador); `citas` ya filtradas con filtrarCitas.
  */
-export function filasPorEstacion({ estaciones, citas, actividadesPorId, anio, hoy, densidad, disciplinaFiltrada,
+export function filasPorEstacion({ estaciones, citas, actividadesPorId, anio, hoy, disciplinaFiltrada,
     celdaSeleccionada, modoEdicion, soloConCitas }) {
-    const { max } = DENSIDAD.est[densidad];
     const idx = agrupar(citas, (c) => `${c.estacionId}-${c.mes}`);
     const filas = estaciones.map((s, ri) => {
         const celdas = MESES_1_12.map((m) => celda(idx.get(`${s.id}-${m}`) ?? [], m, {
-            anio, hoy, max, modoEdicion,
+            anio, hoy, modoEdicion,
             seleccion: celdaSeleccionada?.estacionId === s.id && celdaSeleccionada?.mes === m,
             chipDe: (c) => chip(c, { anio, hoy, actividad: actividadesPorId.get(c.actividadId), disciplinaFiltrada }),
         }));
@@ -218,14 +272,13 @@ export function filasPorEstacion({ estaciones, citas, actividadesPorId, anio, ho
 }
 
 /** Filas por actividad (mockup: cronBy === 'act'): chips con el nombre de la estación. */
-export function filasPorActividad({ actividades, estacionesVisibles, citas, estacionesPorId, anio, hoy, densidad,
+export function filasPorActividad({ actividades, estacionesVisibles, citas, estacionesPorId, anio, hoy,
     celdaSeleccionada, modoEdicion, soloConCitas, disciplinaLabel }) {
-    const { max } = DENSIDAD.act[densidad];
     const visibles = new Set(estacionesVisibles.map((s) => s.id));
     const idx = agrupar(citas.filter((c) => visibles.has(c.estacionId)), (c) => `${c.actividadId}-${c.mes}`);
     const filas = actividades.map((a, ri) => {
         const celdas = MESES_1_12.map((m) => celda(idx.get(`${a.id}-${m}`) ?? [], m, {
-            anio, hoy, max, modoEdicion,
+            anio, hoy, modoEdicion,
             seleccion: celdaSeleccionada?.actividadId === a.id && celdaSeleccionada?.mes === m,
             chipDe: (c) => {
                 const ch = chip(c, { anio, hoy, actividad: a, disciplinaFiltrada: true });
