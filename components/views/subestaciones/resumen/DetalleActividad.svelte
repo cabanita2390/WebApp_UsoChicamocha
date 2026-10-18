@@ -496,7 +496,7 @@
   .barra-avance span {
     display: block;
     height: 100%;
-    background: #3d3c39;
+    background: var(--sub-avance);
     border-radius: 999px;
   }
   .pct {

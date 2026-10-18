@@ -341,7 +341,7 @@
               <strong>{t.intervenciones}</strong>
             </div>
             <div class="barra">
-              <div style="width:{(t.intervenciones / maxCrit) * 100}%;background:#3d3c39"></div>
+              <div style="width:{(t.intervenciones / maxCrit) * 100}%"></div>
             </div>
           </div>
         {:else}
@@ -501,7 +501,7 @@
   .barra-avance span {
     display: block;
     height: 100%;
-    background: #3d3c39;
+    background: var(--sub-avance);
     border-radius: 999px;
   }
   .leyenda-imp {
@@ -684,6 +684,7 @@
   .barra div {
     height: 100%;
     border-radius: 999px;
+    background: var(--sub-avance);
   }
   .ej {
     display: grid;
