@@ -13,9 +13,24 @@ export const ejecucionCambio = writable(null);
  * recarga una sola vez. Devuelve la función para cancelar (usar en onDestroy).
  */
 export function alCambiarEjecuciones(recargar, espera = 800) {
+    return escuchar(ejecucionCambio, recargar, espera);
+}
+
+/**
+ * Último aviso de /topic/subestaciones/ordenes: una orden de trabajo se creó, se ejecutó desde el
+ * móvil, se verificó… La pestaña Órdenes de trabajo y el detalle de la ejecución recargan con él.
+ */
+export const ordenCambio = writable(null);
+
+/** Igual que alCambiarEjecuciones, para las órdenes de trabajo. */
+export function alCambiarOrdenes(recargar, espera = 800) {
+    return escuchar(ordenCambio, recargar, espera);
+}
+
+function escuchar(store, recargar, espera) {
     let primero = true;
     let timer = null;
-    const cancelar = ejecucionCambio.subscribe((evento) => {
+    const cancelar = store.subscribe((evento) => {
         if (primero) {
             primero = false;
             return;

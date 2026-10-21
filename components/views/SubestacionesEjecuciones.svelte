@@ -9,12 +9,16 @@
   import { get } from "svelte/store";
   import { ejecucionesFiltroInicial, disciplinaFiltro } from "../../stores/subestacionesFilters.js";
   import { disciplinaLabel } from "../../config/subestaciones.js";
-  import { alCambiarEjecuciones } from "../../stores/subestacionesEventos.js";
+  import { alCambiarEjecuciones, alCambiarOrdenes } from "../../stores/subestacionesEventos.js";
   import { IMPREVISTO } from "../../utils/cronograma.js";
+  import { origenEjecucion, ORDEN } from "../../utils/ordenes.js";
   import SelectorDisciplina from "./subestaciones/SelectorDisciplina.svelte";
 
-  /** Imprevistos (sin cita del cronograma): fila en terracota suave para verlos de un vistazo. */
-  const claseFila = (r) => (r.esProgramada === false ? "fila-imprevisto" : "");
+  /** Imprevistos (sin cita ni orden de trabajo): fila en terracota suave para verlos de un vistazo. */
+  const claseFila = (r) => (origenEjecucion(r).tipo === "imprevisto" ? "fila-imprevisto" : "");
+  // Hallazgos que nadie atiende todavía (sin orden de trabajo). Los que ya tienen orden se siguen en
+  // la pestaña Órdenes de trabajo.
+  const SEGUIMIENTO_SIN_ATENDER = "ABIERTO";
 
   // Sin "No programado": lo que no estaba en el cronograma lo dice el filtro Origen / "Solo imprevistos"
   // (lo calcula el sistema). Los registros viejos con ese valor se siguen viendo con su etiqueta.
@@ -41,7 +45,9 @@
       tipoMantenimiento: "",
       tipoActividad: "",
       resultado: "",
+      // Origen: "" todos, "true" cronograma, "false" imprevisto, "orden" orden de trabajo.
       esProgramada: "",
+      seguimiento: "",
       fechaInicio: "",
       fechaFin: "",
     };
@@ -74,6 +80,7 @@
   $: soloHallazgosActivo = filtros.resultado === HALLAZGOS_PRESET.join(",");
   // "Solo imprevistos" es el mismo filtro Origen = Imprevisto: el botón y el select quedan sincronizados.
   $: soloImprevistosActivo = filtros.esProgramada === "false";
+  $: sinAtenderActivo = filtros.seguimiento === SEGUIMIENTO_SIN_ATENDER;
 
   function filtrosParaFetch() {
     return {
@@ -82,7 +89,9 @@
       tipoMantenimiento: filtros.tipoMantenimiento || undefined,
       tipoActividad: filtros.tipoActividad || undefined,
       resultado: filtros.resultado ? filtros.resultado.split(",") : undefined,
-      esProgramada: filtros.esProgramada === "" ? undefined : filtros.esProgramada === "true",
+      esProgramada: filtros.esProgramada === "" || filtros.esProgramada === "orden" ? undefined : filtros.esProgramada === "true",
+      conOrden: filtros.esProgramada === "orden" ? true : undefined,
+      seguimiento: filtros.seguimiento ? filtros.seguimiento.split(",") : undefined,
       fechaInicio: filtros.fechaInicio || undefined,
       fechaFin: filtros.fechaFin || undefined,
       // La disciplina es la misma de las otras pestañas (Dashboard, Resumen, Cronograma).
@@ -119,6 +128,11 @@
 
   function toggleSoloHallazgos() {
     filtros = { ...filtros, resultado: soloHallazgosActivo ? "" : HALLAZGOS_PRESET.join(",") };
+    cargar(0);
+  }
+
+  function toggleSinAtender() {
+    filtros = { ...filtros, seguimiento: sinAtenderActivo ? "" : SEGUIMIENTO_SIN_ATENDER };
     cargar(0);
   }
 
@@ -160,8 +174,9 @@
     if (type === "verDetalle") abrirDetalle(row);
   }
 
-  // Llegó una ejecución del móvil (WebSocket): se recarga la página actual con los mismos filtros.
+  // Llegó una ejecución del móvil o cambió una orden (WebSocket): se recarga la página actual.
   onDestroy(alCambiarEjecuciones(() => cargar(pagina.currentPage ?? 0)));
+  onDestroy(alCambiarOrdenes(() => cargar(pagina.currentPage ?? 0)));
 
   onMount(() => {
     if (!estaciones.length) data.fetchSubstationEstaciones();
@@ -170,14 +185,14 @@
   });
 </script>
 
-<div class="ejecuciones" style="--imp-c:{IMPREVISTO.c};--imp-fila:{IMPREVISTO.fila}">
+<div class="ejecuciones" style="--imp-c:{IMPREVISTO.c};--imp-fila:{IMPREVISTO.fila};--ot-c:{ORDEN.c};--ot-bg:{ORDEN.bg}">
   <div class="cabeza">
     <div>
       <h1 class="titulo">Ejecuciones y hallazgos</h1>
       <p class="subtitulo">
         {$disciplinaFiltro ? disciplinaLabel($disciplinaFiltro) : "Todas las disciplinas"} · todo lo que se registró en las
         estaciones, lo más reciente primero. Las filas en terracota son imprevistos (trabajos sin cita del cronograma).
-        "Ver detalle" muestra las fotos y el hallazgo.
+        "Ver detalle" muestra las fotos y el hallazgo; desde ahí se crea la orden de trabajo para corregirlo.
       </p>
     </div>
     <SelectorDisciplina on:change={cambiarDisciplina} />
@@ -216,6 +231,7 @@
         <select bind:value={filtros.esProgramada}>
           <option value="">Todos</option>
           <option value="true">Cronograma</option>
+          <option value="orden">Orden de trabajo</option>
           <option value="false">Imprevisto</option>
         </select>
       </label>
@@ -267,6 +283,16 @@
           <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a1 1 0 00.87 1.5h18.62a1 1 0 00.87-1.5L13.71 3.86a1 1 0 00-1.72 0z" /></svg>
           Solo hallazgos
         </button>
+        <button
+          type="button"
+          class="chip-preset abiertos"
+          class:chip-preset--activo={sinAtenderActivo}
+          title="Hallazgos que todavía no tienen orden de trabajo ni se resolvieron"
+          on:click={toggleSinAtender}
+        >
+          <span class="punto" aria-hidden="true"></span>
+          Sin atender
+        </button>
       </div>
     </div>
   </div>
@@ -304,6 +330,7 @@
     ejecucion={detalle}
     isLoading={detalleLoading}
     on:close={() => (mostrarDetalle = false)}
+    on:cambio={(e) => ((detalle = e.detail), cargar(pagina.currentPage ?? 0))}
   />
 {/if}
 
@@ -449,6 +476,21 @@
   .chip-preset.imprevistos.chip-preset--activo {
     background: var(--imp-c);
     color: #fff;
+  }
+  .chip-preset.abiertos {
+    border-color: #d03b3b;
+    background: #fbeaea;
+    color: #a12b2b;
+  }
+  .chip-preset.abiertos.chip-preset--activo {
+    background: #d03b3b;
+    color: #fff;
+  }
+  .punto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
   }
   .mas {
     font-size: 13px;

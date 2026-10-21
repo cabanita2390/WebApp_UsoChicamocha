@@ -8,6 +8,8 @@
     tipoMantenimientoLabel,
     tipoActividadLabel,
   } from "../../config/table-definitions/substation.js";
+  import { origenEjecucion } from "../../utils/ordenes.js";
+  import SeguimientoHallazgo from "../views/subestaciones/ordenes/SeguimientoHallazgo.svelte";
 
   /** EjecucionResponse completo (incluye evidencias[] y ediciones[]), o null mientras carga. */
   export let ejecucion = null;
@@ -16,6 +18,12 @@
   const dispatch = createEventDispatcher();
 
   $: badge = ejecucion ? resultadoBadge(ejecucion.resultado) : null;
+  $: origen = ejecucion ? origenEjecucion(ejecucion) : null;
+  const ORIGEN_AYUDA = {
+    cronograma: "Cronograma",
+    orden: "corrige un hallazgo; no suma al avance",
+    imprevisto: "Imprevisto (sin cita del cronograma, no suma al avance)",
+  };
 
   function formatFecha(iso) {
     if (!iso) return "—";
@@ -90,11 +98,14 @@
           <div class="dl"><span class="dl-lab">Tipo de mantenimiento</span><span class="dl-val">{tipoMantenimientoLabel(ejecucion.tipoMantenimiento)}</span></div>
           <div class="dl"><span class="dl-lab">Tipo de actividad</span><span class="dl-val">{tipoActividadLabel(ejecucion.tipoActividad)}</span></div>
           <div class="dl"><span class="dl-lab">Actividad</span><span class="dl-val">{ejecucion.actividadNombre ?? ejecucion.descripcionLibre ?? "—"}</span></div>
-          <div class="dl"><span class="dl-lab">Origen</span><span class="dl-val">{ejecucion.esProgramada ? "Cronograma" : "Imprevisto (sin cita del cronograma, no suma al avance)"}</span></div>
+          <div class="dl"><span class="dl-lab">Origen</span><span class="dl-val">{origen.tipo === "orden" ? `${origen.l} (${ORIGEN_AYUDA.orden})` : ORIGEN_AYUDA[origen.tipo]}</span></div>
           <div class="dl"><span class="dl-lab">Resultado</span><span><span class="badge-cell badge-{badge.color}">{badge.label}</span></span></div>
           <div class="dl"><span class="dl-lab">Responsable</span><span class="dl-val">{ejecucion.responsable}</span></div>
           <div class="dl full"><span class="dl-lab">Observaciones</span><span class="dl-val">{ejecucion.observaciones}</span></div>
         </div>
+
+        <SeguimientoHallazgo {ejecucion} on:cambio={(e) => ((ejecucion = e.detail), dispatch("cambio", e.detail))}
+          on:verOrden={() => dispatch("close")} />
 
         <div class="section-h">Evidencia ({ejecucion.evidencias?.length ?? 0} foto{(ejecucion.evidencias?.length ?? 0) === 1 ? "" : "s"})</div>
         {#if ejecucion.evidencias?.length}

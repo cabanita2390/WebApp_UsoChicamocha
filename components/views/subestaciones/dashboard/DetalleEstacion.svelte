@@ -6,8 +6,9 @@
   import { ejecucionesFiltroInicial, subestacionesActiveTab, detalleActividadId, disciplinaFiltro, anioDetalle } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { MESES, MESES_LARGOS, tipoLabel, frecuenciaLabel, disciplinaLabel } from "../../../../config/subestaciones.js";
-  import { BADGE, IMPREVISTO, RESULTADO, chip, fechaCorta, porcentaje, semaforoMes, aniosParaSelector } from "../../../../utils/cronograma.js";
+  import { BADGE, IMPREVISTO, RESULTADO, SEGUIMIENTO, chip, fechaCorta, porcentaje, semaforoMes, aniosParaSelector } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
+  import { origenEjecucion, seguimientoTexto } from "../../../../utils/ordenes.js";
   import Loader from "../../../shared/Loader.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
   import SubestacionEjecucionDetalleModal from "../../../shared/SubestacionEjecucionDetalleModal.svelte";
@@ -341,7 +342,7 @@
               <strong>{t.intervenciones}</strong>
             </div>
             <div class="barra">
-              <div style="width:{(t.intervenciones / maxCrit) * 100}%;background:#3d3c39"></div>
+              <div style="width:{(t.intervenciones / maxCrit) * 100}%"></div>
             </div>
           </div>
         {:else}
@@ -399,8 +400,11 @@
         <span class="gris2 num">{fechaCorta(e.fecha)}</span>
         <span>{e.actividadNombre ?? e.descripcionLibre ?? "Registro libre"}</span>
         <span class="gris2">{tipoMantenimientoLabel(e.tipoMantenimiento)}</span>
-        <span><span class="sub-badge" style="color:{rb.c};background:{rb.bg}">{rb.g} {rb.l}</span></span>
-        <!-- Estado del seguimiento (Abierto/En proceso/Resuelto) oculto: todavía no tiene flujo. -->
+        <span class="res-col">
+          <span class="sub-badge" style="color:{rb.c};background:{rb.bg}">{rb.g} {rb.l}</span>
+          <!-- Seguimiento del hallazgo y su orden de trabajo (ya tiene flujo: órdenes OT-EB). -->
+          {#if e.seguimiento}<span class="seg-txt" style="color:{(SEGUIMIENTO[e.seguimiento.estado] ?? SEGUIMIENTO.ABIERTO).c}">{(SEGUIMIENTO[e.seguimiento.estado] ?? SEGUIMIENTO.ABIERTO).g} {seguimientoTexto(e.seguimiento)}</span>{/if}
+        </span>
         <span class="gris2">{e.responsable ?? ""}</span>
       </div>
     {:else}
@@ -501,7 +505,7 @@
   .barra-avance span {
     display: block;
     height: 100%;
-    background: #3d3c39;
+    background: var(--sub-avance);
     border-radius: 999px;
   }
   .leyenda-imp {
@@ -684,6 +688,7 @@
   .barra div {
     height: 100%;
     border-radius: 999px;
+    background: var(--sub-avance);
   }
   .ej {
     display: grid;
@@ -713,5 +718,16 @@
     padding: 10px 18px;
     font-size: 12px;
     color: #898781;
+  }
+  .res-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .seg-txt {
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
   }
 </style>

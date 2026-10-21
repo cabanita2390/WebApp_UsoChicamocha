@@ -12,14 +12,17 @@
     ejecucionesFiltroInicial,
     disciplinaFiltro,
   } from "../../../../stores/subestacionesFilters.js";
-  import { DISCIPLINAS, MESES, disciplinaLabel } from "../../../../config/subestaciones.js";
+  import { MESES, disciplinaLabel, tipoLabel } from "../../../../config/subestaciones.js";
   import {
-    DENSIDAD,
+    NORMAL,
+    ESTADOS_CITA,
+    estadoVisible,
+    filtrosVacios,
+    filtrosActivos,
     filtrarCitas,
     filasPorEstacion,
     filasPorActividad,
     totalesPorMes,
-    estadoCita,
     fechaHora,
     aniosParaSelector,
     mesCerrado,
@@ -31,6 +34,7 @@
   import CeldaPanel from "./CeldaPanel.svelte";
   import AsignacionMasiva from "./AsignacionMasiva.svelte";
   import PublicarModal from "./PublicarModal.svelte";
+  import FiltrosCronograma from "./FiltrosCronograma.svelte";
   import SubestacionEjecucionDetalleModal from "../../../shared/SubestacionEjecucionDetalleModal.svelte";
 
   $: esAdmin = $auth?.currentUser?.role === "ADMIN";
@@ -60,17 +64,23 @@
   let confirmarDescarte = false;
   let citasOrigenCopia = 0;
 
-  // Filtros y vista (mockup §6.1–6.2)
+  // Filtros y vista. Todos los filtros viven en un solo panel ("Filtros"); nada se guarda:
+  // al volver a entrar, el Cronograma abre sin filtros y en tamaño Normal.
   let por = "est";
   let vista = "act";
-  // Misma disciplina que Dashboard y Resumen ("" = todas).
-  let disciplina = get(disciplinaFiltro);
-  let actividadId = "";
-  let q = "";
-  let densidad = "normal";
-  // Desde la tarjeta "Atrasadas" del Dashboard / Resumen se llega con el filtro ya puesto.
-  let soloVencidas = get(cronogramaSoloAtrasadas);
+  // Misma disciplina que Dashboard y Resumen; desde la tarjeta "Atrasadas" se llega con
+  // el estado "No ejecutada" ya puesto.
+  const disciplinaInicial = get(disciplinaFiltro);
+  let filtros = {
+    ...filtrosVacios(),
+    disciplinas: disciplinaInicial ? [disciplinaInicial] : [],
+    estados: get(cronogramaSoloAtrasadas) ? ["bad"] : [],
+  };
   cronogramaSoloAtrasadas.set(false);
+  let filtrosAbierto = false;
+  // Grilla: "Tamaño normal" deshace los anchos y altos que el usuario arrastró.
+  let grilla;
+  let hayAjustes = false;
 
   // Registro de una cita cumplida (panel de celda → "Ver registro")
   let registro = null;
@@ -166,7 +176,7 @@
 
   // Escape sale de la vista ampliada (si no hay un panel o modal abierto, que se cierran primero).
   function onKeydown(e) {
-    if (e.key === "Escape" && $pantallaAmpliada && !celda && !masiva && !publicarAbierto) {
+    if (e.key === "Escape" && $pantallaAmpliada && !celda && !masiva && !publicarAbierto && !filtrosAbierto) {
       pantallaAmpliada.set(false);
     }
   }
@@ -175,22 +185,21 @@
   $: actividadesPorId = new Map(actividades.map((a) => [a.id, a]));
   $: estacionesPorId = new Map(estaciones.map((s) => [s.id, s]));
   $: estacionesActivas = estaciones.filter((s) => s.activa);
-  $: estacionesVisibles = estacionesActivas.filter((s) => !q || s.nombre.toLowerCase().includes(q.toLowerCase()));
+  $: estacionesVisibles = estacionesActivas.filter(
+    (s) => (!filtros.tipos.length || filtros.tipos.includes(s.tipo)) && (!filtros.estacionIds.length || filtros.estacionIds.includes(s.id)),
+  );
   $: actividadesAsignables = actividades.filter((a) => a.activa);
   $: citas = cron?.citas ?? [];
+  $: citasActivas = citas.filter((c) => estacionesPorId.get(c.estacionId)?.activa);
   $: borrador = cron?.borrador ?? { altas: 0, bajas: 0 };
   $: nCambios = borrador.altas + borrador.bajas;
   $: verSoloCambios = soloCambios && nCambios > 0;
-  $: filtrosCitas = {
-    anio,
-    hoy,
-    disciplina,
-    actividadId: actividadId ? Number(actividadId) : null,
-    soloVencidas,
-    soloCambios: verSoloCambios,
-  };
-  $: visibles = filtrarCitas(citas, filtrosCitas);
-  $: soloConCitas = soloVencidas || verSoloCambios;
+  $: visibles = filtrarCitas(citas, { anio, hoy, filtros, soloCambios: verSoloCambios, estacionesPorId });
+  // Con estado o actividad elegidos, las filas sin citas sobran.
+  $: soloConCitas = filtros.estados.length > 0 || filtros.actividadIds.length > 0 || verSoloCambios;
+  $: unaDisciplina = filtros.disciplinas.length === 1 ? filtros.disciplinas[0] : "";
+  // Los meses que no se eligieron se ocultan: los que quedan ganan espacio.
+  $: mesesVisibles = filtros.meses.length && !verSoloCambios ? [...filtros.meses].sort((a, b) => a - b) : MESES.map((_, i) => i + 1);
   $: filas =
     por === "est"
       ? filasPorEstacion({
@@ -199,22 +208,23 @@
           actividadesPorId,
           anio,
           hoy,
-          densidad,
-          disciplinaFiltrada: !!disciplina,
+          disciplinaFiltrada: !!unaDisciplina,
           celdaSeleccionada: celda,
           modoEdicion,
           soloConCitas,
         })
       : filasPorActividad({
           actividades: actividades.filter(
-            (a) => verSoloCambios || ((!disciplina || a.disciplina === disciplina) && (!actividadId || a.id === Number(actividadId))),
+            (a) =>
+              verSoloCambios ||
+              ((!filtros.disciplinas.length || filtros.disciplinas.includes(a.disciplina)) &&
+                (!filtros.actividadIds.length || filtros.actividadIds.includes(a.id))),
           ),
           estacionesVisibles,
           citas: visibles,
           estacionesPorId,
           anio,
           hoy,
-          densidad,
           celdaSeleccionada: celda,
           modoEdicion,
           soloConCitas: soloConCitas || !modoEdicion,
@@ -223,24 +233,40 @@
   $: totales = totalesPorMes(visibles, estacionesVisibles);
   // Citas de las estaciones que se ven (respeta la búsqueda): cabecera y total de la grilla.
   $: totalVisible = totales.reduce((a, n) => a + n, 0);
-  $: vencidasN = citas.filter(
-    (c) =>
-      (!disciplina || c.disciplina === disciplina) &&
-      estadoCita(c, anio, hoy) === "bad" &&
-      estacionesVisibles.some((s) => s.id === c.estacionId),
-  ).length;
-  $: opcionesActividad = actividades.filter((a) => !disciplina || a.disciplina === disciplina);
+  // Leyenda: también es el resumen de lo que se ve (cuántas citas hay de cada estado).
+  $: idsVisibles = new Set(estacionesVisibles.map((s) => s.id));
+  $: porEstado = visibles.reduce((acc, c) => {
+    if (idsVisibles.has(c.estacionId)) acc[estadoVisible(c, anio, hoy)] = (acc[estadoVisible(c, anio, hoy)] ?? 0) + 1;
+    return acc;
+  }, {});
+  $: leyenda = ESTADOS_CITA.filter((e) => e.value !== "new" || porEstado.new).sort(
+    (a, b) => ["ok", "bad", "cur", "pen", "new"].indexOf(a.value) - ["ok", "bad", "cur", "pen", "new"].indexOf(b.value),
+  );
   $: resumen =
     `${estacionesVisibles.length} estaciones · ${totalVisible} citas en ${anio}` +
-    (disciplina ? ` · ${disciplinaLabel(disciplina)}` : " · todas las disciplinas");
+    (filtros.disciplinas.length ? ` · ${filtros.disciplinas.map(disciplinaLabel).join(", ")}` : " · todas las disciplinas");
+  $: nFiltros = filtrosActivos(filtros) + (vista === "count" ? 1 : 0);
+  // Chips de los filtros puestos, cada uno con su ×.
+  $: etiquetasFiltro = [
+    ...filtros.disciplinas.map((d) => ({ l: disciplinaLabel(d), quitar: () => quitarValor("disciplinas", d) })),
+    ...filtros.estados.map((e) => ({ l: ESTADOS_CITA.find((x) => x.value === e)?.l, quitar: () => quitarValor("estados", e) })),
+    ...filtros.tipos.map((t) => ({ l: tipoLabel(t), quitar: () => quitarValor("tipos", t) })),
+    ...(filtros.estacionIds.length
+      ? [{ l: filtros.estacionIds.length === 1 ? estacionesPorId.get(filtros.estacionIds[0])?.nombre : `${filtros.estacionIds.length} estaciones`, quitar: () => quitarTodo("estacionIds") }]
+      : []),
+    ...(filtros.actividadIds.length
+      ? [{ l: filtros.actividadIds.length === 1 ? actividadesPorId.get(filtros.actividadIds[0])?.nombre : `${filtros.actividadIds.length} actividades`, quitar: () => quitarTodo("actividadIds") }]
+      : []),
+    ...(filtros.meses.length
+      ? [{ l: filtros.meses.length <= 3 ? [...filtros.meses].sort((a, b) => a - b).map((m) => MESES[m - 1]).join(", ") : `${filtros.meses.length} meses`, quitar: () => quitarTodo("meses") }]
+      : []),
+    ...(vista === "count" ? [{ l: "Celdas: solo cantidad", quitar: () => (vista = "act") }] : []),
+  ];
   $: anioVacio = !cargando && cron && citas.length === 0;
   $: ultima = cron?.ultimaPublicacion;
   $: mensajeVacio = verSoloCambios
     ? "No hay cambios en borrador para mostrar."
-    : soloVencidas
-      ? "Sin citas atrasadas para este filtro."
-      : "Sin citas para el filtro seleccionado.";
-  $: dens = DENSIDAD[por][densidad];
+    : "Ninguna cita coincide con los filtros.";
 
   // ---- Acciones ----
   async function ejecutar(accion, mensaje) {
@@ -323,7 +349,7 @@
   function masivaEstacionAqui() {
     masiva = {
       modo: "estacion",
-      disciplina: disciplina || "CIVIL",
+      disciplina: unaDisciplina || "CIVIL",
       estacionIds: [celda.estacionId],
       meses: mesCerrado(anio, celda.mes, hoy) ? [] : [celda.mes],
     };
@@ -333,7 +359,7 @@
   // Abre en el modo de la grilla: filas por estación → "Por estación"; por actividad → "Por actividad".
   function abrirMasiva() {
     celda = null;
-    masiva = { modo: por === "est" ? "estacion" : "actividad", disciplina: disciplina || "CIVIL" };
+    masiva = { modo: por === "est" ? "estacion" : "actividad", disciplina: unaDisciplina || "CIVIL" };
   }
 
   async function asignado(e) {
@@ -349,7 +375,7 @@
   // Solo en filas por actividad: filtra la grilla por esa actividad. El nombre de una estación no
   // lleva a ningún lado (su detalle ya está en el Dashboard; repetirlo aquí era redundante).
   function abrirFila(e) {
-    actividadId = String(e.detail.id);
+    filtros = { ...filtros, actividadIds: [e.detail.id] };
     por = "est";
   }
 
@@ -393,16 +419,35 @@
     if (r) soloCambios = false;
   }
 
-  function cambiarDisciplina(e) {
-    disciplina = e.target.value;
-    disciplinaFiltro.set(disciplina);
-    actividadId = "";
+  // La disciplina se comparte con Dashboard y Resumen solo cuando hay una sola elegida.
+  function aplicarFiltros(e) {
+    filtros = e.detail.filtros;
+    vista = e.detail.vista;
+    filtrosAbierto = false;
+    soloCambios = false;
+    celda = null;
+    disciplinaFiltro.set(unaDisciplinaDe(filtros));
+  }
+  const unaDisciplinaDe = (f) => (f.disciplinas.length === 1 ? f.disciplinas[0] : "");
+
+  function quitarValor(campo, v) {
+    filtros = { ...filtros, [campo]: filtros[campo].filter((x) => x !== v) };
+    if (campo === "disciplinas") disciplinaFiltro.set(unaDisciplinaDe(filtros));
+  }
+  function quitarTodo(campo) {
+    filtros = { ...filtros, [campo]: [] };
+  }
+  function limpiarFiltros() {
+    filtros = filtrosVacios();
+    vista = "act";
+    soloCambios = false;
+    disciplinaFiltro.set("");
   }
 </script>
 
 <svelte:window on:keydown={onKeydown} />
 
-<div class="sub-mod">
+<div class="sub-mod" class:ampliada={$pantallaAmpliada}>
   {#if cargando}
     <div class="cargando"><Loader /></div>
   {:else if errorCarga && !cron}
@@ -410,73 +455,70 @@
   {:else}
     <div class="sub-head">
       <div class="sub-head-text">
-        <h1 class="sub-title">Cronograma Anual</h1>
-        <p class="sub-subtitle">{resumen} · click en una celda para ver o asignar actividades.</p>
-      </div>
-      <div class="herramientas">
-        <span class="lbl">Filas</span>
-        <div class="sub-seg chico">
-          <button class:on={por === "est"} on:click={() => ((por = "est"), (celda = null))}>Estaciones</button>
-          <button class:on={por === "act"} on:click={() => ((por = "act"), (celda = null))}>Actividades</button>
-        </div>
-        <span class="lbl">Celdas</span>
-        <div class="sub-seg chico">
-          <button class:on={vista === "act"} on:click={() => (vista = "act")} title="Cada celda muestra las citas con su nombre y estado">Con nombres</button>
-          <button class:on={vista === "count"} on:click={() => (vista = "count")} title="Cada celda muestra solo cuántas citas tiene el mes">Solo cantidad</button>
-        </div>
-        <select class="ctl disc" value={disciplina} on:change={cambiarDisciplina} aria-label="Disciplina">
-          <option value="">Todas las disciplinas</option>
-          {#each DISCIPLINAS as d}<option value={d.value}>{d.label}</option>{/each}
-        </select>
-        <select class="ctl act" bind:value={actividadId} aria-label="Actividad">
-          <option value="">Todas las actividades</option>
-          {#each opcionesActividad as a (a.id)}
-            <option value={String(a.id)}>{disciplina ? "" : `${disciplinaLabel(a.disciplina)} · `}{a.nombre}</option>
-          {/each}
-        </select>
-        <select class="ctl anio" value={String(anio)} on:change={cambiarAnio} aria-label="Año">
-          {#each opcionesAnio as y}<option value={String(y)}>{y}{y < hoy.anioActual ? " · consulta" : ""}</option>{/each}
-        </select>
-        <input class="ctl buscar" bind:value={q} placeholder="Buscar estación…" />
-        <button class="sub-btn chico-btn" on:click={() => pantallaAmpliada.update((v) => !v)}>
-          {$pantallaAmpliada ? "⤡ Salir de vista ampliada" : "⤢ Ampliar"}
-        </button>
-        {#if editable}
-          <button class="sub-btn-primary" on:click={abrirMasiva}>Asignación masiva</button>
-          <button class="modo" class:on={modoEdicion} on:click={() => (modoEdicion = !modoEdicion)}>
-            {modoEdicion ? "✓ Modo asignación" : "+ Asignar actividades"}
-          </button>
-        {:else}
-          <span class="sub-locked" title="Requiere rol ADMIN">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-              <rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 015 0v2"></path>
-            </svg>Asignar · solo ADMIN
-          </span>
+        <h1 class="sub-title">Cronograma Anual{#if $pantallaAmpliada} <span class="anio-t">{anio}</span>{/if}</h1>
+        {#if !$pantallaAmpliada}
+          <p class="sub-subtitle">{resumen} · click en una celda para ver o asignar actividades.</p>
         {/if}
       </div>
     </div>
 
-    <div class="leyenda">
-      <span class="ley"><span class="cuadro" style="background:#006300"></span>✓ Ejecutada</span>
-      <span class="ley"><span class="cuadro" style="background:#d03b3b"></span>✕ No ejecutada</span>
-      <span class="ley"><span class="cuadro" style="background:#faf1de;border:1px solid #c98500"></span>⧗ En curso</span>
-      <span class="ley"><span class="cuadro" style="background:#fff;border:1px solid rgba(11,11,11,0.25)"></span>○ Programada</span>
-      <span class="ley"><span class="cuadro" style="background:#dbe9fb;border:1.5px solid #2a78d6"></span>+ Nueva (borrador)</span>
-      <span class="sep"></span><span class="gris">Pase el cursor sobre una actividad para ver su nombre completo.</span>
-      <button class="vencidas" class:on={soloVencidas} title="Citas de meses ya cerrados que no se ejecutaron" on:click={() => (soloVencidas = !soloVencidas)}>
-        {soloVencidas ? "✓" : "✕"} Solo atrasadas · {vencidasN}
+    <div class="herramientas">
+      <select class="ctl anio" value={String(anio)} on:change={cambiarAnio} aria-label="Año">
+        {#each opcionesAnio as y}<option value={String(y)}>{y}{y < hoy.anioActual ? " · consulta" : ""}</option>{/each}
+      </select>
+      <div class="sub-seg chico" role="group" aria-label="Filas">
+        <button class:on={por === "est"} on:click={() => ((por = "est"), (celda = null))}>Por estación</button>
+        <button class:on={por === "act"} on:click={() => ((por = "act"), (celda = null))}>Por actividad</button>
+      </div>
+      <button class="sub-btn chico-btn filtros-btn" class:activos={nFiltros > 0} on:click={() => ((filtrosAbierto = true), (celda = null))}>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M2 4h12M4.5 8h7M7 12h2"></path>
+        </svg>
+        Filtros{#if nFiltros}<span class="badge">{nFiltros}</span>{/if}
       </button>
-      <div class="densidad">
-        <span>Actividades por celda</span>
-        <div class="sub-seg mini">
-          {#each [["compacta", "Compacta · 2"], ["normal", "Normal · 3"], ["amplia", "Amplia · 5"]] as [id, l]}
-            <button class:on={densidad === id} on:click={() => (densidad = id)}>{l}</button>
+      <button class="sub-btn chico-btn" on:click={() => pantallaAmpliada.update((v) => !v)}>
+        {$pantallaAmpliada ? "⤡ Salir de vista ampliada" : "⤢ Ampliar"}
+      </button>
+      {#if $pantallaAmpliada && nCambios > 0}
+        <span class="tag-borrador" title="Cambios sin publicar a móvil">BORRADOR · {nCambios} {nCambios === 1 ? "cambio" : "cambios"}</span>
+      {/if}
+      <span class="espacio"></span>
+      {#if editable && !$pantallaAmpliada}
+        <button class="modo" class:on={modoEdicion} on:click={() => (modoEdicion = !modoEdicion)}>
+          {modoEdicion ? "✓ Modo asignación" : "+ Asignar actividades"}
+        </button>
+        <button class="sub-btn-primary" on:click={abrirMasiva}>Asignación masiva</button>
+      {:else if !editable && !$pantallaAmpliada}
+        <span class="sub-locked" title="Requiere rol ADMIN">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 015 0v2"></path>
+          </svg>Asignar · solo ADMIN
+        </span>
+      {/if}
+    </div>
+
+    <div class="estado-fila">
+      {#if etiquetasFiltro.length}
+        <div class="activos">
+          {#each etiquetasFiltro as f}
+            <button class="chip-filtro" title="Quitar filtro" on:click={f.quitar}><strong>{f.l}</strong><span class="x">×</span></button>
           {/each}
+          {#if etiquetasFiltro.length > 1}<button class="lnk" on:click={limpiarFiltros}>Limpiar todo</button>{/if}
         </div>
+      {/if}
+      <div class="leyenda">
+        {#each leyenda as e (e.value)}
+          <span class="ley" title={e.ayuda}>
+            <span class="cuadro" style="background:{e.bg};border:{e.bd};color:{e.c}">{e.g}</span>{e.l} <strong>{porEstado[e.value] ?? 0}</strong>
+          </span>
+        {/each}
+        {#if hayAjustes}
+          <button class="restablecer" title="Volver al tamaño Normal" on:click={() => grilla?.restablecer()}>↺ Tamaño normal</button>
+        {/if}
       </div>
     </div>
 
-    {#if nCambios > 0}
+    {#if nCambios > 0 && !$pantallaAmpliada}
       <div class="borrador">
         <span class="tag">BORRADOR</span>
         <span class="borrador-txt">
@@ -498,7 +540,7 @@
           {/if}
         </div>
       </div>
-    {:else if ultima}
+    {:else if ultima && !$pantallaAmpliada}
       <div class="publicado">
         <span class="punto"></span>
         <span>Publicado a móvil · {fechaHora(ultima.publicadoEn)} · sin cambios pendientes</span>
@@ -537,22 +579,43 @@
       </div>
     {/if}
 
-    <CronogramaGrid
-      {filas}
-      totalesMes={totales}
-      total={totalVisible}
-      {hoy}
-      {anio}
-      etiquetaFila={por === "act" ? "Actividad" : "Estación"}
-      tituloFila={por === "act" ? "Ver esta actividad por estación" : null}
-      conChips={vista === "act"}
-      densidad={dens}
-      dosColumnas={por === "act"}
-      actualizando={recargando || ocupado}
-      vacio={mensajeVacio}
-      on:celda={abrirCelda}
-      on:fila={abrirFila}
-    />
+    <!-- Cada vista (por estación / por actividad) abre en tamaño Normal. -->
+    {#key por}
+      <CronogramaGrid
+        bind:this={grilla}
+        bind:hayAjustes
+        {filas}
+        meses={mesesVisibles}
+        totalesMes={totales}
+        total={totalVisible}
+        {hoy}
+        {anio}
+        etiquetaFila={por === "act" ? "Actividad" : "Estación"}
+        tituloFila={por === "act" ? "Ver esta actividad por estación" : null}
+        conChips={vista === "act"}
+        normal={NORMAL[por]}
+        dosColumnas={por === "act"}
+        actualizando={recargando || ocupado}
+        vacio={mensajeVacio}
+        on:celda={abrirCelda}
+        on:fila={abrirFila}
+      />
+    {/key}
+
+    {#if filtrosAbierto}
+      <FiltrosCronograma
+        {filtros}
+        {vista}
+        citas={citasActivas}
+        {anio}
+        {hoy}
+        estaciones={estacionesActivas}
+        actividades={actividades.filter((a) => a.activa || citasActivas.some((c) => c.actividadId === a.id))}
+        {estacionesPorId}
+        on:aplicar={aplicarFiltros}
+        on:close={() => (filtrosAbierto = false)}
+      />
+    {/if}
 
     {#if celda}
       {#key celda}
@@ -608,24 +671,30 @@
     justify-content: center;
     padding: 48px;
   }
+  .sub-mod.ampliada {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .ampliada .sub-title {
+    font-size: 16px;
+  }
+  .anio-t {
+    margin-left: 6px;
+    color: #898781;
+    font-weight: 500;
+  }
   .herramientas {
     display: flex;
     gap: 10px;
     align-items: center;
     flex-wrap: wrap;
   }
-  .lbl {
-    font-size: 12px;
-    color: #52514e;
-    white-space: nowrap;
+  .espacio {
+    flex: 1;
   }
   .sub-seg.chico :global(button) {
     padding: 6px 14px;
     font-size: 12.5px;
-  }
-  .sub-seg.mini :global(button) {
-    padding: 4px 11px;
-    font-size: 12px;
   }
   .ctl {
     height: 34px;
@@ -636,26 +705,47 @@
     background: #fff;
     color: #0b0b0b;
   }
-  .disc {
-    min-width: 130px;
-  }
-  .act {
-    min-width: 190px;
-    max-width: 260px;
-  }
   .anio {
     min-width: 90px;
     font-weight: 600;
-  }
-  .buscar {
-    width: 200px;
-    padding: 0 12px;
   }
   .chico-btn {
     padding: 8px 16px;
   }
   .sub-btn-primary {
     padding: 9px 18px;
+  }
+  .filtros-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .filtros-btn.activos {
+    border: 2px solid #0b0b0b;
+    padding: 7px 15px;
+  }
+  .badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #0b0b0b;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-grid;
+    place-items: center;
+  }
+  .tag-borrador {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #e8f1fb;
+    color: #1f5fae;
+    border: 1px dashed #2a78d6;
+    white-space: nowrap;
   }
   .modo {
     border-radius: 999px;
@@ -673,9 +763,57 @@
     background: #e8f1fb;
     color: #1f5fae;
   }
-  .leyenda {
+  .estado-fila {
     display: flex;
-    gap: 8px 18px;
+    align-items: center;
+    gap: 8px 16px;
+    flex-wrap: wrap;
+  }
+  .activos {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .chip-filtro {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px 4px 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(11, 11, 11, 0.16);
+    background: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    color: #0b0b0b;
+  }
+  .chip-filtro strong {
+    font-weight: 600;
+  }
+  .chip-filtro .x {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #f0f0ee;
+    font-size: 12px;
+  }
+  .chip-filtro:hover {
+    border-color: #0b0b0b;
+  }
+  .lnk {
+    all: unset;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .leyenda {
+    margin-left: auto;
+    display: flex;
+    gap: 6px 16px;
     flex-wrap: wrap;
     align-items: center;
     font-size: 12px;
@@ -687,41 +825,30 @@
     gap: 6px;
     white-space: nowrap;
   }
+  .ley strong {
+    color: #0b0b0b;
+    font-variant-numeric: tabular-nums;
+  }
   .cuadro {
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
+    width: 15px;
+    height: 15px;
+    border-radius: 3px;
+    display: inline-grid;
+    place-items: center;
+    font-size: 9px;
+    font-weight: 700;
+    box-sizing: border-box;
   }
-  .sep {
-    width: 1px;
-    height: 14px;
-    background: rgba(11, 11, 11, 0.12);
-  }
-  .gris {
-    color: #898781;
-  }
-  .vencidas {
+  .restablecer {
     border-radius: 999px;
-    padding: 5px 12px;
-    font-size: 12.5px;
+    padding: 4px 11px;
+    font-size: 12px;
+    font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    border: 1px solid rgba(11, 11, 11, 0.12);
-    background: #fff;
-    color: #0b0b0b;
-    font-weight: 600;
-  }
-  .vencidas.on {
-    border-color: #d03b3b;
-    background: #fbeaea;
-    color: #d03b3b;
-  }
-  .densidad {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
+    border: 1px solid #2a78d6;
+    background: #e8f1fb;
+    color: #1f5fae;
   }
   .borrador {
     display: flex;

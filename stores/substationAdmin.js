@@ -76,6 +76,26 @@ export const substationAdmin = {
         ),
 
     // Cronograma
+    // ---- Hallazgos y órdenes de trabajo (OT-EB) ----
+    marcarHallazgoEnProceso: (ejecucionId) => fetchWithAuth(`substation/hallazgos/${ejecucionId}/en-proceso`, { method: 'PUT' }),
+    /** { observacionesCierre, resueltoEnEjecucionId?, resueltoMismaVisita? } */
+    resolverHallazgo: (ejecucionId, body) =>
+        fetchWithAuth(`substation/hallazgos/${ejecucionId}/resolver`, { method: 'PUT', body: json(body) }),
+    operarios: () => fetchWithAuth('substation/ordenes/operarios'),
+    /** { ejecucionOrigenId, prioridad, fechaLimite, asignadoAId, actividadId, instrucciones } */
+    crearOrden: (body) => fetchWithAuth('substation/ordenes', { method: 'POST', body: json(body) }),
+    /** filtros: { estado: [], estacionId, prioridad, vencidas, disciplina }; página de Spring. */
+    listarOrdenes: ({ estado = [], estacionId, prioridad, vencidas, disciplina } = {}, page = 0, size = 20) =>
+        fetchWithAuth(`substation/ordenes${query({ estado: estado.join(','), estacionId, prioridad, vencidas: vencidas || '', disciplina, page, size })}`),
+    obtenerOrden: (id) => fetchWithAuth(`substation/ordenes/${id}`),
+    editarOrden: (id, body) => fetchWithAuth(`substation/ordenes/${id}`, { method: 'PUT', body: json(body) }),
+    anularOrden: (id, comentario) => fetchWithAuth(`substation/ordenes/${id}/anular`, { method: 'PUT', body: json({ comentario }) }),
+    cerrarOrden: (id, comentario) => fetchWithAuth(`substation/ordenes/${id}/cerrar`, { method: 'PUT', body: json({ comentario }) }),
+    devolverOrden: (id, comentario) => fetchWithAuth(`substation/ordenes/${id}/devolver`, { method: 'PUT', body: json({ comentario }) }),
+    /** Visitas de la estación posteriores al hallazgo, para "se resolvió en la visita del…". */
+    visitasPosteriores: (estacionId, desde, size = 30) =>
+        fetchWithAuth(`substation/ejecuciones${query({ estacionId, fechaInicio: desde })}&size=${size}&sort=fecha,desc`),
+
     obtenerCronograma: (anio, disciplina) =>
         fetchWithAuth(`substation/cronograma?anio=${anio}${disciplina ? `&disciplina=${disciplina}` : ''}`),
     copiarAnio: (anioOrigen, anioDestino) =>

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-    mesCerrado, estadoCita, chip, filtrarCitas, filasPorEstacion, filasPorActividad, totalesPorMes,
+    mesCerrado, estadoCita, estadoVisible, chip, filtrarCitas, filtrosVacios, filtrosActivos, recortarChips, capacidadCelda,
+    altoParaChips, filasPorEstacion, filasPorActividad, totalesPorMes,
     mesesDePreset, paresAsignacion, fechaHora, aniosParaSelector, semaforoMes, porcentaje,
 } from '../../utils/cronograma.js';
 
@@ -48,11 +49,31 @@ describe('utils/cronograma', () => {
         expect(chip(cita(3, 1, 10, 10, { pendienteRetiro: true }), { anio: 2026, hoy, actividad: actividades.get(10) }).tachada).toBe(true);
     });
 
-    it('filtros: "solo cambios" ignora los demás; "solo vencidas" deja las no ejecutadas de meses cerrados', () => {
-        const citas = [cita(1, 1, 10, 3), cita(2, 1, 11, 11, { estado: 'BORRADOR' }), cita(3, 2, 10, 4, { tieneEjecucion: true })];
-        expect(filtrarCitas(citas, { anio: 2026, hoy, soloCambios: true, actividadId: 10 }).map((c) => c.id)).toEqual([2]);
-        expect(filtrarCitas(citas, { anio: 2026, hoy, soloVencidas: true }).map((c) => c.id)).toEqual([1]);
-        expect(filtrarCitas(citas, { anio: 2026, hoy, actividadId: 10 }).map((c) => c.id)).toEqual([1, 3]);
+    it('filtros: "solo cambios" ignora los demás; cada filtro acepta varios valores', () => {
+        const citas = [cita(1, 1, 10, 3), cita(2, 1, 11, 11, { estado: 'BORRADOR' }), cita(3, 2, 10, 4, { tieneEjecucion: true }),
+            cita(4, 2, 11, 9, { disciplina: 'ELECTRICO' })];
+        const f = (extra) => ({ ...filtrosVacios(), ...extra });
+        const ids = (opts) => filtrarCitas(citas, { anio: 2026, hoy, estacionesPorId: new Map(estaciones.map((s) => [s.id, s])), ...opts })
+            .map((c) => c.id);
+        expect(ids({ soloCambios: true, filtros: f({ actividadIds: [10] }) })).toEqual([2]);
+        expect(ids({ filtros: f({ estados: ['bad'] }) })).toEqual([1]);
+        expect(ids({ filtros: f({ estados: ['bad', 'cur'] }) })).toEqual([1, 4]);
+        expect(ids({ filtros: f({ estados: ['new'] }) })).toEqual([2]);
+        expect(ids({ filtros: f({ actividadIds: [10] }) })).toEqual([1, 3]);
+        expect(ids({ filtros: f({ disciplinas: ['ELECTRICO'] }) })).toEqual([4]);
+        expect(ids({ filtros: f({ meses: [3, 4] }) })).toEqual([1, 3]);
+        expect(ids({ filtros: f({ tipos: ['COMPLEMENTARIA'] }) })).toEqual([3, 4]);
+        expect(ids({ filtros: f({ estacionIds: [1], disciplinas: ['CIVIL'] }) })).toEqual([1, 2]);
+        expect(ids({})).toEqual([1, 2, 3, 4]);
+        expect(filtrosActivos(f({ estados: ['bad'], meses: [1, 2] }))).toBe(2);
+    });
+
+    it('estado visible: borrador, ejecutada, no ejecutada, en curso y programada', () => {
+        expect(estadoVisible(cita(1, 1, 10, 11, { estado: 'BORRADOR' }), 2026, hoy)).toBe('new');
+        expect(estadoVisible(cita(1, 1, 10, 3, { tieneEjecucion: true }), 2026, hoy)).toBe('ok');
+        expect(estadoVisible(cita(1, 1, 10, 3), 2026, hoy)).toBe('bad');
+        expect(estadoVisible(cita(1, 1, 10, 9), 2026, hoy)).toBe('cur');
+        expect(estadoVisible(cita(1, 1, 10, 10), 2026, hoy)).toBe('pen');
     });
 
     it('fila por estación: avance = ejecutadas / publicadas (como el Dashboard); "—" sin citas; cambios primero', () => {
@@ -61,7 +82,7 @@ describe('utils/cronograma', () => {
             cita(4, 1, 10, 10), cita(5, 1, 11, 10, { estado: 'BORRADOR' }), cita(6, 2, 10, 11),
         ];
         const filas = filasPorEstacion({ estaciones, citas, actividadesPorId: actividades, anio: 2026, hoy,
-            densidad: 'normal', disciplinaFiltrada: true });
+            disciplinaFiltrada: true });
         expect(filas[0].pct).toBe(50); // 2 de 4 publicadas (el borrador de octubre no cuenta)
         expect(filas[0].pctL).toBe('2 de 4 · 50%');
         expect(filas[0].total).toBe(5);
@@ -74,7 +95,7 @@ describe('utils/cronograma', () => {
     it('fila por estación: las citas futuras cuentan en el total del año (avance, no "cumplimiento a la fecha")', () => {
         const citas = [cita(1, 1, 10, 9, { tieneEjecucion: true }), cita(2, 1, 11, 11)];
         const [fila] = filasPorEstacion({ estaciones: [estaciones[0]], citas, actividadesPorId: actividades, anio: 2026, hoy,
-            densidad: 'normal', disciplinaFiltrada: true });
+            disciplinaFiltrada: true });
         expect(fila.pct).toBe(50); // 1 de 2: igual que el Dashboard
         expect(fila.badge.g).toBe(''); // sin semáforo en el año
     });
@@ -86,24 +107,26 @@ describe('utils/cronograma', () => {
         expect(ch.estado).toBe('pen');
     });
 
-    it('densidad: con más citas que el máximo muestra max-1 chips y "+N más"', () => {
-        const citas = [1, 2, 3, 4].map((i) => cita(i, 1, i % 2 ? 10 : 11, 10));
-        const [fila] = filasPorEstacion({ estaciones: [estaciones[0]], citas, actividadesPorId: actividades, anio: 2026,
-            hoy, densidad: 'normal', disciplinaFiltrada: true });
-        expect(fila.celdas[9].chips).toHaveLength(2);
-        expect(fila.celdas[9].mas).toBe(2);
+    it('tamaño de celda: en el alto Normal caben 3 chips; con más, "+N más" ocupa el lugar de uno', () => {
+        expect(capacidadCelda(66)).toBe(3); // por estación
+        expect(capacidadCelda(70, 2)).toBe(6); // por actividad, dos columnas
+        expect(altoParaChips(5)).toBe(101);
+        expect(capacidadCelda(altoParaChips(5))).toBe(5);
+        const chips = [1, 2, 3, 4].map((id) => ({ id }));
+        expect(recortarChips(chips, 3)).toEqual({ chips: chips.slice(0, 2), mas: 2 });
+        expect(recortarChips(chips, 4)).toEqual({ chips, mas: 0 });
     });
 
     it('solo con citas: oculta las filas vacías (vencidas / solo cambios)', () => {
         const filas = filasPorEstacion({ estaciones, citas: [cita(1, 1, 10, 3)], actividadesPorId: actividades, anio: 2026,
-            hoy, densidad: 'normal', soloConCitas: true });
+            hoy, soloConCitas: true });
         expect(filas.map((f) => f.id)).toEqual([1]);
     });
 
     it('fila por actividad: chips con el nombre de la estación y conteo de estaciones', () => {
         const citas = [cita(1, 1, 10, 3), cita(2, 2, 10, 3), cita(3, 1, 11, 4)];
         const filas = filasPorActividad({ actividades: [...actividades.values()], estacionesVisibles: estaciones, citas,
-            estacionesPorId: new Map(estaciones.map((s) => [s.id, s])), anio: 2026, hoy, densidad: 'normal',
+            estacionesPorId: new Map(estaciones.map((s) => [s.id, s])), anio: 2026, hoy,
             disciplinaLabel: () => 'Civil' });
         expect(filas[0].sub).toBe('Civil · 2 estaciones');
         expect(filas[0].celdas[2].chips.map((c) => c.short)).toEqual(['Ayalas', 'CLAN']);

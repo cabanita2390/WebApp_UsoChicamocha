@@ -419,7 +419,7 @@
   .estado {
     white-space: nowrap;
   }
-  /* Barra de avance: neutra en el año (sensación de progreso, no juicio); en el mes toma el
+  /* Barra de avance: verde claro en el año (sensación de progreso, no juicio); en el mes toma el
      color del semáforo y una raya marca cuánto del mes ha pasado. */
   .barra {
     position: relative;
@@ -433,7 +433,7 @@
     display: block;
     height: 100%;
     border-radius: 999px;
-    background: #3d3c39;
+    background: var(--sub-avance);
   }
   .barra.grande {
     align-self: stretch;

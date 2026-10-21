@@ -26,6 +26,9 @@
   --sub-neu: #52514e;
   --sub-neu-bg: #f0f0ee;
   --sub-shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 12px rgba(11, 11, 11, 0.05);
+  /* Barra de avance del año: verde claro que se va llenando (sensación de progreso). Distinto
+     del verde oscuro del semáforo del mes (--sub-ok) para que no se lea como "Al día". */
+  --sub-avance: linear-gradient(90deg, #a8dfb5, #3aa565);
 
   background: var(--sub-page);
   color: var(--sub-ink);
