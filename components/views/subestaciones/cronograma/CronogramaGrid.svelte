@@ -112,6 +112,8 @@
 
   function mover(e) {
     if (!arrastre) return;
+    // Soltado fuera de la ventana no llega pointerup: sin botón apretado, el arrastre ya terminó.
+    if (e.buttons === 0) return soltar();
     const { tipo, clave, x0, y0, inicial } = arrastre;
     let texto;
     if (tipo === "nombre") {
