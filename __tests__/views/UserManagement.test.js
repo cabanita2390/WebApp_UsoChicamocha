@@ -77,7 +77,7 @@ describe('UserManagement', () => {
     // Configurar store de datos simulado
     mockDataStore = {
       users: [],
-      isLoading: false,
+      isLoadingUsers: false,
       error: null,
     };
 
@@ -92,7 +92,7 @@ describe('UserManagement', () => {
   });
 
   it('renders loading state when loading and no users', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingUsers = true;
     mockDataStore.users = [];
 
     render(UserManagement);
@@ -104,7 +104,7 @@ describe('UserManagement', () => {
   });
 
   it('renders user management interface when not loading', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingUsers = false;
     mockDataStore.users = [{ id: 1, username: 'user1' }];
 
     render(UserManagement);
@@ -117,7 +117,7 @@ describe('UserManagement', () => {
 
   it('initializes with empty users array', async () => {
     mockDataStore.users = [];
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingUsers = false;
 
     render(UserManagement);
 

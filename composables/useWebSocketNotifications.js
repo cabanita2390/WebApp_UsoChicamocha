@@ -2,6 +2,7 @@ import { writable, get } from 'svelte/store';
 import { auth } from '../stores/auth.js';
 import { data } from '../stores/data.js';
 import { ui, addNotification, addPreventiveAlert } from '../stores/ui.js';
+import { ejecucionCambio, ordenCambio } from '../stores/subestacionesEventos.js';
 import { log, warn } from '@/lib/logger.js';
 
 // Import SockJS and STOMP for browser environment
@@ -26,7 +27,9 @@ const NOTIFICATION_TOPICS = {
   CONNECTION: '/topic/notifications/connection',
   SOAT_RUNT: '/topic/notifications/soat-runt',
   ALERTS: '/topic/alerts',
-  UNIFIED_ALERTS: '/topic/alerts/unified'
+  UNIFIED_ALERTS: '/topic/alerts/unified',
+  SUBESTACIONES_EJECUCIONES: '/topic/subestaciones/ejecuciones',
+  SUBESTACIONES_ORDENES: '/topic/subestaciones/ordenes'
 };
 
 // Notification types
@@ -322,6 +325,16 @@ function subscribeToAllTopics() {
       topic: NOTIFICATION_TOPICS.UNIFIED_ALERTS,
       type: 'unified-alert',
       handler: handleUnifiedAlert
+    },
+    {
+      topic: NOTIFICATION_TOPICS.SUBESTACIONES_EJECUCIONES,
+      type: 'subestaciones-ejecucion',
+      handler: handleSubestacionEjecucion
+    },
+    {
+      topic: NOTIFICATION_TOPICS.SUBESTACIONES_ORDENES,
+      type: 'subestaciones-orden',
+      handler: handleSubestacionOrden
     }
   ];
 
@@ -467,6 +480,22 @@ function handleDataUpdateMessage(message) {
   const updateType = message.type || message;
 
   handleDataUpdate(currentView, updateType);
+}
+
+// Sin sonido ni toast: solo avisa a las vistas de subestaciones para que recarguen sus datos.
+function handleSubestacionEjecucion(message) {
+  if (!message || message.type === 'stream_open' || message === 'stream_open') {
+    return;
+  }
+  ejecucionCambio.set({ ...message, recibido: Date.now() });
+}
+
+// Una orden de trabajo cambió: también sin sonido ni toast.
+function handleSubestacionOrden(message) {
+  if (!message || message.type === 'stream_open' || message === 'stream_open') {
+    return;
+  }
+  ordenCambio.set({ ...message, recibido: Date.now() });
 }
 
 function handleOilChangeMessage(message) {

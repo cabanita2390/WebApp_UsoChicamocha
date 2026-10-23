@@ -8,7 +8,6 @@ export const PASSWORD = "QaFuel#2026";
 export const QA_USERS = {
   admin: { username: "qa.admin", role: "ADMIN" },
   supervisor: { username: "qa.supervisor", role: "SUPERVISOR_OPERATIVO" },
-  almacen: { username: "qa.almacen", role: "ALMACEN" },
   operario: { username: "qa.operario", role: "OPERARIO" },
 };
 
@@ -27,8 +26,8 @@ export async function fillLoginForm(page, username, password = PASSWORD) {
 /**
  * Login real + espera a que cargue el layout autenticado (mismo patrón que
  * app.spec.js: esperar `.app-container` y despachar el overlay de sonido si
- * aparece). Solo válido para roles con acceso web (ADMIN/SUPERVISOR_OPERATIVO/
- * ALMACEN) — OPERARIO nunca llega a este estado (ver stores/auth.js allowedRoles).
+ * aparece). Solo válido para roles con acceso web (ADMIN/SUPERVISOR_OPERATIVO) —
+ * OPERARIO nunca llega a este estado (ver stores/auth.js allowedRoles).
  */
 export async function loginWeb(page, username, password = PASSWORD) {
   await fillLoginForm(page, username, password);

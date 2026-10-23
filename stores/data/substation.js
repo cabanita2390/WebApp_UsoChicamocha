@@ -1,0 +1,51 @@
+/**
+ * Módulo de mantenimiento de Estaciones de Bombeo (todas las disciplinas). Reportes de
+ * solo lectura — la captura de ejecuciones ocurre desde la app móvil, no aquí
+ * (ver docs/design/subestaciones-design-brief.md).
+ */
+export function createSubstationActions({ fetchWithAuth, fetchAll, fetchPaginated }) {
+    return {
+        fetchSubstationEstaciones: () => fetchAll('substationEstaciones', 'substation/estaciones'),
+
+        /** Sin disciplina: el catálogo de todas las disciplinas. */
+        fetchSubstationActividades: (disciplina) =>
+            fetchAll('substationActividades', `substation/actividades${disciplina ? `?disciplina=${disciplina}` : ''}`),
+
+        /**
+         * Listado paginado de ejecuciones. `filtros` refleja 1:1 los query params
+         * opcionales de GET /substation/ejecuciones (ver SubstationController):
+         * estacionId, fechaInicio, fechaFin, esProgramada, resultado (array —
+         * varios valores posibles, ej. el preset "solo hallazgos"), actividadId,
+         * tipoMantenimiento, tipoActividad.
+         */
+        fetchSubstationEjecuciones: (page = 0, size = 20, filtros = {}) => {
+            const params = new URLSearchParams();
+            if (filtros.estacionId) params.set('estacionId', filtros.estacionId);
+            if (filtros.fechaInicio) params.set('fechaInicio', filtros.fechaInicio);
+            if (filtros.fechaFin) params.set('fechaFin', filtros.fechaFin);
+            if (filtros.esProgramada != null && filtros.esProgramada !== '') params.set('esProgramada', filtros.esProgramada);
+            if (Array.isArray(filtros.resultado) && filtros.resultado.length) params.set('resultado', filtros.resultado.join(','));
+            if (filtros.actividadId) params.set('actividadId', filtros.actividadId);
+            if (filtros.tipoMantenimiento) params.set('tipoMantenimiento', filtros.tipoMantenimiento);
+            if (filtros.tipoActividad) params.set('tipoActividad', filtros.tipoActividad);
+            if (filtros.disciplina) params.set('disciplina', filtros.disciplina);
+            if (Array.isArray(filtros.seguimiento) && filtros.seguimiento.length) params.set('seguimiento', filtros.seguimiento.join(','));
+            if (filtros.conOrden != null) params.set('conOrden', filtros.conOrden);
+            // Orden elegido en la tabla (`filtros.sort`, p. ej. ['estacion.nombre,asc']) y después
+            // el de siempre: más reciente primero — sin esto Spring Data no aplica ningún orden
+            // garantizado (en la práctica salía por id de inserción, más viejo primero).
+            // Con la misma fecha, el último registrado primero.
+            const sort = Array.isArray(filtros.sort) ? filtros.sort : [];
+            sort.forEach((s) => params.append('sort', s));
+            if (!sort.some((s) => s.startsWith('fecha,'))) params.append('sort', 'fecha,desc');
+            params.append('sort', 'id,desc');
+            const qs = params.toString();
+            return fetchPaginated('substationEjecuciones', 'substation/ejecuciones', page, size, {
+                extraQuery: qs ? `&${qs}` : '',
+            });
+        },
+
+        /** Detalle de una ejecución (para el modal "Ver detalle" de la pantalla de Ejecuciones). */
+        fetchSubstationEjecucion: (id) => fetchWithAuth(`substation/ejecuciones/${id}`),
+    };
+}

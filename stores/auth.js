@@ -4,12 +4,16 @@ import { jwtDecode } from "jwt-decode";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Helper function to manage tokens and user data
-function setSession(accessToken, refreshToken, decodedPayload) {
+function setSession(accessToken, refreshToken, decodedPayload, archivosToken) {
   const userRole = (decodedPayload.role || '').replace(/[\[\]']+/g, '').replace('ROLE_', '');
   
   localStorage.setItem('accessToken', accessToken);
   if (refreshToken) {
     localStorage.setItem('refreshToken', refreshToken);
+  }
+  // Credencial para ver archivos de /uploads (ver conAccesoArchivo en api.js).
+  if (archivosToken) {
+    localStorage.setItem('archivosToken', archivosToken);
   }
   localStorage.setItem('userName', decodedPayload.sub);
   localStorage.setItem('userRole', userRole);
@@ -21,6 +25,7 @@ function setSession(accessToken, refreshToken, decodedPayload) {
 function clearSession() {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
+  localStorage.removeItem('archivosToken');
   localStorage.removeItem('userName');
   localStorage.removeItem('userRole');
 }
@@ -99,7 +104,7 @@ function createAuthStore() {
       const newAccessToken = data.accessToken;
       const newDecodedPayload = jwtDecode(newAccessToken);
 
-      const currentUser = setSession(newAccessToken, storedRefreshToken, newDecodedPayload);
+      const currentUser = setSession(newAccessToken, storedRefreshToken, newDecodedPayload, data.archivosToken);
       set({ isAuthenticated: true, currentUser, isRefreshing: false });
 
       console.log(`✅ Token refrescado proactivamente. Próxima renovación en ~5min`);
@@ -139,13 +144,13 @@ function createAuthStore() {
 
         const userRole = (decodedPayload.role || '').replace(/[\[\]']+/g, '').replace('ROLE_', '');
 
-        // Web: ADMIN, SUPERVISOR_OPERATIVO, ALMACEN (panel de combustibles). OPERARIO solo usa app móvil.
-        const allowedRoles = ['ADMIN', 'SUPERVISOR_OPERATIVO', 'ALMACEN'];
+        // Los roles del sistema son 3: ADMIN y SUPERVISOR_OPERATIVO usan la web; OPERARIO solo la app móvil.
+        const allowedRoles = ['ADMIN', 'SUPERVISOR_OPERATIVO'];
         if (!allowedRoles.includes(userRole)) {
           return { success: false, error: 'Acceso denegado. Usa la app móvil 📱' };
         }
 
-        const currentUser = setSession(accessToken, newRefreshToken, decodedPayload);
+        const currentUser = setSession(accessToken, newRefreshToken, decodedPayload, data.archivosToken);
         set({ isAuthenticated: true, currentUser, isRefreshing: false });
 
         // 🔄 NUEVO: Inicia monitor de refresh automático
@@ -159,6 +164,12 @@ function createAuthStore() {
     },
     logout: () => {
       clearSession();
+      // Sin esto, la URL (#/users) sobrevive al logout y el siguiente login, quizá de otro
+      // usuario u otro rol, abre esa misma página. replaceState no dispara hashchange: el
+      // Router ya se desmontó y al montarse de nuevo lee la URL limpia.
+      if (typeof window !== 'undefined' && window.location.hash && window.location.hash !== '#/') {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/`);
+      }
       stopTokenRefreshMonitor();
       set({ isAuthenticated: false, currentUser: null, isRefreshing: false });
     },

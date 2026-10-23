@@ -1,6 +1,6 @@
 <script>
   import { pop } from 'svelte-spa-router';
-  import { createMachineOilHistoryColumns } from '../../config/table-definitions.js';
+  import { createMachineOilHistoryColumns, formatDate } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
   import { auth } from '../../stores/auth.js';
   import { addNotification } from '../../stores/ui.js';
@@ -48,16 +48,6 @@
 
   $: totalCambios = history.length;
   $: ultimoCambio = history[0] ?? null;
-
-  function formatDate(raw) {
-    if (!raw) return 'N/A';
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return String(raw);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
 
   // ---- Editar/Eliminar un registro del historial ("en caso de error") ----
 
@@ -176,11 +166,11 @@
         <span class="summary-value">{totalCambios}</span>
       </div>
       <div class="summary-card">
-        <span class="summary-label">Último horómetro</span>
+        <span class="summary-label">Horómetro en último cambio</span>
         <span class="summary-value">{ultimoCambio?.hourMeter ?? 'N/A'}</span>
       </div>
       <div class="summary-card">
-        <span class="summary-label">Promedio de cambio (h)</span>
+        <span class="summary-label">Intervalo (h)</span>
         <span class="summary-value summary-value--highlight">{ultimoCambio?.averageHoursChange ?? 'N/A'}</span>
       </div>
       <div class="summary-card">
@@ -253,7 +243,7 @@
             <input id="oh-hourmeter" type="number" min="0" step="0.1" bind:value={editForm.currentHourMeter} disabled={editSubmitting} />
           </label>
           <label class="oh-field" for="oh-avg">
-            <span class="oh-field-label">Promedio de cambio (h)</span>
+            <span class="oh-field-label">Intervalo (h)</span>
             <input id="oh-avg" type="number" min="1" bind:value={editForm.averageHoursChange} disabled={editSubmitting} />
           </label>
         </div>

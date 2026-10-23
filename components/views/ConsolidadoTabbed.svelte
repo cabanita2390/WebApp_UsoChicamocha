@@ -105,7 +105,8 @@
 
   $: vehicleData = $data.vehicleMonitoring ?? [];
   $: motoData    = $data.motoMonitoring    ?? [];
-  $: isLoading   = $data.isLoading;
+  $: isLoadingVehicleMonitoring = $data.isLoadingVehicleMonitoring;
+  $: isLoadingMotoMonitoring    = $data.isLoadingMotoMonitoring;
 
   function handleGridAction(ev) {
     const { type, data: row } = ev.detail;
@@ -145,7 +146,7 @@
               {isExportingVehicles ? 'Descargando...' : 'Exportar Excel'}
             </button>
           </div>
-          {#if isLoading}
+          {#if isLoadingVehicleMonitoring}
             <div class="vehicle-loader">
               <Loader />
               <p>Cargando consolidado de vehículos...</p>
@@ -178,7 +179,7 @@
               {isExportingMotos ? 'Descargando...' : 'Exportar Excel'}
             </button>
           </div>
-          {#if isLoading}
+          {#if isLoadingMotoMonitoring}
             <div class="vehicle-loader">
               <Loader />
               <p>Cargando consolidado de motos...</p>

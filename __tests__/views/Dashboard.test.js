@@ -79,7 +79,7 @@ describe('Dashboard', () => {
         currentPage: 0,
         pageSize: 20,
       },
-      isLoading: false,
+      isLoadingDashboard: false,
     };
 
     // Simula la suscripción al store para que el componente reciba el estado controlado.
@@ -98,7 +98,7 @@ describe('Dashboard', () => {
    * vista principal con el botón 'Refrescar' no es visible).
    */
   it('renders loading state when loading and no data', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingDashboard = true;
     mockDataStore.dashboard.data = [];
 
     render(Dashboard);

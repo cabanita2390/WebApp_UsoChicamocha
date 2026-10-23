@@ -11,8 +11,8 @@
   $: currentPage = $data.vehicleInspections.currentPage;
   $: pageSize = $data.vehicleInspections.pageSize;
   $: totalElements = $data.vehicleInspections.totalElements;
-  $: isLoading = $data.isLoading;
-  $: errorMessage = $data.error;
+  $: isLoading = $data.isLoadingVehicleInspections;
+  $: errorMessage = $data.errorVehicleInspections;
 
   let isExporting = false;
 

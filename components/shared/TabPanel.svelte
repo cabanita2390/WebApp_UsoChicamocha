@@ -4,6 +4,8 @@
   /** @type {{ id: string; label: string }[]} */
   export let tabs = [];
   export let activeTab = '';
+  /** Oculta la barra de pestañas (vista ampliada del Cronograma). */
+  export let hideBar = false;
 
   const dispatch = createEventDispatcher();
 
@@ -14,6 +16,7 @@
 </script>
 
 <div class="tab-panel">
+  {#if !hideBar}
   <div class="tab-bar" role="tablist">
     {#each tabs as tab}
       <button
@@ -27,6 +30,7 @@
       </button>
     {/each}
   </div>
+  {/if}
 
   <div class="tab-content" role="tabpanel">
     <slot {activeTab} />

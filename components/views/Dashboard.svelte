@@ -11,7 +11,7 @@
   const dispatch = createEventDispatcher();
 
   $: dashboardInfo = $data.dashboard;
-  $: isLoading = $data.isLoading;
+  $: isLoading = $data.isLoadingDashboard;
 
   onMount(() => {
     if (!$data.dashboard || !$data.dashboard.data || $data.dashboard.data.length === 0) {

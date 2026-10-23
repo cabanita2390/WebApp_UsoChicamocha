@@ -1,10 +1,10 @@
-import { normalizePlaca } from '../../src/lib/textFormat.js';
+import { normalizePlaca } from '../../lib/textFormat.js';
 
 export function createMonitoringActions({ update, get, subscribe, setLoading, setError, fetchAll, fetchPaginated, fetchWithAuth }) {
     return {
         // Monitoreo Vehículos y Motos
-        fetchVehicleMonitoring: () => fetchAll('vehicleMonitoring', 'vehicle/monitoring/consolidated'),
-        fetchMotoMonitoring: () => fetchAll('motoMonitoring', 'moto/monitoring/consolidated'),
+        fetchVehicleMonitoring: () => fetchAll('vehicleMonitoring', 'vehicle/monitoring/consolidated', { loadingKey: 'isLoadingVehicleMonitoring', errorKey: 'errorVehicleMonitoring' }),
+        fetchMotoMonitoring: () => fetchAll('motoMonitoring', 'moto/monitoring/consolidated', { loadingKey: 'isLoadingMotoMonitoring', errorKey: 'errorMotoMonitoring' }),
         
         /**
          * Última inspección por vehículo (excluye motos). Una fila por placa, la más reciente.
@@ -12,7 +12,7 @@ export function createMonitoringActions({ update, get, subscribe, setLoading, se
          */
         fetchVehicleInspections: async (page = 0, size = 20, options = {}) => {
             const reload = options.reload === true;
-            setLoading(true);
+            setLoading(true, 'isLoadingVehicleInspections');
             try {
                 const prev = get({ subscribe });
                 let list = Array.isArray(prev.vehicleInspectionsFull) ? prev.vehicleInspectionsFull : [];
@@ -40,12 +40,12 @@ export function createMonitoringActions({ update, get, subscribe, setLoading, se
                         currentPage: safePage,
                         pageSize: size,
                     },
-                    isLoading: false,
-                    error: null,
+                    isLoadingVehicleInspections: false,
+                    errorVehicleInspections: null,
                 }));
                 return slice;
             } catch (err) {
-                setError(err.message);
+                setError(err.message, { loadingKey: 'isLoadingVehicleInspections', errorKey: 'errorVehicleInspections' });
                 throw err;
             }
         },
@@ -58,6 +58,6 @@ export function createMonitoringActions({ update, get, subscribe, setLoading, se
             return fetchWithAuth(`vehicle-inspection/validar-kilometraje?${q.toString()}`);
         },
         /** Última inspección por placa (API deduplica por moto). */
-        fetchMotoInspections: (page = 0, size = 20) => fetchPaginated('motoInspections', 'moto/inspections/reports', page, size),
+        fetchMotoInspections: (page = 0, size = 20) => fetchPaginated('motoInspections', 'moto/inspections/reports', page, size, { loadingKey: 'isLoadingMotoInspections', errorKey: 'errorMotoInspections' }),
     };
 }

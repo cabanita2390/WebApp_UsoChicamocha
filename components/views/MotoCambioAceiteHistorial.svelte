@@ -1,6 +1,6 @@
 <script>
   import { pop } from 'svelte-spa-router';
-  import { createVehicleOilHistoryColumns } from '../../config/table-definitions.js';
+  import { createVehicleOilHistoryColumns, formatDate } from '../../config/table-definitions.js';
   const vehicleOilHistoryColumns = createVehicleOilHistoryColumns();
   import { data } from '../../stores/data.js';
   import DataGrid from '../shared/DataGrid.svelte';
@@ -51,15 +51,7 @@
     return new Intl.NumberFormat('es-CO').format(v);
   }
 
-  function formatDate(raw) {
-    if (!raw) return 'N/A';
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return String(raw);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
+
 </script>
 
 <div class="oil-history">
@@ -81,7 +73,7 @@
         <span class="summary-value">{totalCambios}</span>
       </div>
       <div class="summary-card">
-        <span class="summary-label">Último cambio (km)</span>
+        <span class="summary-label">Km en último cambio</span>
         <span class="summary-value">{formatKm(ultimoCambio?.kmAtChange)}</span>
       </div>
       <div class="summary-card">

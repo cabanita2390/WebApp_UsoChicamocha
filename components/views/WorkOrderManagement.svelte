@@ -8,7 +8,7 @@
   import { download } from '../../stores/api.js';
 
   $: workOrderInfo = $data.workOrders;
-  $: isLoading = $data.isLoading;
+  $: isLoading = $data.isLoadingWorkOrders;
 
   let showExecuteModal = false;
   let orderToExecute = null;

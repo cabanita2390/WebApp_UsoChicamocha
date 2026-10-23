@@ -31,6 +31,8 @@ const ROUTE_TITLES = {
     "/fuel": "Combustibles",
     "/fuel-history": "Historial De Tanqueos",
     "/fuel-performance-history": "Historial De Rendimiento",
+    "/subestaciones": "Estaciones de Bombeo",
+    "/subestaciones/configuracion": "Estaciones de Bombeo / Configuración",
 };
 
 /**

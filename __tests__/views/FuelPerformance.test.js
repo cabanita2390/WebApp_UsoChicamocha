@@ -155,13 +155,21 @@ describe('FuelPerformance', () => {
     expect(screen.getByRole('button', { name: /^motocicletas 1$/i })).toBeTruthy();
   });
 
-  it('un ADMIN ve el botón de configurar consumo estándar, un SUPERVISOR_OPERATIVO no', () => {
+  it('ADMIN y SUPERVISOR_OPERATIVO ven el botón de configurar consumo estándar, un OPERARIO no', () => {
     const { unmount } = render(FuelPerformance);
     expect(screen.getByRole('button', { name: /configurar consumo estándar/i })).toBeTruthy();
     unmount();
 
     auth.subscribe.mockImplementation((callback) => {
       callback({ isAuthenticated: true, currentUser: { name: 'Sup', role: 'SUPERVISOR_OPERATIVO' }, isRefreshing: false });
+      return () => {};
+    });
+    const sup = render(FuelPerformance);
+    expect(screen.getByRole('button', { name: /configurar consumo estándar/i })).toBeTruthy();
+    sup.unmount();
+
+    auth.subscribe.mockImplementation((callback) => {
+      callback({ isAuthenticated: true, currentUser: { name: 'Op', role: 'OPERARIO' }, isRefreshing: false });
       return () => {};
     });
     render(FuelPerformance);
