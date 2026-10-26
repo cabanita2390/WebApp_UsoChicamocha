@@ -9,6 +9,8 @@
   import DocHistoryModal from "../shared/DocHistoryModal.svelte";
   import EditAssetModal from "../shared/EditAssetModal.svelte";
   import FuelConfigFields from "../shared/FuelConfigFields.svelte";
+  import TireProfileField from "../shared/TireProfileField.svelte";
+  import { asignacionDeActivo, sincronizarPerfilLlantas } from "../../lib/presionLlantas.js";
   import { vehicleManagementColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from 'svelte';
   import { addNotification } from '../../stores/ui.js';
@@ -126,6 +128,10 @@
   const initialFuelConfig = { fuelTypeDefaultId: "", consumoEstandar: "", unidadConsumo: "", tanqueCapacidadGal: "" };
   let fuelConfigNew = { ...initialFuelConfig };
   let fuelConfigEdit = { ...initialFuelConfig };
+  // Perfil de llantas (asset_llanta_config): también aparte del activo; solo se
+  // guarda si cambió respecto al que tenía al abrir el formulario.
+  let tirePerfilNew = "";
+  let tireConfigEdit = { perfilId: "", original: "" };
   /** Vigencias y archivos al alta. */
   let docSoatVencimiento = "";
   let docTecnoVencimiento = "";
@@ -230,6 +236,7 @@
   $: brands = Array.isArray($data.vehicleBrands) ? $data.vehicleBrands : [];
   $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
   $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
+  $: tireProfiles = Array.isArray($data.tireProfiles) ? $data.tireProfiles : [];
   $: types = vehicleTypesList.filter((t) => {
     const tid = t?.id != null && t.id !== '' ? Number(t.id) : NaN;
     if (!Number.isNaN(tid) && motoTypeIds.has(tid)) return false;
@@ -240,6 +247,10 @@
   $: isLoading = $data.isLoadingVehicles;
 
   onMount(async () => {
+    if (isAdmin || isSupervisorOperativo) {
+      data.fetchTireProfiles().catch((e) => console.warn("No se cargaron los perfiles de llantas:", e));
+      data.fetchTireAssignments().catch((e) => console.warn("No se cargaron las asignaciones de llantas:", e));
+    }
     try {
       await Promise.all([
         data.fetchVehicles(),
@@ -332,9 +343,15 @@
         } catch (fuelErr) {
           docExtra += " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
         }
+        try {
+          await sincronizarPerfilLlantas(data, { vehicleId: vid }, tirePerfilNew);
+        } catch (tireErr) {
+          docExtra += " " + (tireErr.message || "No se pudo asignar el perfil de llantas.");
+        }
       }
       newVehicle = { ...initialVehicleState };
       fuelConfigNew = { ...initialFuelConfig };
+      tirePerfilNew = "";
       docSoatVencimiento = "";
       docTecnoVencimiento = "";
       docTarjetaPropiedadFile = null;
@@ -394,6 +411,11 @@
         await guardarFuelConfigVehiculo(vehicleInEditor.id, fuelConfigEdit);
       } catch (fuelErr) {
         fuelExtra = " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+      }
+      try {
+        await sincronizarPerfilLlantas(data, { vehicleId: vehicleInEditor.id }, tireConfigEdit.perfilId, tireConfigEdit.original);
+      } catch (tireErr) {
+        fuelExtra += " " + (tireErr.message || "No se pudo asignar el perfil de llantas.");
       }
       await data.fetchVehicles();
       closeEditModal();
@@ -458,6 +480,9 @@
             tanqueCapacidadGal: existingConfig.tanqueCapacidadGal != null ? String(existingConfig.tanqueCapacidadGal) : "",
           }
         : { ...initialFuelConfig };
+      const tireConfig = asignacionDeActivo($data.tireAssignments, { vehicleId: fullVehicle.id });
+      const perfilActual = tireConfig ? String(tireConfig.perfilId) : "";
+      tireConfigEdit = { perfilId: perfilActual, original: perfilActual };
       showEditModal = true;
     } catch (e) {
       errorMessage = 'No se pudo cargar el vehículo para editar.';
@@ -469,6 +494,7 @@
     showEditModal = false;
     vehicleInEditor = null;
     fuelConfigEdit = { ...initialFuelConfig };
+    tireConfigEdit = { perfilId: "", original: "" };
     errorMessage = "";
   }
 
@@ -639,6 +665,13 @@
               disabled={isSubmitting}
               idPrefix="newVehicleFuel"
             />
+            <TireProfileField
+              bind:perfilId={tirePerfilNew}
+              profiles={tireProfiles}
+              aplicaA="VEHICULO"
+              disabled={isSubmitting}
+              idPrefix="newVehicleTire"
+            />
           {/if}
         </div>
         <div class="create-docs-head">Documentación</div>
@@ -735,6 +768,9 @@
   {errorMessage}
   fuelConfig={fuelConfigEdit}
   {fuelTypes}
+  tireConfig={tireConfigEdit}
+  {tireProfiles}
+  tireAplicaA="VEHICULO"
   on:close={closeEditModal}
   on:quickcatalog={(e) => quickCatalog.open(e.detail)}
   on:submit={handleUpdateVehicle}

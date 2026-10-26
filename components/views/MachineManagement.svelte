@@ -10,6 +10,8 @@
   } from "../../config/table-definitions.js";
   import { onDestroy, onMount } from 'svelte';
   import FuelConfigFields from "../shared/FuelConfigFields.svelte";
+  import TireProfileField from "../shared/TireProfileField.svelte";
+  import { asignacionDeActivo, sincronizarPerfilLlantas } from "../../lib/presionLlantas.js";
   import { addNotification } from '../../stores/ui.js';
   import { syncPreventiveAlertsFromServer } from '../../composables/useAlerts.js';
   import { download } from '../../stores/api.js';
@@ -46,6 +48,12 @@
   let fuelConfigNew = { ...initialFuelConfig };
   let fuelConfigEdit = { ...initialFuelConfig };
 
+  // Perfil de llantas (asset_llanta_config): también aparte de la máquina; solo se
+  // guarda si cambió respecto al que tenía al abrir el formulario.
+  let tirePerfilNew = "";
+  let tirePerfilEdit = "";
+  let tirePerfilEditOriginal = "";
+
   let machineInEditor = null;
   let showEditModal = false;
   let machineToDelete = null;
@@ -57,10 +65,15 @@
   $: isLoading = $data.isLoadingMachines;
   $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
   $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
+  $: tireProfiles = Array.isArray($data.tireProfiles) ? $data.tireProfiles : [];
 
   onMount(() => {
     if (!($data.fuelTypes ?? []).length) data.fetchFuelTypes();
     if (!($data.fuelAssetConfig ?? []).length) data.fetchAssetFuelConfig();
+    if (isAdmin || isSupervisorOperativo) {
+      data.fetchTireProfiles().catch((e) => console.warn("No se cargaron los perfiles de llantas:", e));
+      data.fetchTireAssignments().catch((e) => console.warn("No se cargaron las asignaciones de llantas:", e));
+    }
   });
 
   $: if (machines?.length > 0) {
@@ -103,9 +116,15 @@
         } catch (fuelErr) {
           fuelExtra = " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
         }
+        try {
+          await sincronizarPerfilLlantas(data, { machineId: created.id }, tirePerfilNew);
+        } catch (tireErr) {
+          fuelExtra += " " + (tireErr.message || "No se pudo asignar el perfil de llantas.");
+        }
       }
       newMachine = { ...initialMachineState };
       fuelConfigNew = { ...initialFuelConfig };
+      tirePerfilNew = "";
       // El backend ya recalculó las alertas (SOAT/seguro todo riesgo) al guardar la máquina.
       syncPreventiveAlertsFromServer(false);
       if (fuelExtra) addNotification({ id: Date.now(), text: "Máquina creada." + fuelExtra });
@@ -128,6 +147,11 @@
         await guardarFuelConfigMaquina(machineInEditor.id, fuelConfigEdit);
       } catch (fuelErr) {
         fuelExtra = " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+      }
+      try {
+        await sincronizarPerfilLlantas(data, { machineId: machineInEditor.id }, tirePerfilEdit, tirePerfilEditOriginal);
+      } catch (tireErr) {
+        fuelExtra += " " + (tireErr.message || "No se pudo asignar el perfil de llantas.");
       }
       closeEditModal();
       // El backend ya recalculó las alertas (SOAT/seguro todo riesgo) al guardar la máquina.
@@ -199,6 +223,8 @@
             tanqueCapacidadGal: existingConfig.tanqueCapacidadGal != null ? String(existingConfig.tanqueCapacidadGal) : "",
           }
         : { ...initialFuelConfig };
+      const tireConfig = asignacionDeActivo($data.tireAssignments, { machineId: fullMachine.id });
+      tirePerfilEdit = tirePerfilEditOriginal = tireConfig ? String(tireConfig.perfilId) : "";
       showEditModal = true;
     } catch (e) {
       errorMessage = 'No se pudo cargar la máquina para editar.';
@@ -210,6 +236,7 @@
     showEditModal = false;
     machineInEditor = null;
     fuelConfigEdit = { ...initialFuelConfig };
+    tirePerfilEdit = tirePerfilEditOriginal = "";
     errorMessage = "";
   }
 
@@ -317,6 +344,13 @@
               preferPorHora={true}
               idPrefix="newMachineFuel"
             />
+            <TireProfileField
+              bind:perfilId={tirePerfilNew}
+              profiles={tireProfiles}
+              aplicaA="MAQUINARIA"
+              disabled={isSubmitting}
+              idPrefix="newMachineTire"
+            />
           {/if}
         </div>
         <div class="create-actions">
@@ -401,6 +435,13 @@
               disabled={isSubmitting}
               preferPorHora={true}
               idPrefix="editMachineFuel"
+            />
+            <TireProfileField
+              bind:perfilId={tirePerfilEdit}
+              profiles={tireProfiles}
+              aplicaA="MAQUINARIA"
+              disabled={isSubmitting}
+              idPrefix="editMachineTire"
             />
           {/if}
         </div>

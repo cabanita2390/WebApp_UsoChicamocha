@@ -26,6 +26,8 @@
   import MonitoringDocsActionCell from "./data-grid-cells/MonitoringDocsActionCell.svelte";
   import MonitoringOilActionCell from "./data-grid-cells/MonitoringOilActionCell.svelte";
   import VerDetalleActionCell from "./data-grid-cells/VerDetalleActionCell.svelte";
+  import TirePressureDetailModal from "./TirePressureDetailModal.svelte";
+  import { resumenCeldaPresion } from "../../lib/presionLlantas.js";
 
   export let columns = [];
   export let data = [];
@@ -85,6 +87,15 @@
 
   function handleAction(type, rowData) {
     dispatch("action", { type, data: rowData });
+  }
+
+  // Presión de llantas: el detalle se abre aquí mismo (no pasa por cellContextMenu,
+  // que en las inspecciones abre "crear orden de trabajo" y la presión no genera órdenes).
+  let tirePressureRow = null;
+  let tirePressureTitle = "";
+  function openTirePressure(row, columnDef) {
+    tirePressureTitle = columnDef.meta?.getTirePressureTitle?.(row) ?? "Presión de llantas";
+    tirePressureRow = row;
   }
 
   function handleStatusClick(row, columnDef) {
@@ -376,6 +387,7 @@
                 key={cell.id}
                 class:multiline={cell.column.columnDef.meta?.isMultiline}
                 class:status-cell={cell.column.columnDef.meta?.isStatus ||
+                  cell.column.columnDef.meta?.isTirePressure ||
                   cell.column.columnDef.meta?.isDateStatus ||
                   cell.column.columnDef.meta?.isPlainMonitoringDate}
                 class:td-actions={cell.column.columnDef.meta?.isAction ||
@@ -488,6 +500,20 @@
                   >
                     {v ?? "N/A"}
                   </button>
+                {:else if cell.column.columnDef.meta?.isTirePressure}
+                  {@const estado = resumenCeldaPresion(row.original)}
+                  {#if estado}
+                    <button
+                      type="button"
+                      class="status-btn {estado.statusClass}"
+                      title="Ver presión por llanta"
+                      on:click={() => openTirePressure(row.original, cell.column.columnDef)}
+                    >
+                      {estado.label}
+                    </button>
+                  {:else}
+                    <span class="tire-none">—</span>
+                  {/if}
                 {:else if cell.column.columnDef.meta?.isStatusCell}
                   {@const status = cell.column.columnDef.meta.getStatus(row.original)}
                   {@const v = cell.getContext().getValue()}
@@ -582,6 +608,12 @@
     {/if}
   </div>
 </div>
+
+<TirePressureDetailModal
+  inspection={tirePressureRow}
+  title={tirePressureTitle}
+  on:close={() => (tirePressureRow = null)}
+/>
 
 <style>
   /* Estas reglas son :global porque el markup que las usa se movió a
@@ -912,6 +944,11 @@
     border-color: #e0b000;
   }
 
+  .tire-none {
+    display: block;
+    text-align: center;
+    color: #808080;
+  }
   .status-optimo {
     background-color: #91c483;
   }
