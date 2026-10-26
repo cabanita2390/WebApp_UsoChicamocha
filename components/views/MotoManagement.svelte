@@ -14,7 +14,7 @@
   import { addNotification } from "../../stores/ui.js";
   import { syncPreventiveAlertsFromServer } from "../../composables/useAlerts.js";
   import { download } from "../../stores/api.js";
-  import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
+  import { formatMotoVehiclePayload, validarPlaca } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
   import { normLower, normalizeBelongsTo, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
   import { createQuickCatalog } from '../../composables/useQuickCatalog.js';
@@ -137,8 +137,8 @@
 
   async function openDocModal(row) {
     try {
-      const v = await data.getVehicleByPlaca(row.placa);
-      docVehicleId = v?.id ?? null;
+      // La fila ya trae el id: buscar por placa fallaba con placas con símbolos (p. ej. "%").
+      docVehicleId = row?.id ?? null;
       if (docVehicleId == null) throw new Error('No se encontró la moto.');
       docModalRow = row;
       docModalOpen = true;
@@ -250,7 +250,8 @@
 
   async function handleCreateMoto(event) {
     event.preventDefault();
-    errorMessage = "";
+    errorMessage = validarPlaca(newMoto.placa) ?? "";
+    if (errorMessage) return;
     if (motoTipoId == null) {
       errorMessage =
         "No se encontró el tipo MOTOCICLETA en el catálogo. Verifique la base de datos (cat_tipos_vehiculo).";
@@ -344,8 +345,9 @@
   async function handleUpdateMoto(event) {
     event.preventDefault();
     if (!motoInEditor || motoTipoId == null) return;
+    errorMessage = validarPlaca(motoInEditor.placa) ?? "";
+    if (errorMessage) return;
     isSubmitting = true;
-    errorMessage = "";
     try {
       await data.updateMoto(motoInEditor.id, formatMotoVehiclePayload(motoInEditor, motoTipoId));
       let fuelExtra = "";
@@ -394,7 +396,10 @@
 
   async function openEditModal(moto) {
     try {
-      const fullMoto = await data.getMotoByPlaca(moto.placa);
+      // La fila de la tabla ya es el VehicleResponse completo (GET /moto). No se vuelve a
+      // pedir por placa: una placa con "%" hacía que el servidor rechazara la URL y no se
+      // podía abrir el editor para corregirla.
+      const fullMoto = { ...moto };
       motoInEditor = {
         ...fullMoto,
         idMarca: resolveBrandIdFromMoto(fullMoto),
