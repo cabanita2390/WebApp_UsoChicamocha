@@ -66,7 +66,8 @@ vi.mock('../shared/Loader.svelte', () => ({
   })),
 }));
 
-vi.mock('@/lib/textFormat.js', () => ({
+vi.mock('@/lib/textFormat.js', async (importOriginal) => ({
+  ...(await importOriginal()),
   formatVehiclePayload: vi.fn((v) => v),
 }));
 
@@ -166,6 +167,18 @@ describe('VehicleManagement', () => {
     await waitFor(() => {
       expect(data.createVehicle).toHaveBeenCalled();
     });
+  });
+
+  it('no crea el vehículo si la placa tiene símbolos y explica por qué', async () => {
+    const { container } = render(VehicleManagement);
+    await tick();
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: ABC123'), { target: { value: 'SDZ%#F' } });
+    await fireEvent.submit(container.querySelector('form.create-form'));
+    await tick();
+
+    expect(data.createVehicle).not.toHaveBeenCalled();
+    expect(screen.getByText(/solo puede tener letras, números y guion/)).toBeTruthy();
   });
 
   it('el campo de placa es obligatorio', async () => {
