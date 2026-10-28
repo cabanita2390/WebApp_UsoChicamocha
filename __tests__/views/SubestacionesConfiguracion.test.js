@@ -48,7 +48,7 @@ const ACTIVIDADES = [
 ];
 
 const CONJUNTOS = [
-  { id: 21, nombre: 'Gabinetes de control', disciplina: 'ELECTRICO', activa: true, enUso: true },
+  { id: 21, nombre: 'Gabinetes de control', disciplina: 'ELECTRICO', activa: true, enUso: true, icono: 'GABINETE' },
   { id: 22, nombre: 'Postes', disciplina: 'ELECTRICO', activa: false, enUso: false },
 ];
 const ELEMENTOS = [
@@ -304,5 +304,27 @@ describe('SubestacionesConfiguracion', () => {
 
     await fireEvent.click(screen.getByText('Reactivar'));
     await waitFor(() => expect(substationAdmin.cambiarEstadoConjunto).toHaveBeenCalledWith(22, true));
+  });
+
+  it('conjunto: se elige el ícono del móvil; el genérico se guarda como null', async () => {
+    substationAdmin.crearConjunto.mockResolvedValue({ id: 23 });
+    substationAdmin.actualizarConjunto.mockResolvedValue({});
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos' }));
+
+    await fireEvent.click(screen.getByText('Gabinetes de control'));
+    expect(screen.getByRole('radio', { name: 'Gabinete' }).getAttribute('aria-checked')).toBe('true');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Motor' }));
+    await fireEvent.click(screen.getByText('Guardar'));
+    await waitFor(() => expect(substationAdmin.actualizarConjunto)
+      .toHaveBeenCalledWith(21, { nombre: 'Gabinetes de control', disciplina: 'ELECTRICO', icono: 'MOTOR' }));
+
+    await fireEvent.click(await screen.findByText('+ Nuevo conjunto'));
+    expect(screen.getByRole('radio', { name: 'Genérico' }).getAttribute('aria-checked')).toBe('true');
+    await fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'Tablero de bombas' } });
+    await fireEvent.click(screen.getByText('Guardar'));
+    await waitFor(() => expect(substationAdmin.crearConjunto)
+      .toHaveBeenCalledWith({ nombre: 'Tablero de bombas', disciplina: 'ELECTRICO', icono: null }));
   });
 });

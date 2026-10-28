@@ -143,6 +143,7 @@
     {:else if $configuracionTab === "conj" || $configuracionTab === "elem"}
       {#key $configuracionTab}
         <ItemsCatalogoTabla items={$configuracionTab === "conj" ? conjuntos : elementos} textos={TEXTOS_ITEMS[$configuracionTab]}
+          conIcono={$configuracionTab === "conj"}
           on:nueva={() => (modal = { tipo: $configuracionTab, registro: null })}
           on:editar={(e) => (modal = { tipo: $configuracionTab, registro: e.detail })} />
       {/key}

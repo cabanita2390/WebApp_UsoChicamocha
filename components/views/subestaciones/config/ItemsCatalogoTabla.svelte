@@ -3,11 +3,14 @@
   import { disciplinaLabel } from "../../../../config/subestaciones.js";
   import { ordenarFilas } from "../../../../utils/ordenTabla.js";
   import ThOrden from "../ThOrden.svelte";
+  import IconoConjunto from "./IconoConjunto.svelte";
 
   /** ItemCatalogoResponse[]: conjuntos o elementos (todas las disciplinas, activos e inactivos). */
   export let items = [];
   /** { singular: "conjunto", plural: "conjuntos", ayuda: "…" } */
   export let textos;
+  /** Conjuntos: el ícono que ve el operario en el móvil, junto al nombre. */
+  export let conIcono = false;
 
   const dispatch = createEventDispatcher();
   const cols = "minmax(0,1.6fr) 140px 170px 110px";
@@ -38,7 +41,10 @@
     <div class="sub-tr clickable" class:inactiva={!x.activa} style="grid-template-columns:{cols}"
       role="button" tabindex="0" on:click={() => dispatch("editar", x)}
       on:keydown={(e) => e.key === "Enter" && dispatch("editar", x)}>
-      <span class="nombre">{x.nombre}</span>
+      <span class="nombre">
+        {#if conIcono}<span class="icono"><IconoConjunto codigo={x.icono} size={18} /></span>{/if}
+        {x.nombre}
+      </span>
       <span class="gris">{disciplinaLabel(x.disciplina)}</span>
       <span class="gris">{x.enUso ? "Sí, en visitas" : "Todavía no"}</span>
       <span>
@@ -64,6 +70,22 @@
   }
   .nombre {
     padding-right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .icono {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background: #fdf3d8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .inactiva .icono {
+    opacity: 0.5;
   }
   .gris {
     color: #52514e;

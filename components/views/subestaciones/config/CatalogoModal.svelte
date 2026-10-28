@@ -3,6 +3,8 @@
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import { flash } from "../../../../stores/subestacionesToast.js";
   import { TIPOS_ESTACION, FRECUENCIAS, DISCIPLINAS } from "../../../../config/subestaciones.js";
+  import { ICONOS_CONJUNTO } from "../../../../config/iconosConjunto.js";
+  import IconoConjunto from "./IconoConjunto.svelte";
 
   /** "est" | "act" | "conj" (conjunto) | "elem" (elemento) */
   export let tipo = "est";
@@ -20,7 +22,7 @@
   let f = esEst
     ? { nombre: registro?.nombre ?? "", tipo: registro?.tipo ?? "BOMBEO", frecuenciaBase: registro?.frecuenciaBase ?? "TRIMESTRAL" }
     : esItem
-      ? { nombre: registro?.nombre ?? "", disciplina: registro?.disciplina ?? disciplinaInicial }
+      ? { nombre: registro?.nombre ?? "", disciplina: registro?.disciplina ?? disciplinaInicial, icono: registro?.icono ?? null }
       : {
           nombre: registro?.nombre ?? "",
           nombreCorto: registro?.nombreCorto ?? "",
@@ -66,7 +68,9 @@
     try {
       const body = esEst
         ? { nombre: f.nombre, tipo: f.tipo, frecuenciaBase: f.frecuenciaBase }
-        : esItem ? { ...f } : { ...f, nombreCorto: f.nombreCorto.trim() || null };
+        : esItem
+          ? (tipo === "conj" ? { ...f } : { nombre: f.nombre, disciplina: f.disciplina })
+          : { ...f, nombreCorto: f.nombreCorto.trim() || null };
       if (esEst) {
         editando ? await substationAdmin.actualizarEstacion(registro.id, body) : await substationAdmin.crearEstacion(body);
       } else {
@@ -151,6 +155,24 @@
               : "El operario lo verá al registrar una visita de esta disciplina, en «¿Qué se intervino?»."}
           </span>
         </label>
+        {#if tipo === "conj"}
+          <div class="sub-field">
+            <span id="icono-label">Ícono en el móvil</span>
+            <div class="iconos" role="radiogroup" aria-labelledby="icono-label">
+              {#each ICONOS_CONJUNTO as ic}
+                <button type="button" role="radio" aria-checked={(f.icono ?? "ENERGIA") === ic.value} class="icono-op"
+                  class:on={(f.icono ?? "ENERGIA") === ic.value}
+                  on:click={() => (f.icono = ic.value === "ENERGIA" ? null : ic.value)}>
+                  <span class="icono-caja">
+                    <IconoConjunto codigo={ic.value} size={22} color={(f.icono ?? "ENERGIA") === ic.value ? "#ffffff" : "#7a5a12"} />
+                  </span>
+                  <span class="icono-nombre">{ic.label}</span>
+                </button>
+              {/each}
+            </div>
+            <span class="sub-field-hint">Así aparece el mosaico de este conjunto en el teléfono.</span>
+          </div>
+        {/if}
       {:else if esEst}
         <div class="two">
           <label class="sub-field">Tipo
@@ -213,6 +235,48 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+  }
+  .iconos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 8px;
+  }
+  .icono-op {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 4px;
+    border: 1.5px solid #e6e1ee;
+    border-radius: 12px;
+    background: #fff;
+    font: inherit;
+    cursor: pointer;
+  }
+  .icono-op:focus-visible {
+    outline: 2px solid #2a78d6;
+    outline-offset: 2px;
+  }
+  .icono-op.on {
+    border-color: #5b3fa0;
+    background: #f7f3fc;
+  }
+  .icono-caja {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #fdf3d8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icono-op.on .icono-caja {
+    background: #5b3fa0;
+  }
+  .icono-nombre {
+    font-size: 11.5px;
+    color: #3f3e3b;
+    text-align: center;
   }
   .check {
     display: flex;
