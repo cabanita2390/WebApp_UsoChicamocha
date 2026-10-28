@@ -249,14 +249,13 @@ describe('SubestacionesConfiguracion', () => {
     expect(substationAdmin.actualizarEstacion).not.toHaveBeenCalled();
   });
 
-  it('pestaña Conjuntos: nombre, disciplina, si ya se usó y estado', async () => {
+  it('pestaña Conjuntos: nombre, disciplina y estado (sin la columna "¿Ya se usó?")', async () => {
     render(SubestacionesConfiguracion);
     await screen.findByText('Ayalas');
     await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos' }));
 
     expect(screen.getByText('Gabinetes de control')).toBeTruthy();
-    expect(screen.getByText('Sí, en visitas')).toBeTruthy();
-    expect(screen.getByText('Todavía no')).toBeTruthy();
+    expect(screen.queryByText('¿Ya se usó?')).toBeNull();
     expect(screen.getByText('✓ Activo')).toBeTruthy();
     expect(screen.getByText('○ Inactivo')).toBeTruthy();
     expect(screen.getAllByText('Eléctrico').length).toBe(2);

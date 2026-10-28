@@ -13,13 +13,12 @@
   export let conIcono = false;
 
   const dispatch = createEventDispatcher();
-  const cols = "minmax(0,1.6fr) 140px 170px 110px";
+  const cols = "minmax(0,1.6fr) 160px 120px";
 
   let orden = null;
   const VALORES = {
     nombre: (x) => x.nombre,
     disciplina: (x) => disciplinaLabel(x.disciplina),
-    uso: (x) => (x.enUso ? 0 : 1),
     estado: (x) => (x.activa ? 0 : 1),
   };
   $: filas = ordenarFilas(items, orden, VALORES, (x) => x.nombre);
@@ -33,7 +32,6 @@
   <div class="sub-th" style="grid-template-columns:{cols}">
     <ThOrden campo="nombre" {orden} on:orden={(e) => (orden = e.detail)}>Nombre</ThOrden>
     <ThOrden campo="disciplina" {orden} on:orden={(e) => (orden = e.detail)}>Disciplina</ThOrden>
-    <ThOrden campo="uso" {orden} on:orden={(e) => (orden = e.detail)}>¿Ya se usó?</ThOrden>
     <ThOrden campo="estado" {orden} on:orden={(e) => (orden = e.detail)}>Estado</ThOrden>
   </div>
   {#each filas as x (x.id)}
@@ -46,7 +44,6 @@
         {x.nombre}
       </span>
       <span class="gris">{disciplinaLabel(x.disciplina)}</span>
-      <span class="gris">{x.enUso ? "Sí, en visitas" : "Todavía no"}</span>
       <span>
         {#if x.activa}
           <span class="sub-badge ok">✓ Activo</span>
@@ -66,7 +63,7 @@
   }
   .sub-th,
   .sub-tr {
-    min-width: 640px;
+    min-width: 520px;
   }
   .nombre {
     padding-right: 12px;
