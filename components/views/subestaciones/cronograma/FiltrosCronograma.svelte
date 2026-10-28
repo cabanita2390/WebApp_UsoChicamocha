@@ -87,9 +87,9 @@
 <div class="sub-overlay" on:click|self={() => dispatch("close")}>
   <div class="panel" role="dialog" aria-modal="true" aria-label="Filtros" tabindex="-1" bind:this={panel}>
     <div class="cab">
-      <button class="x" aria-label="Cerrar" on:click={() => dispatch("close")}>✕</button>
-      <span class="t">Filtros</span>
       <span></span>
+      <span class="t">Filtros</span>
+      <button class="x" aria-label="Cerrar" on:click={() => dispatch("close")}>✕</button>
     </div>
 
     <div class="cuerpo">
@@ -225,6 +225,7 @@
   }
   .x {
     all: unset;
+    justify-self: end;
     cursor: pointer;
     width: 32px;
     height: 32px;
