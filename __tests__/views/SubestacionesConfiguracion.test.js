@@ -276,6 +276,12 @@ describe('SubestacionesConfiguracion', () => {
     expect(screen.getByText('Mostrando 21–40 de 46')).toBeTruthy();
     expect(screen.getByText('Elemento 21')).toBeTruthy();
 
+    // La cantidad por página se elige; al cambiarla vuelve a la página 1.
+    await fireEvent.change(screen.getByLabelText('Filas por página'), { target: { value: '50' } });
+    expect(screen.getByText('Mostrando 1–46 de 46')).toBeTruthy();
+    expect(screen.getByText('Elemento 45')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Siguiente ›' }).disabled).toBe(true);
+
     // Buscar vuelve a la página 1; con una sola página no hay paginación.
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Buscar elemento' }), { target: { value: 'BUJIA' } });
     expect(screen.getByText('Bujía de encendido')).toBeTruthy();

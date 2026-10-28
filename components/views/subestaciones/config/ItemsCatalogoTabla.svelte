@@ -26,13 +26,13 @@
   $: filas = ordenarFilas(items, orden, VALORES, (x) => x.nombre);
 
   // Buscador y paginación en el navegador: el catálogo llega completo, pero puede crecer mucho.
-  const TAM = 20;
+  let tam = 20;
   let q = "";
   let pagina = 0;
   $: (q, orden, (pagina = 0));
   $: visibles = filas.filter((it) => coincideTexto([it.nombre], q));
-  $: if (pagina > 0 && pagina * TAM >= visibles.length) pagina = Math.max(0, Math.ceil(visibles.length / TAM) - 1);
-  $: pag = visibles.slice(pagina * TAM, (pagina + 1) * TAM);
+  $: if (pagina > 0 && pagina * tam >= visibles.length) pagina = Math.max(0, Math.ceil(visibles.length / tam) - 1);
+  $: pag = visibles.slice(pagina * tam, (pagina + 1) * tam);
 </script>
 
 <div class="sub-card scroll-x">
@@ -69,7 +69,7 @@
   {:else}
     <div class="sub-empty">{#if q}{`Ningún ${textos.singular} coincide con «${q}».`}{:else}Sin {textos.plural} registrados.{/if}</div>
   {/each}
-  <PieTabla bind:pagina total={visibles.length} tam={TAM} />
+  <PieTabla bind:pagina bind:tam total={visibles.length} />
 </div>
 
 <style>
