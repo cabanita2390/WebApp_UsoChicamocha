@@ -220,12 +220,12 @@
       </div>
       <div class="kpi-section">
         <span class="kpi-label">Discrepancias detectadas</span>
-        <span class="kpi-value  kpi-value--primary" class:kpi-value--warning={dashboard.discrepancias > 0}>{dashboard.discrepancias}</span>
+        <span class="kpi-value  kpi-value--primary" class:kpi-value--warning={dashboard.discrepancias > 0}>{dashboard.discrepancias ?? "—"}</span>
         <span class="kpi-hint">Ingresado ≠ calculado</span>
       </div>
       <div class="kpi-section">
         <span class="kpi-label">Alertas de rendimiento</span>
-        <span class="kpi-value  kpi-value--primary" class:kpi-value--warning={dashboard.alertasRendimiento > 0}>{dashboard.alertasRendimiento}</span>
+        <span class="kpi-value  kpi-value--primary" class:kpi-value--warning={dashboard.alertasRendimiento > 0}>{dashboard.alertasRendimiento ?? "—"}</span>
         <span class="kpi-hint">Consumo fuera de lo esperado</span>
       </div>
     </div>
@@ -426,26 +426,23 @@
     background: #256abf;
   }
   .btn-config {
-    background: #52514e;
     margin-left: auto;
-  }
-  .btn-config:hover {
-    background: #3d3c3a;
   }
   .btn-clear-filter {
     font-family: inherit;
     padding: 9px 20px;
     background: #fff;
-    color: #52514e;
+    color: #0b0b0b;
     border: 1px solid rgba(11, 11, 11, 0.12);
     border-radius: 999px;
     cursor: pointer;
     font-size: 12px;
     font-weight: 600;
     height: 34px;
+    white-space: nowrap;
   }
   .btn-clear-filter:hover {
-    background: #f5f6f8;
+    background: #fafaf9;
   }
   .fuel-loader {
     display: flex;
