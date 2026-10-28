@@ -290,7 +290,8 @@ describe('CronogramaAnual', () => {
     await waitFor(() => expect(get(subestacionesToast)?.text).toContain('Pintura muros · 1 cita en borrador'));
     expect(substationAdmin.asignar).toHaveBeenCalledTimes(1);
     expect(substationAdmin.asignar).toHaveBeenCalledWith({ anio: 2026, actividadId: 11, estacionIds: [2], meses: [10] });
-  });
+    // Es la prueba más larga de la suite (abre varios paneles): con toda la suite en paralelo pasa de 5 s.
+  }, 15000);
 
   it('el nombre de la estación no es clickeable (su detalle ya está en el Dashboard)', async () => {
     const { container } = render(CronogramaAnual);

@@ -721,7 +721,7 @@
     gap: 7px;
   }
   .filtros-btn.activos {
-    border: 2px solid #0b0b0b;
+    border: 2px solid #2a78d6;
     padding: 7px 15px;
   }
   .badge {
@@ -729,7 +729,7 @@
     height: 18px;
     padding: 0 5px;
     border-radius: 999px;
-    background: #0b0b0b;
+    background: #2a78d6;
     color: #fff;
     font-size: 11px;
     font-weight: 700;
