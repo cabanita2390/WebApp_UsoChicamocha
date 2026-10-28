@@ -261,6 +261,30 @@ describe('SubestacionesConfiguracion', () => {
     expect(screen.getAllByText('Eléctrico').length).toBe(2);
   });
 
+  it('Elementos: muchos se paginan de a 20 y el buscador filtra sin tildes', async () => {
+    substationAdmin.listarElementos.mockResolvedValue(Array.from({ length: 45 }, (_, i) => ({
+      id: 100 + i, nombre: `Elemento ${String(i + 1).padStart(2, '0')}`, disciplina: 'ELECTRICO', activa: true, enUso: false,
+    })).concat({ id: 200, nombre: 'Bujía de encendido', disciplina: 'ELECTRICO', activa: true, enUso: false }));
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('tab', { name: 'Elementos' }));
+
+    expect(await screen.findByText('Mostrando 1–20 de 46')).toBeTruthy();
+    expect(screen.getByText('Elemento 20')).toBeTruthy();
+    expect(screen.queryByText('Elemento 21')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Siguiente ›' }));
+    expect(screen.getByText('Mostrando 21–40 de 46')).toBeTruthy();
+    expect(screen.getByText('Elemento 21')).toBeTruthy();
+
+    // Buscar vuelve a la página 1; con una sola página no hay paginación.
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Buscar elemento' }), { target: { value: 'BUJIA' } });
+    expect(screen.getByText('Bujía de encendido')).toBeTruthy();
+    expect(screen.queryByText('Elemento 01')).toBeNull();
+    expect(screen.queryByText(/Mostrando/)).toBeNull();
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Buscar elemento' }), { target: { value: 'zzz' } });
+    expect(screen.getByText('Ningún elemento coincide con «zzz».')).toBeTruthy();
+  });
+
   it('nuevo elemento: arranca en Eléctrico, guarda con nombre y disciplina y recarga', async () => {
     substationAdmin.crearElemento.mockResolvedValue({ id: 32 });
     render(SubestacionesConfiguracion);

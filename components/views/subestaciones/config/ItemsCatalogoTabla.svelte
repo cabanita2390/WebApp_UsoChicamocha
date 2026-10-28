@@ -3,6 +3,8 @@
   import { disciplinaLabel } from "../../../../config/subestaciones.js";
   import { ordenarFilas } from "../../../../utils/ordenTabla.js";
   import ThOrden from "../ThOrden.svelte";
+  import PieTabla from "./PieTabla.svelte";
+  import { coincideTexto } from "../../../../utils/opcionesFiltro.js";
   import IconoConjunto from "./IconoConjunto.svelte";
 
   /** ItemCatalogoResponse[]: conjuntos o elementos (todas las disciplinas, activos e inactivos). */
@@ -22,19 +24,31 @@
     estado: (x) => (x.activa ? 0 : 1),
   };
   $: filas = ordenarFilas(items, orden, VALORES, (x) => x.nombre);
+
+  // Buscador y paginación en el navegador: el catálogo llega completo, pero puede crecer mucho.
+  const TAM = 20;
+  let q = "";
+  let pagina = 0;
+  $: (q, orden, (pagina = 0));
+  $: visibles = filas.filter((it) => coincideTexto([it.nombre], q));
+  $: if (pagina > 0 && pagina * TAM >= visibles.length) pagina = Math.max(0, Math.ceil(visibles.length / TAM) - 1);
+  $: pag = visibles.slice(pagina * TAM, (pagina + 1) * TAM);
 </script>
 
 <div class="sub-card scroll-x">
   <div class="sub-table-bar">
-    <span class="sub-table-bar-text"><strong>{items.length}</strong> {textos.plural} · {textos.ayuda}</span>
-    <button class="sub-btn-primary" on:click={() => dispatch("nueva")}>+ Nuevo {textos.singular}</button>
+    <span class="sub-table-bar-text">{#if q}<strong>{visibles.length}</strong> de {items.length}{:else}<strong>{items.length}</strong>{/if} {textos.plural} · {textos.ayuda}</span>
+    <div class="sub-table-bar-acciones">
+      <input class="sub-buscar-tabla" type="search" bind:value={q} placeholder={`Buscar ${textos.singular}…`} aria-label={`Buscar ${textos.singular}`} />
+      <button class="sub-btn-primary" on:click={() => dispatch("nueva")}>+ Nuevo {textos.singular}</button>
+    </div>
   </div>
   <div class="sub-th" style="grid-template-columns:{cols}">
     <ThOrden campo="nombre" {orden} on:orden={(e) => (orden = e.detail)}>Nombre</ThOrden>
     <ThOrden campo="disciplina" {orden} on:orden={(e) => (orden = e.detail)}>Disciplina</ThOrden>
     <ThOrden campo="estado" {orden} on:orden={(e) => (orden = e.detail)}>Estado</ThOrden>
   </div>
-  {#each filas as x (x.id)}
+  {#each pag as x (x.id)}
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
     <div class="sub-tr clickable" class:inactiva={!x.activa} style="grid-template-columns:{cols}"
       role="button" tabindex="0" on:click={() => dispatch("editar", x)}
@@ -53,8 +67,9 @@
       </span>
     </div>
   {:else}
-    <div class="sub-empty">Sin {textos.plural} registrados.</div>
+    <div class="sub-empty">{#if q}{`Ningún ${textos.singular} coincide con «${q}».`}{:else}Sin {textos.plural} registrados.{/if}</div>
   {/each}
+  <PieTabla bind:pagina total={visibles.length} tam={TAM} />
 </div>
 
 <style>

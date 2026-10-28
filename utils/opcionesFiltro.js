@@ -32,3 +32,8 @@ export function opcionesActividades(actividades = []) {
     .sort((a, b) => orden(a.disciplina) - orden(b.disciplina) || porNombre(a, b))
     .map((a) => ({ value: a.id, label: inactivo(a) ? `${a.nombre} (inactiva)` : a.nombre, grupo: a.disciplina ? disciplinaLabel(a.disciplina) : undefined }));
 }
+
+/** Búsqueda sin tildes ni mayúsculas en uno o varios textos ("electrico" encuentra "Eléctrico"). */
+const normal = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+export const coincideTexto = (textos, q) =>
+  !q || [].concat(textos).some((t) => normal(t).includes(normal(q).trim()));

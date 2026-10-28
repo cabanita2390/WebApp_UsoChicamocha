@@ -3,6 +3,8 @@
   import { disciplinaLabel } from "../../../../config/subestaciones.js";
   import { ordenarFilas } from "../../../../utils/ordenTabla.js";
   import ThOrden from "../ThOrden.svelte";
+  import PieTabla from "./PieTabla.svelte";
+  import { coincideTexto } from "../../../../utils/opcionesFiltro.js";
 
   /** ActividadResponse[] (todas las disciplinas, activas e inactivas) */
   export let actividades = [];
@@ -24,12 +26,24 @@
     estado: (a) => (a.activa ? 0 : 1),
   };
   $: filas = ordenarFilas(actividades, orden, VALORES, (a) => a.nombre);
+
+  // Buscador y paginación en el navegador: el catálogo llega completo, pero puede crecer mucho.
+  const TAM = 20;
+  let q = "";
+  let pagina = 0;
+  $: (q, orden, (pagina = 0));
+  $: visibles = filas.filter((it) => coincideTexto([it.nombre, it.nombreCorto], q));
+  $: if (pagina > 0 && pagina * TAM >= visibles.length) pagina = Math.max(0, Math.ceil(visibles.length / TAM) - 1);
+  $: pag = visibles.slice(pagina * TAM, (pagina + 1) * TAM);
 </script>
 
 <div class="sub-card scroll-x">
   <div class="sub-table-bar">
-    <span class="sub-table-bar-text"><strong>{actividades.length}</strong> actividades</span>
-    <button class="sub-btn-primary" on:click={() => dispatch("nueva")}>+ Nueva actividad</button>
+    <span class="sub-table-bar-text">{#if q}<strong>{visibles.length}</strong> de {actividades.length}{:else}<strong>{actividades.length}</strong>{/if} actividades</span>
+    <div class="sub-table-bar-acciones">
+      <input class="sub-buscar-tabla" type="search" bind:value={q} placeholder="Buscar actividad…" aria-label="Buscar actividad" />
+      <button class="sub-btn-primary" on:click={() => dispatch("nueva")}>+ Nueva actividad</button>
+    </div>
   </div>
   <div class="sub-th" style="grid-template-columns:{cols}">
     <ThOrden campo="nombre" {orden} on:orden={(e) => (orden = e.detail)}>Nombre</ThOrden>
@@ -39,7 +53,7 @@
     <ThOrden campo="citas" dirInicial="desc" {orden} on:orden={(e) => (orden = e.detail)}>Citas {anioActual ?? ""}</ThOrden>
     <ThOrden campo="estado" {orden} on:orden={(e) => (orden = e.detail)}>Estado</ThOrden>
   </div>
-  {#each filas as a (a.id)}
+  {#each pag as a (a.id)}
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
     <div class="sub-tr clickable" class:inactiva={!a.activa} style="grid-template-columns:{cols}"
       role="button" tabindex="0" on:click={() => dispatch("editar", a)}
@@ -58,8 +72,9 @@
       </span>
     </div>
   {:else}
-    <div class="sub-empty">Sin actividades registradas.</div>
+    <div class="sub-empty">{#if q}Ninguna actividad coincide con «{q}».{:else}Sin actividades registradas.{/if}</div>
   {/each}
+  <PieTabla bind:pagina total={visibles.length} tam={TAM} />
 </div>
 
 <style>
