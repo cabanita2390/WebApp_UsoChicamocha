@@ -62,12 +62,15 @@ import { data } from '../../stores/data.js';
 import { addNotification } from '../../stores/ui.js';
 import { ejecucionesFiltroInicial, disciplinaFiltro } from '../../stores/subestacionesFilters.js';
 
-/** Ubica el <select>/<input> de un chip de filtro por su etiqueta visible. */
-function chipControl(container, label) {
-  const chip = [...container.querySelectorAll('.filter-chip')].find(
+/** Ubica el <select>/<input> de un filtro por su etiqueta, abriendo el panel "Filtros" si está cerrado. */
+async function chipControl(_container, label) {
+  if (!document.querySelector('.panel-campos')) {
+    await fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
+  }
+  const chip = [...document.querySelectorAll('.panel-campos .filter-chip')].find(
     (el) => el.querySelector('.chip-lab')?.textContent === label,
   );
-  return chip.querySelector('select, input');
+  return chip?.querySelector('select, input');
 }
 
 describe('SubestacionesEjecuciones', () => {
@@ -105,9 +108,9 @@ describe('SubestacionesEjecuciones', () => {
     const { container } = render(SubestacionesEjecuciones);
     data.fetchSubstationEjecuciones.mockClear();
 
-    await fireEvent.change(chipControl(container, 'Estación'), { target: { value: '2' } });
-    await fireEvent.change(chipControl(container, 'Resultado'), { target: { value: 'CON_HALLAZGOS' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await fireEvent.change(await chipControl(container, 'Resultado'), { target: { value: 'CON_HALLAZGOS' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
 
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, {
       ...filtrosDefault,
@@ -120,8 +123,8 @@ describe('SubestacionesEjecuciones', () => {
     const { container } = render(SubestacionesEjecuciones);
     data.fetchSubstationEjecuciones.mockClear();
 
-    await fireEvent.change(chipControl(container, 'Origen'), { target: { value: 'true' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await fireEvent.change(await chipControl(container, 'Origen'), { target: { value: 'true' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
 
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, { ...filtrosDefault, esProgramada: true });
   });
@@ -136,7 +139,7 @@ describe('SubestacionesEjecuciones', () => {
     expect(screen.getByRole('heading', { name: 'Ejecuciones y hallazgos' })).toBeTruthy();
     expect(screen.getByText(/Civil · todo lo que se registró/)).toBeTruthy();
     // Solo las actividades de la disciplina elegida
-    const opciones = [...chipControl(container, 'Actividad').options].map((o) => o.textContent);
+    const opciones = [...(await chipControl(container, 'Actividad')).options].map((o) => o.textContent);
     expect(opciones).toEqual(['Todas', 'Civil · Pintura muros']);
 
     data.fetchSubstationEjecuciones.mockClear();
@@ -144,16 +147,18 @@ describe('SubestacionesEjecuciones', () => {
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, { ...filtrosDefault, disciplina: 'ELECTRICO' });
   });
 
-  it('el botón Limpiar vacía todos los filtros y vuelve a consultar', async () => {
+  it('Limpiar todo en el panel vacía los filtros y vuelve a consultar al aplicar', async () => {
     const { container } = render(SubestacionesEjecuciones);
-    await fireEvent.change(chipControl(container, 'Estación'), { target: { value: '2' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     data.fetchSubstationEjecuciones.mockClear();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Limpiar' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Limpiar todo' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
 
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, filtrosDefault);
-    expect(chipControl(container, 'Estación').value).toBe('');
+    expect((await chipControl(container, 'Estación')).value).toBe('');
   });
 
   it('el preset "Solo hallazgos" filtra por CON_HALLAZGOS+REQUIERE_INTERVENCION y se puede desactivar', async () => {
@@ -181,7 +186,7 @@ describe('SubestacionesEjecuciones', () => {
     await fireEvent.click(preset);
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, { ...filtrosDefault, esProgramada: false });
     expect(preset.className).toContain('chip-preset--activo');
-    expect(chipControl(container, 'Origen').value).toBe('false');
+    expect((await chipControl(container, 'Origen')).value).toBe('false');
 
     // Se combina con "Solo hallazgos": imprevistos que dejaron hallazgos
     await fireEvent.click(screen.getByRole('button', { name: /Solo hallazgos/ }));
@@ -191,21 +196,21 @@ describe('SubestacionesEjecuciones', () => {
 
     await fireEvent.click(preset);
     expect(preset.className).not.toContain('chip-preset--activo');
-    expect(chipControl(container, 'Origen').value).toBe('');
+    expect((await chipControl(container, 'Origen')).value).toBe('');
   });
 
   it('los tipos de mantenimiento y de actividad ya no ofrecen "No programado" (eso lo dice Origen)', async () => {
     const { container } = render(SubestacionesEjecuciones);
-    const opciones = (label) => [...chipControl(container, label).options].map((o) => o.textContent);
-    expect(opciones('Tipo de mantenimiento')).toEqual(['Todos', 'Preventivo', 'Correctivo', 'Predictivo']);
-    expect(opciones('Tipo de actividad')).toEqual(['Todos', 'Inspección', 'Mantenimiento']);
-    expect(opciones('Origen')).toEqual(['Todos', 'Cronograma', 'Orden de trabajo', 'Imprevisto']);
+    const opciones = async (label) => [...(await chipControl(container, label)).options].map((o) => o.textContent);
+    expect(await opciones('Tipo de mantenimiento')).toEqual(['Todos', 'Preventivo', 'Correctivo', 'Predictivo']);
+    expect(await opciones('Tipo de actividad')).toEqual(['Todos', 'Inspección', 'Mantenimiento']);
+    expect(await opciones('Origen')).toEqual(['Todos', 'Cronograma', 'Orden de trabajo', 'Imprevisto']);
   });
 
   it('cambiar de página reconsulta manteniendo el filtro activo', async () => {
     const { container, getByTestId } = render(SubestacionesEjecuciones);
-    await fireEvent.change(chipControl(container, 'Estación'), { target: { value: '2' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     data.fetchSubstationEjecuciones.mockClear();
 
     await fireEvent.click(getByTestId('stub-page-change'));
@@ -216,8 +221,8 @@ describe('SubestacionesEjecuciones', () => {
   it('ordenar por una columna reconsulta en el servidor desde la página 0, con el filtro activo', async () => {
     const { container, getByTestId } = render(SubestacionesEjecuciones);
     expect(getByTestId('stub-sorting').textContent).toBe('[{"id":"ej_fecha","desc":true}]');
-    await fireEvent.change(chipControl(container, 'Estación'), { target: { value: '2' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     data.fetchSubstationEjecuciones.mockClear();
 
     await fireEvent.click(getByTestId('stub-sort-estacion'));
@@ -277,9 +282,9 @@ describe('SubestacionesEjecuciones', () => {
   it('llegando desde "Fuera de cronograma" del Detalle por estación filtra solo las no programadas del año', async () => {
     ejecucionesFiltroInicial.set({ estacionId: 1, esProgramada: false, fechaInicio: '2026-01-01', fechaFin: '2026-12-31' });
     const { container } = render(SubestacionesEjecuciones);
-    expect(chipControl(container, 'Origen').value).toBe('false');
+    expect((await chipControl(container, 'Origen')).value).toBe('false');
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, {
       ...filtrosDefault, estacionId: 1, esProgramada: false, fechaInicio: '2026-01-01', fechaFin: '2026-12-31',
     });
@@ -288,9 +293,29 @@ describe('SubestacionesEjecuciones', () => {
   it('el filtro Elemento solo aparece en Eléctrico', async () => {
     disciplinaFiltro.set('CIVIL');
     const { container } = render(SubestacionesEjecuciones);
-    expect([...container.querySelectorAll('.chip-lab')].some((l) => l.textContent === 'Elemento')).toBe(false);
+    expect(await chipControl(container, 'Elemento')).toBeUndefined();
 
     await fireEvent.change(screen.getByLabelText('Disciplina'), { target: { value: 'ELECTRICO' } });
-    await waitFor(() => expect(chipControl(container, 'Elemento')).toBeTruthy());
+    expect(await chipControl(container, 'Elemento')).toBeTruthy();
+  });
+
+  it('lo filtrado queda como chips: cerrar el panel sin aplicar no cambia nada y el × quita el filtro', async () => {
+    const { container } = render(SubestacionesEjecuciones);
+    data.fetchSubstationEjecuciones.mockClear();
+
+    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await fireEvent.click(screen.getByLabelText('Cerrar'));
+    expect(data.fetchSubstationEjecuciones).not.toHaveBeenCalled();
+    expect(screen.queryByTitle('Quitar filtro')).toBeNull();
+
+    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+    const chip = screen.getByTitle('Quitar filtro');
+    expect(chip.textContent).toContain('Holanda');
+    expect(screen.getByRole('button', { name: /^Filtros/ }).textContent).toContain('1');
+
+    await fireEvent.click(chip);
+    expect(data.fetchSubstationEjecuciones).toHaveBeenLastCalledWith(0, 20, filtrosDefault);
+    expect(screen.queryByTitle('Quitar filtro')).toBeNull();
   });
 });
