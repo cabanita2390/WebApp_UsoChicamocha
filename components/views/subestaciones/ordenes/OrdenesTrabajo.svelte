@@ -14,6 +14,7 @@
   import ErrorCarga from "../ErrorCarga.svelte";
   import SubToast from "../SubToast.svelte";
   import SelectorDisciplina from "../SelectorDisciplina.svelte";
+  import PanelFiltros from "../../../shared/PanelFiltros.svelte";
   import OrdenDetalle from "./OrdenDetalle.svelte";
 
   /** Vistas rápidas: qué estados (y si solo las vencidas) trae cada una. */
@@ -79,6 +80,39 @@
     pagina = 0;
   }
 
+  // Panel "Filtros" (como en Ejecuciones y el Cronograma): se elige en el panel y se aplica con
+  // "Aplicar"; cerrar sin aplicar no cambia nada.
+  let filtrosAbierto = false;
+  let borrador = { estacionId: "", prioridad: "" };
+
+  function abrirFiltros() {
+    borrador = { estacionId, prioridad };
+    filtrosAbierto = true;
+  }
+
+  function aplicarFiltros() {
+    ({ estacionId, prioridad } = borrador);
+    pagina = 0;
+    filtrosAbierto = false;
+  }
+
+  function limpiarFiltros() {
+    estacionId = "";
+    prioridad = "";
+    pagina = 0;
+  }
+
+  $: etiquetasFiltro = [
+    estacionId && {
+      l: estaciones.find((e) => String(e.id) === String(estacionId))?.nombre ?? "Estación",
+      quitar: () => ((estacionId = ""), (pagina = 0)),
+    },
+    prioridad && {
+      l: `Prioridad ${(PRIORIDAD[prioridad]?.l ?? prioridad).toLowerCase()}`,
+      quitar: () => ((prioridad = ""), (pagina = 0)),
+    },
+  ].filter(Boolean);
+
   function irAHallazgos() {
     subestacionesActiveTab.set("ejecuciones");
   }
@@ -114,16 +148,41 @@
         {/each}
       </div>
       <div class="filtros">
-        <select class="sub-select" bind:value={estacionId} on:change={() => (pagina = 0)} aria-label="Estación">
-          <option value="">Todas las estaciones</option>
-          {#each estaciones as s (s.id)}<option value={String(s.id)}>{s.nombre}</option>{/each}
-        </select>
-        <select class="sub-select" bind:value={prioridad} on:change={() => (pagina = 0)} aria-label="Prioridad">
-          <option value="">Toda prioridad</option>
-          {#each Object.entries(PRIORIDAD) as [k, p]}<option value={k}>Prioridad {p.l.toLowerCase()}</option>{/each}
-        </select>
+        <button type="button" class="btn-filtros" class:activos={etiquetasFiltro.length > 0} on:click={abrirFiltros}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <path d="M2 4h12M4.5 8h7M7 12h2"></path>
+          </svg>
+          Filtros{#if etiquetasFiltro.length}<span class="badge">{etiquetasFiltro.length}</span>{/if}
+        </button>
+        {#each etiquetasFiltro as f (f.l)}
+          <button type="button" class="chip-activo" title="Quitar filtro" on:click={f.quitar}><strong>{f.l}</strong><span class="x">×</span></button>
+        {/each}
+        {#if etiquetasFiltro.length > 1}
+          <button type="button" class="lnk" on:click={limpiarFiltros}>Limpiar todo</button>
+        {/if}
       </div>
     </div>
+
+    {#if filtrosAbierto}
+      <PanelFiltros on:aplicar={aplicarFiltros} on:limpiar={() => (borrador = { estacionId: "", prioridad: "" })} on:close={() => (filtrosAbierto = false)}>
+        <div class="panel-campos">
+          <label class="campo">
+            <span class="campo-lab">Estación</span>
+            <select bind:value={borrador.estacionId}>
+              <option value="">Todas</option>
+              {#each estaciones as s (s.id)}<option value={String(s.id)}>{s.nombre}</option>{/each}
+            </select>
+          </label>
+          <label class="campo">
+            <span class="campo-lab">Prioridad</span>
+            <select bind:value={borrador.prioridad}>
+              <option value="">Todas</option>
+              {#each Object.entries(PRIORIDAD) as [k, p]}<option value={k}>{p.l}</option>{/each}
+            </select>
+          </label>
+        </div>
+      </PanelFiltros>
+    {/if}
 
     {#if cargando}
       <div class="centro"><Loader /></div>
@@ -171,15 +230,17 @@
 <style>
   .barra {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     gap: 10px 16px;
     flex-wrap: wrap;
   }
   .vistas {
     display: flex;
-    gap: 6px;
     flex-wrap: wrap;
+    padding: 3px;
+    background: #efefed;
+    border-radius: 999px;
   }
   .vistas button {
     display: inline-flex;
@@ -187,21 +248,20 @@
     gap: 6px;
     padding: 7px 14px;
     border-radius: 999px;
-    border: 1px solid rgba(11, 11, 11, 0.14);
-    background: #fff;
+    border: 0;
+    background: transparent;
     color: #0b0b0b;
     font: inherit;
     font-size: 13px;
     cursor: pointer;
   }
   .vistas button.on {
-    background: #0b0b0b;
-    border-color: #0b0b0b;
-    color: #fff;
+    background: #fff;
+    color: #0b0b0b;
     font-weight: 600;
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.1);
   }
   .vistas button.alerta:not(.on) {
-    border-color: #d03b3b;
     color: #a12b2b;
   }
   .n {
@@ -212,8 +272,92 @@
   }
   .filtros {
     display: flex;
+    align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .btn-filtros {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: inherit;
+    padding: 8px 16px;
+    background: #fff;
+    color: #0b0b0b;
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-filtros.activos {
+    border: 2px solid #2a78d6;
+    padding: 7px 15px;
+  }
+  .badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #2a78d6;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-grid;
+    place-items: center;
+  }
+  .chip-activo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+    padding: 6px 8px 6px 12px;
+    border: 1px solid rgba(42, 120, 214, 0.35);
+    border-radius: 999px;
+    background: #e8f1fb;
+    color: #1f5fae;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .chip-activo strong {
+    font-weight: 600;
+  }
+  .chip-activo .x {
+    font-size: 14px;
+    line-height: 1;
+  }
+  .lnk {
+    all: unset;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .panel-campos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .campo-lab {
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .campo select {
+    font: inherit;
+    font-size: 13px;
+    padding: 9px 12px;
+    border: 1px solid rgba(11, 11, 11, 0.14);
+    border-radius: 10px;
+    background: #fff;
+  }
+  .campo select:focus {
+    outline: 2px solid #2a78d6;
+    outline-offset: 1px;
   }
   .centro {
     display: flex;
