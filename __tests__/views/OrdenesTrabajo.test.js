@@ -87,21 +87,22 @@ describe('OrdenesTrabajo', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
     const panel = screen.getByRole('dialog', { name: 'Filtros' });
-    const [estacion, prioridad] = panel.querySelectorAll('select');
-    await fireEvent.change(estacion, { target: { value: '11' } });
-    await fireEvent.change(prioridad, { target: { value: 'ALTA' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Estación' }));
+    await fireEvent.input(screen.getByRole('combobox', { name: 'Buscar estación' }), { target: { value: 'duit' } });
+    await fireEvent.click(screen.getByRole('option', { name: 'Duitama' }));
+    await fireEvent.change(panel.querySelector('select'), { target: { value: 'ALTA' } });
     // Sin aplicar todavía no se pide nada con esos filtros.
-    expect(substationAdmin.listarOrdenes).not.toHaveBeenCalledWith(expect.objectContaining({ estacionId: '11' }), 0, 20);
+    expect(substationAdmin.listarOrdenes).not.toHaveBeenCalledWith(expect.objectContaining({ estacionId: 11 }), 0, 20);
     await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
 
     await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(
-      expect.objectContaining({ estacionId: '11', prioridad: 'ALTA' }), 0, 20));
+      expect.objectContaining({ estacionId: 11, prioridad: 'ALTA' }), 0, 20));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByRole('button', { name: /^Filtros/ }).textContent).toContain('2');
 
     await fireEvent.click(screen.getByText('Prioridad alta').closest('button'));
     await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenLastCalledWith(
-      expect.objectContaining({ estacionId: '11', prioridad: '' }), 0, expect.any(Number)));
+      expect.objectContaining({ estacionId: 11, prioridad: '' }), 0, expect.any(Number)));
     expect(screen.queryByText('Prioridad alta')).toBeNull();
   });
 

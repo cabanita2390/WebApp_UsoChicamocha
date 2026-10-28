@@ -70,7 +70,24 @@ async function chipControl(_container, label) {
   const chip = [...document.querySelectorAll('.panel-campos .filter-chip')].find(
     (el) => el.querySelector('.chip-lab')?.textContent === label,
   );
-  return chip?.querySelector('select, input');
+  return chip?.querySelector('select, input, .sb-boton');
+}
+
+/** Elige un valor en un filtro: <select> nativo o lista con buscador (Estación, Actividad, Elemento). */
+async function elegir(label, value) {
+  const ctl = await chipControl(null, label);
+  if (ctl.tagName === 'SELECT') return fireEvent.change(ctl, { target: { value } });
+  await fireEvent.click(ctl);
+  await fireEvent.click(document.querySelector(`.sb-pop [role="option"][data-value="${value}"]`));
+}
+
+/** Textos de las opciones de una lista con buscador (la abre y la vuelve a cerrar). */
+async function opcionesBuscable(label) {
+  const ctl = await chipControl(null, label);
+  await fireEvent.click(ctl);
+  const textos = [...document.querySelectorAll('.sb-pop [role="option"]')].map((o) => o.textContent.trim());
+  await fireEvent.click(ctl);
+  return textos;
 }
 
 describe('SubestacionesEjecuciones', () => {
@@ -108,7 +125,7 @@ describe('SubestacionesEjecuciones', () => {
     const { container } = render(SubestacionesEjecuciones);
     data.fetchSubstationEjecuciones.mockClear();
 
-    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await elegir('Estación', '2');
     await fireEvent.change(await chipControl(container, 'Resultado'), { target: { value: 'CON_HALLAZGOS' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
 
@@ -139,8 +156,7 @@ describe('SubestacionesEjecuciones', () => {
     expect(screen.getByRole('heading', { name: 'Ejecuciones y hallazgos' })).toBeTruthy();
     expect(screen.getByText(/Civil · todo lo que se registró/)).toBeTruthy();
     // Solo las actividades de la disciplina elegida
-    const opciones = [...(await chipControl(container, 'Actividad')).options].map((o) => o.textContent);
-    expect(opciones).toEqual(['Todas', 'Civil · Pintura muros']);
+    expect(await opcionesBuscable('Actividad')).toEqual(['Todas', 'Pintura muros']);
 
     data.fetchSubstationEjecuciones.mockClear();
     await fireEvent.change(screen.getByLabelText('Disciplina'), { target: { value: 'ELECTRICO' } });
@@ -149,7 +165,7 @@ describe('SubestacionesEjecuciones', () => {
 
   it('Limpiar todo en el panel vacía los filtros y vuelve a consultar al aplicar', async () => {
     const { container } = render(SubestacionesEjecuciones);
-    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await elegir('Estación', '2');
     await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     data.fetchSubstationEjecuciones.mockClear();
 
@@ -158,7 +174,7 @@ describe('SubestacionesEjecuciones', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
 
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, filtrosDefault);
-    expect((await chipControl(container, 'Estación')).value).toBe('');
+    expect((await chipControl(container, 'Estación')).dataset.value).toBe('');
   });
 
   it('el preset "Solo hallazgos" filtra por CON_HALLAZGOS+REQUIERE_INTERVENCION y se puede desactivar', async () => {
@@ -209,7 +225,7 @@ describe('SubestacionesEjecuciones', () => {
 
   it('cambiar de página reconsulta manteniendo el filtro activo', async () => {
     const { container, getByTestId } = render(SubestacionesEjecuciones);
-    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await elegir('Estación', '2');
     await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     data.fetchSubstationEjecuciones.mockClear();
 
@@ -221,7 +237,7 @@ describe('SubestacionesEjecuciones', () => {
   it('ordenar por una columna reconsulta en el servidor desde la página 0, con el filtro activo', async () => {
     const { container, getByTestId } = render(SubestacionesEjecuciones);
     expect(getByTestId('stub-sorting').textContent).toBe('[{"id":"ej_fecha","desc":true}]');
-    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await elegir('Estación', '2');
     await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     data.fetchSubstationEjecuciones.mockClear();
 
@@ -303,12 +319,12 @@ describe('SubestacionesEjecuciones', () => {
     const { container } = render(SubestacionesEjecuciones);
     data.fetchSubstationEjecuciones.mockClear();
 
-    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await elegir('Estación', '2');
     await fireEvent.click(screen.getByLabelText('Cerrar'));
     expect(data.fetchSubstationEjecuciones).not.toHaveBeenCalled();
     expect(screen.queryByTitle('Quitar filtro')).toBeNull();
 
-    await fireEvent.change(await chipControl(container, 'Estación'), { target: { value: '2' } });
+    await elegir('Estación', '2');
     await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     const chip = screen.getByTitle('Quitar filtro');
     expect(chip.textContent).toContain('Holanda');

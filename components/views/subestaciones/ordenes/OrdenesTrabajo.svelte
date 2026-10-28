@@ -15,6 +15,8 @@
   import SubToast from "../SubToast.svelte";
   import SelectorDisciplina from "../SelectorDisciplina.svelte";
   import PanelFiltros from "../../../shared/PanelFiltros.svelte";
+  import SelectBuscable from "../../../shared/SelectBuscable.svelte";
+  import { opcionesEstaciones } from "../../../../utils/opcionesFiltro.js";
   import OrdenDetalle from "./OrdenDetalle.svelte";
 
   /** Vistas rápidas: qué estados (y si solo las vencidas) trae cada una. */
@@ -166,13 +168,10 @@
     {#if filtrosAbierto}
       <PanelFiltros on:aplicar={aplicarFiltros} on:limpiar={() => (borrador = { estacionId: "", prioridad: "" })} on:close={() => (filtrosAbierto = false)}>
         <div class="panel-campos">
-          <label class="campo">
+          <div class="campo">
             <span class="campo-lab">Estación</span>
-            <select bind:value={borrador.estacionId}>
-              <option value="">Todas</option>
-              {#each estaciones as s (s.id)}<option value={String(s.id)}>{s.nombre}</option>{/each}
-            </select>
-          </label>
+            <SelectBuscable bind:value={borrador.estacionId} opciones={opcionesEstaciones(estaciones)} ariaLabel="Estación" buscarPlaceholder="Buscar estación…" />
+          </div>
           <label class="campo">
             <span class="campo-lab">Prioridad</span>
             <select bind:value={borrador.prioridad}>

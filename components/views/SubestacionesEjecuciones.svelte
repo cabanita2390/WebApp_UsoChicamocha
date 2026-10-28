@@ -15,6 +15,8 @@
   import { origenEjecucion, ORDEN } from "../../utils/ordenes.js";
   import SelectorDisciplina from "./subestaciones/SelectorDisciplina.svelte";
   import PanelFiltros from "../shared/PanelFiltros.svelte";
+  import SelectBuscable from "../shared/SelectBuscable.svelte";
+  import { opcionesActividades, opcionesElementos, opcionesEstaciones } from "../../utils/opcionesFiltro.js";
 
   /** Imprevistos (sin cita ni orden de trabajo): fila en terracota suave para verlos de un vistazo. */
   const claseFila = (r) => (origenEjecucion(r).tipo === "imprevisto" ? "fila-imprevisto" : "");
@@ -305,31 +307,16 @@
       <div class="panel-campos">
         <label class="filter-chip">
         <span class="chip-lab">Estación</span>
-        <select bind:value={filtros.estacionId}>
-          <option value="">Todas</option>
-          {#each estaciones as e}
-            <option value={e.id}>{e.nombre}</option>
-          {/each}
-        </select>
+        <SelectBuscable bind:value={filtros.estacionId} opciones={opcionesEstaciones(estaciones)} ariaLabel="Estación" buscarPlaceholder="Buscar estación…" />
       </label>
         <label class="filter-chip">
         <span class="chip-lab">Actividad</span>
-        <select bind:value={filtros.actividadId}>
-          <option value="">Todas</option>
-          {#each actividades as a}
-            <option value={a.id}>{disciplinaLabel(a.disciplina)} · {a.nombre}</option>
-          {/each}
-        </select>
+        <SelectBuscable bind:value={filtros.actividadId} opciones={opcionesActividades(actividades)} ariaLabel="Actividad" buscarPlaceholder="Buscar actividad…" />
       </label>
       {#if filtroElemento}
           <label class="filter-chip">
           <span class="chip-lab">Elemento</span>
-          <select bind:value={filtros.elementoId}>
-            <option value="">Todos</option>
-            {#each elementos as el}
-              <option value={el.id}>{el.nombre}</option>
-            {/each}
-          </select>
+          <SelectBuscable bind:value={filtros.elementoId} opciones={opcionesElementos(elementos)} todas="Todos" ariaLabel="Elemento" buscarPlaceholder="Buscar elemento…" />
         </label>
       {/if}
         <label class="filter-chip">
