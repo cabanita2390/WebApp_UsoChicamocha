@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { writable, get } from 'svelte/store';
 
 const authStore = writable({ currentUser: { name: 'admin', role: 'ADMIN' } });
@@ -357,6 +357,21 @@ describe('CronogramaAnual', () => {
     await fireEvent.click(screen.getByText('Mostrar 1 cita'));
     expect(screen.getByText(/1 estaciones · 1 citas en 2026/)).toBeTruthy();
     expect(container.querySelector('.pie-total').textContent).toBe('1');
+  });
+
+  it('el panel Filtros busca actividades sin importar tildes ni mayúsculas', async () => {
+    render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(botonFiltros());
+    const panel = screen.getByRole('dialog');
+    const buscar = screen.getByPlaceholderText('Buscar actividad…');
+
+    await fireEvent.input(buscar, { target: { value: 'MÚROS' } });
+    expect(within(panel).queryByLabelText('Pintura puertas/ventanas')).toBeNull();
+    expect(within(panel).getByLabelText('Pintura muros')).toBeTruthy();
+
+    await fireEvent.input(buscar, { target: { value: 'zzz' } });
+    expect(within(panel).getByText('Ninguna actividad coincide.')).toBeTruthy();
   });
 
   it('"+N más" agranda solo esa fila, "Contraer" y "Tamaño normal" la devuelven', async () => {

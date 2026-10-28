@@ -24,6 +24,7 @@
   let b = { ...filtros };
   let celdas = vista;
   let buscarEstacion = "";
+  let buscarActividad = "";
   let panel;
 
   onMount(() => panel?.focus());
@@ -37,10 +38,13 @@
   $: total = filtrarCitas(citas, { anio, hoy, filtros: b, estacionesPorId }).length;
   $: porEstado = Object.fromEntries(ESTADOS_CITA.map((e) => [e.value, conteo((c) => estadoVisible(c, anio, hoy) === e.value)]));
   $: estadosVisibles = ESTADOS_CITA.filter((e) => e.value !== "new" || porEstado.new);
-  $: estacionesLista = estaciones.filter((s) => !buscarEstacion || s.nombre.toLowerCase().includes(buscarEstacion.toLowerCase()));
+  // La búsqueda no distingue tildes ni mayúsculas ("electrico" encuentra "Eléctrico").
+  const normal = (t) => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const coincide = (nombre, q) => !q || normal(nombre).includes(normal(q));
+  $: estacionesLista = estaciones.filter((s) => coincide(s.nombre, buscarEstacion));
   $: gruposActividad = DISCIPLINAS.map((d) => ({
     ...d,
-    items: actividades.filter((a) => a.disciplina === d.value && (!b.disciplinas.length || b.disciplinas.includes(d.value))),
+    items: actividades.filter((a) => a.disciplina === d.value && (!b.disciplinas.length || b.disciplinas.includes(d.value)) && coincide(a.nombre, buscarActividad)),
   })).filter((g) => g.items.length);
 
   // Atajos de meses: relativos al mes actual del servidor (en otro año, el año completo).
@@ -62,6 +66,7 @@
     b = filtrosVacios();
     celdas = "act";
     buscarEstacion = "";
+    buscarActividad = "";
   }
 
   function aplicar() {
@@ -158,6 +163,7 @@
 
       <section>
         <h3>Actividades {#if b.actividadIds.length}<span class="cuenta">· {b.actividadIds.length} elegidas</span>{/if}</h3>
+        <input class="buscar" bind:value={buscarActividad} placeholder="Buscar actividad…" aria-label="Buscar actividad" />
         {#each gruposActividad as g (g.value)}
           <div class="grupo">{g.label}</div>
           <div class="lista">
@@ -168,6 +174,8 @@
               </label>
             {/each}
           </div>
+        {:else}
+          <span class="ayuda">Ninguna actividad coincide.</span>
         {/each}
       </section>
 
