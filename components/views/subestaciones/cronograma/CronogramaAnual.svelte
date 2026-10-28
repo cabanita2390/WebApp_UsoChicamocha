@@ -349,7 +349,7 @@
   function masivaEstacionAqui() {
     masiva = {
       modo: "estacion",
-      disciplina: unaDisciplina || "CIVIL",
+      disciplina: unaDisciplina || null,
       estacionIds: [celda.estacionId],
       meses: mesCerrado(anio, celda.mes, hoy) ? [] : [celda.mes],
     };
@@ -359,7 +359,7 @@
   // Abre en el modo de la grilla: filas por estación → "Por estación"; por actividad → "Por actividad".
   function abrirMasiva() {
     celda = null;
-    masiva = { modo: por === "est" ? "estacion" : "actividad", disciplina: unaDisciplina || "CIVIL" };
+    masiva = { modo: por === "est" ? "estacion" : "actividad", disciplina: unaDisciplina || null };
   }
 
   async function asignado(e) {

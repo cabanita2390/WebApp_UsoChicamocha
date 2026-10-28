@@ -25,7 +25,10 @@
     { value: "estacion", label: "Por estación", s: "Una estación, varias actividades y meses, en un solo paso." },
   ];
   let modo = inicial.modo === "estacion" ? "estacion" : "actividad";
-  let disciplina = inicial.disciplina || "CIVIL";
+  // Sin disciplina elegida en la pantalla ("Todas"): la primera que tenga actividades activas.
+  let disciplina = inicial.disciplina
+    || DISCIPLINAS.find((d) => actividades.some((a) => a.disciplina === d.value))?.value
+    || DISCIPLINAS[0].value;
   let actividadId = inicial.actividadId ?? null;
   /** Modo estación: actividades marcadas (pueden ser de varias disciplinas). */
   let actIds = [...(inicial.actividadIds ?? [])];
