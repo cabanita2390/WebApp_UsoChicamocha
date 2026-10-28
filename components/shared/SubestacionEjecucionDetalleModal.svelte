@@ -19,6 +19,13 @@
 
   $: badge = ejecucion ? resultadoBadge(ejecucion.resultado) : null;
   $: origen = ejecucion ? origenEjecucion(ejecucion) : null;
+  // Eléctrico: conjuntos y elementos marcados en la visita, con el texto de "Otro" al final de cada grupo.
+  $: intervenido = ejecucion
+    ? [
+        { titulo: "Conjuntos", items: [...(ejecucion.conjuntos ?? []).map((c) => c.nombre), ...(ejecucion.conjuntoOtro ? [`Otro: ${ejecucion.conjuntoOtro}`] : [])] },
+        { titulo: "Elementos", items: [...(ejecucion.elementos ?? []).map((e) => e.nombre), ...(ejecucion.elementoOtro ? [`Otro: ${ejecucion.elementoOtro}`] : [])] },
+      ].filter((g) => g.items.length)
+    : [];
   const ORIGEN_AYUDA = {
     cronograma: "Cronograma",
     orden: "corrige un hallazgo; no suma al avance",
@@ -103,6 +110,24 @@
           <div class="dl"><span class="dl-lab">Responsable</span><span class="dl-val">{ejecucion.responsable}</span></div>
           <div class="dl full"><span class="dl-lab">Observaciones</span><span class="dl-val">{ejecucion.observaciones}</span></div>
         </div>
+
+        {#if ejecucion.disciplina === "ELECTRICO"}
+          <div class="section-h">Qué se intervino</div>
+          {#if intervenido.length}
+            <div class="intervenido">
+              {#each intervenido as grupo}
+                <div class="dl">
+                  <span class="dl-lab">{grupo.titulo}</span>
+                  <span class="chips">
+                    {#each grupo.items as nombre}<span class="chip-item">{nombre}</span>{/each}
+                  </span>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <p class="no-data">No aplica: no se marcó ningún conjunto ni elemento.</p>
+          {/if}
+        {/if}
 
         <SeguimientoHallazgo {ejecucion} on:cambio={(e) => ((ejecucion = e.detail), dispatch("cambio", e.detail))}
           on:verOrden={() => dispatch("close")} />
@@ -244,6 +269,24 @@
   }
   .full {
     grid-column: 1 / -1;
+  }
+  .intervenido {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip-item {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #fdf3d8;
+    color: #7a5a12;
+    font-size: 12.5px;
+    font-weight: 600;
   }
   .badge-cell {
     display: inline-flex;

@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { data } from "../../stores/data.js";
+  import { substationAdmin } from "../../stores/substationAdmin.js";
   import { addNotification } from "../../stores/ui.js";
   import Loader from "../shared/Loader.svelte";
   import DataGrid from "../shared/DataGrid.svelte";
@@ -42,6 +43,7 @@
     return {
       estacionId: "",
       actividadId: "",
+      elementoId: "",
       tipoMantenimiento: "",
       tipoActividad: "",
       resultado: "",
@@ -62,6 +64,7 @@
       ...filtros,
       estacionId: filtroInicial.estacionId ?? "",
       actividadId: filtroInicial.actividadId ?? "",
+      elementoId: filtroInicial.elementoId ?? "",
       esProgramada: filtroInicial.esProgramada != null ? String(filtroInicial.esProgramada) : "",
       fechaInicio: filtroInicial.fechaInicio ?? "",
       fechaFin: filtroInicial.fechaFin ?? "",
@@ -75,6 +78,10 @@
   $: isLoading = $data.isLoading;
   $: estaciones = $data.substationEstaciones ?? [];
   $: actividades = ($data.substationActividades ?? []).filter((a) => !$disciplinaFiltro || a.disciplina === $disciplinaFiltro);
+  // Elementos eléctricos (también los desactivados: siguen en visitas viejas). El filtro solo se ofrece en Eléctrico.
+  let elementosTodos = [];
+  $: elementos = elementosTodos.filter((e) => e.disciplina === "ELECTRICO");
+  $: filtroElemento = $disciplinaFiltro === "ELECTRICO";
   $: pagina = $data.substationEjecuciones ?? { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 };
   $: columns = createEjecucionesColumns();
   $: soloHallazgosActivo = filtros.resultado === HALLAZGOS_PRESET.join(",");
@@ -86,6 +93,7 @@
     return {
       estacionId: filtros.estacionId || undefined,
       actividadId: filtros.actividadId || undefined,
+      elementoId: filtroElemento && filtros.elementoId ? filtros.elementoId : undefined,
       tipoMantenimiento: filtros.tipoMantenimiento || undefined,
       tipoActividad: filtros.tipoActividad || undefined,
       resultado: filtros.resultado ? filtros.resultado.split(",") : undefined,
@@ -181,6 +189,7 @@
   onMount(() => {
     if (!estaciones.length) data.fetchSubstationEstaciones();
     if (!actividades.length) data.fetchSubstationActividades();
+    substationAdmin.listarElementos().then((l) => (elementosTodos = l ?? [])).catch(() => {});
     cargar(0);
   });
 </script>
@@ -217,6 +226,17 @@
           {/each}
         </select>
       </label>
+      {#if filtroElemento}
+        <label class="filter-chip">
+          <span class="chip-lab">Elemento</span>
+          <select bind:value={filtros.elementoId}>
+            <option value="">Todos</option>
+            {#each elementos as el}
+              <option value={el.id}>{el.nombre}</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
       <label class="filter-chip">
         <span class="chip-lab">Resultado</span>
         <select bind:value={filtros.resultado}>

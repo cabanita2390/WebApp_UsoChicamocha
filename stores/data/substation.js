@@ -28,6 +28,7 @@ export function createSubstationActions({ fetchWithAuth, fetchAll, fetchPaginate
             if (filtros.actividadId) params.set('actividadId', filtros.actividadId);
             if (filtros.tipoMantenimiento) params.set('tipoMantenimiento', filtros.tipoMantenimiento);
             if (filtros.tipoActividad) params.set('tipoActividad', filtros.tipoActividad);
+            if (filtros.elementoId) params.set('elementoId', filtros.elementoId);
             if (filtros.disciplina) params.set('disciplina', filtros.disciplina);
             if (Array.isArray(filtros.seguimiento) && filtros.seguimiento.length) params.set('seguimiento', filtros.seguimiento.join(','));
             if (filtros.conOrden != null) params.set('conOrden', filtros.conOrden);

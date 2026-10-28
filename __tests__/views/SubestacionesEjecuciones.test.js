@@ -39,6 +39,15 @@ vi.mock('../../stores/ui.js', () => ({
   addNotification: vi.fn(),
 }));
 
+vi.mock('../../stores/substationAdmin.js', () => ({
+  substationAdmin: {
+    listarElementos: vi.fn(() => Promise.resolve([
+      { id: 31, nombre: 'Breaker', disciplina: 'ELECTRICO', activa: true },
+      { id: 32, nombre: 'Variador de velocidad', disciplina: 'ELECTRICO', activa: false },
+    ])),
+  },
+}));
+
 vi.mock('../../components/shared/DataGrid.svelte', async () => {
   const mod = await import('../__mocks__/DataGridStub.svelte');
   return { default: mod.default };
@@ -274,5 +283,14 @@ describe('SubestacionesEjecuciones', () => {
     expect(data.fetchSubstationEjecuciones).toHaveBeenCalledWith(0, 20, {
       ...filtrosDefault, estacionId: 1, esProgramada: false, fechaInicio: '2026-01-01', fechaFin: '2026-12-31',
     });
+  });
+
+  it('el filtro Elemento solo aparece en Eléctrico', async () => {
+    disciplinaFiltro.set('CIVIL');
+    const { container } = render(SubestacionesEjecuciones);
+    expect([...container.querySelectorAll('.chip-lab')].some((l) => l.textContent === 'Elemento')).toBe(false);
+
+    await fireEvent.change(screen.getByLabelText('Disciplina'), { target: { value: 'ELECTRICO' } });
+    await waitFor(() => expect(chipControl(container, 'Elemento')).toBeTruthy());
   });
 });
