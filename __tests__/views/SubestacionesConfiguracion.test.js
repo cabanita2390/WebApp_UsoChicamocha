@@ -19,6 +19,14 @@ vi.mock('../../stores/substationAdmin.js', () => ({
     crearActividad: vi.fn(),
     actualizarActividad: vi.fn(),
     cambiarEstadoActividad: vi.fn(),
+    listarConjuntos: vi.fn(),
+    crearConjunto: vi.fn(),
+    actualizarConjunto: vi.fn(),
+    cambiarEstadoConjunto: vi.fn(),
+    listarElementos: vi.fn(),
+    crearElemento: vi.fn(),
+    actualizarElemento: vi.fn(),
+    cambiarEstadoElemento: vi.fn(),
     copiarAnio: vi.fn(),
   },
 }));
@@ -39,6 +47,14 @@ const ACTIVIDADES = [
     capturaMovilHabilitada: false, citasPublicadasAnio: 0, enUso: false, activa: true },
 ];
 
+const CONJUNTOS = [
+  { id: 21, nombre: 'Gabinetes de control', disciplina: 'ELECTRICO', activa: true, enUso: true },
+  { id: 22, nombre: 'Postes', disciplina: 'ELECTRICO', activa: false, enUso: false },
+];
+const ELEMENTOS = [
+  { id: 31, nombre: 'Breaker', disciplina: 'ELECTRICO', activa: true, enUso: false },
+];
+
 function cronograma(anio, citas) {
   return { anio, anioActual: 2026, mesActual: 9, citas, borrador: { altas: 0, bajas: 0 } };
 }
@@ -52,6 +68,8 @@ describe('SubestacionesConfiguracion', () => {
     subestacionesActiveTab.set('dashboard');
     substationAdmin.listarEstaciones.mockResolvedValue(ESTACIONES);
     substationAdmin.listarActividades.mockResolvedValue(ACTIVIDADES);
+    substationAdmin.listarConjuntos.mockResolvedValue(CONJUNTOS);
+    substationAdmin.listarElementos.mockResolvedValue(ELEMENTOS);
     substationAdmin.obtenerCronograma.mockImplementation(async (anio) =>
       anio === 2027 ? cronograma(2027, []) : cronograma(anio, [
         { id: 1, estado: 'PUBLICADA' }, { id: 2, estado: 'PUBLICADA' }, { id: 3, estado: 'BORRADOR' },
@@ -229,5 +247,62 @@ describe('SubestacionesConfiguracion', () => {
     await fireEvent.click(await screen.findByText('Ayalas'));
     await fireEvent.click(screen.getByText('Desactivar'));
     expect(substationAdmin.actualizarEstacion).not.toHaveBeenCalled();
+  });
+
+  it('pestaña Conjuntos: nombre, disciplina, si ya se usó y estado', async () => {
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos' }));
+
+    expect(screen.getByText('Gabinetes de control')).toBeTruthy();
+    expect(screen.getByText('Sí, en visitas')).toBeTruthy();
+    expect(screen.getByText('Todavía no')).toBeTruthy();
+    expect(screen.getByText('✓ Activo')).toBeTruthy();
+    expect(screen.getByText('○ Inactivo')).toBeTruthy();
+    expect(screen.getAllByText('Eléctrico').length).toBe(2);
+  });
+
+  it('nuevo elemento: arranca en Eléctrico, guarda con nombre y disciplina y recarga', async () => {
+    substationAdmin.crearElemento.mockResolvedValue({ id: 32 });
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('tab', { name: 'Elementos' }));
+    await fireEvent.click(screen.getByText('+ Nuevo elemento'));
+
+    expect(screen.getByText('Nuevo elemento')).toBeTruthy();
+    expect(screen.getByLabelText(/Disciplina/).value).toBe('ELECTRICO');
+    expect(screen.queryByLabelText(/Nombre corto/)).toBeNull();
+    await fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'Celda de medida' } });
+    await fireEvent.click(screen.getByText('Guardar'));
+
+    await waitFor(() => expect(substationAdmin.crearElemento)
+      .toHaveBeenCalledWith({ nombre: 'Celda de medida', disciplina: 'ELECTRICO' }));
+    await waitFor(() => expect(substationAdmin.listarElementos).toHaveBeenCalledTimes(2));
+  });
+
+  it('conjunto en uso: no cambia de disciplina y se desactiva en un solo paso', async () => {
+    substationAdmin.cambiarEstadoConjunto.mockResolvedValue({});
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos' }));
+    await fireEvent.click(screen.getByText('Gabinetes de control'));
+
+    expect(screen.getByLabelText(/Disciplina/).disabled).toBe(true);
+    expect(screen.getByText(/ya está marcado en visitas/)).toBeTruthy();
+    await fireEvent.click(screen.getByText('Desactivar'));
+
+    await waitFor(() => expect(substationAdmin.cambiarEstadoConjunto).toHaveBeenCalledWith(21, false));
+    expect(get(subestacionesToast)?.text).toBe('Conjunto desactivado');
+  });
+
+  it('un conjunto inactivo se reactiva', async () => {
+    substationAdmin.cambiarEstadoConjunto.mockResolvedValue({});
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos' }));
+    await fireEvent.click(screen.getByText('Postes'));
+
+    await fireEvent.click(screen.getByText('Reactivar'));
+    await waitFor(() => expect(substationAdmin.cambiarEstadoConjunto).toHaveBeenCalledWith(22, true));
   });
 });

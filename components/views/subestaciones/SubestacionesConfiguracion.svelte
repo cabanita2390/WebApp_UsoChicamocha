@@ -4,6 +4,7 @@
   import { substationAdmin } from "../../../stores/substationAdmin.js";
   import { flash } from "../../../stores/subestacionesToast.js";
   import {
+    disciplinaFiltro,
     configuracionTab,
     cronogramaAnioInicial,
     subestacionesActiveTab,
@@ -13,14 +14,22 @@
   import ErrorCarga from "./ErrorCarga.svelte";
   import EstacionesTabla from "./config/EstacionesTabla.svelte";
   import ActividadesTabla from "./config/ActividadesTabla.svelte";
+  import ItemsCatalogoTabla from "./config/ItemsCatalogoTabla.svelte";
   import ProgramacionPanel from "./config/ProgramacionPanel.svelte";
   import CatalogoModal from "./config/CatalogoModal.svelte";
 
   const TABS = [
     ["est", "Estaciones"],
     ["act", "Actividades"],
+    ["conj", "Conjuntos"],
+    ["elem", "Elementos"],
     ["prog", "Programación"],
   ];
+  // Lo que el operario marca en el paso «¿Qué se intervino?» del móvil (hoy solo Eléctrico).
+  const TEXTOS_ITEMS = {
+    conj: { singular: "conjunto", plural: "conjuntos", ayuda: "lo que el operario marca como «conjunto intervenido»" },
+    elem: { singular: "elemento", plural: "elementos", ayuda: "lo que el operario marca como «elementos revisados»" },
+  };
 
   $: esAdmin = $auth?.currentUser?.role === "ADMIN";
 
@@ -28,10 +37,12 @@
   let errorCarga = "";
   let estaciones = [];
   let actividades = [];
+  let conjuntos = [];
+  let elementos = [];
   let anioActual = new Date().getFullYear();
   let citasOrigen = 0;
   let citasDestino = 0;
-  /** { tipo: "est" | "act", registro } | null */
+  /** { tipo: "est" | "act" | "conj" | "elem", registro } | null */
   let modal = null;
 
   $: estacionesInactivas = estaciones.filter((e) => !e.activa).length;
@@ -52,9 +63,11 @@
   async function cargar() {
     errorCarga = "";
     try {
-      [estaciones, actividades] = await Promise.all([
+      [estaciones, actividades, conjuntos, elementos] = await Promise.all([
         substationAdmin.listarEstaciones(),
         substationAdmin.listarActividades(),
+        substationAdmin.listarConjuntos(),
+        substationAdmin.listarElementos(),
         cargarCronogramas(),
       ]);
     } catch (e) {
@@ -127,6 +140,12 @@
       <ActividadesTabla {actividades} {anioActual}
         on:nueva={() => (modal = { tipo: "act", registro: null })}
         on:editar={(e) => (modal = { tipo: "act", registro: e.detail })} />
+    {:else if $configuracionTab === "conj" || $configuracionTab === "elem"}
+      {#key $configuracionTab}
+        <ItemsCatalogoTabla items={$configuracionTab === "conj" ? conjuntos : elementos} textos={TEXTOS_ITEMS[$configuracionTab]}
+          on:nueva={() => (modal = { tipo: $configuracionTab, registro: null })}
+          on:editar={(e) => (modal = { tipo: $configuracionTab, registro: e.detail })} />
+      {/key}
     {:else}
       <ProgramacionPanel {anioActual} {citasOrigen} {citasDestino} {estacionesInactivas}
         on:copiado={(e) => irAlCronograma(e.detail)}
@@ -135,7 +154,9 @@
 
     {#if modal}
       {#key modal}
-        <CatalogoModal tipo={modal.tipo} registro={modal.registro} on:close={() => (modal = null)} on:saved={guardado} />
+        <CatalogoModal tipo={modal.tipo} registro={modal.registro}
+          disciplinaInicial={modal.tipo === "conj" || modal.tipo === "elem" ? "ELECTRICO" : $disciplinaFiltro || "CIVIL"}
+          on:close={() => (modal = null)} on:saved={guardado} />
       {/key}
     {/if}
   {/if}
