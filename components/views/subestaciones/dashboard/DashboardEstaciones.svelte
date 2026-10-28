@@ -12,11 +12,14 @@
   import SubToast from "../SubToast.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
   import DetalleEstacion from "./DetalleEstacion.svelte";
+  import ElementosIntervenidos from "./ElementosIntervenidos.svelte";
   import SelectorDisciplina from "../SelectorDisciplina.svelte";
   import ThOrden from "../ThOrden.svelte";
   import { ordenarFilas } from "../../../../utils/ordenTabla.js";
 
   let filas = [];
+  /** Eléctrico: elementos más intervenidos del año, todas las estaciones. */
+  let elementos = [];
   let anio = null;
   let mes = null;
   let transcurrido = null;
@@ -35,8 +38,13 @@
     else cargando = true;
     errorCarga = "";
     try {
-      const r = await substationAdmin.indicadoresPorEstacion(undefined, $disciplinaFiltro);
+      const electrico = $disciplinaFiltro === "ELECTRICO";
+      const [r, elem] = await Promise.all([
+        substationAdmin.indicadoresPorEstacion(undefined, $disciplinaFiltro),
+        electrico ? substationAdmin.elementosIntervenidos(undefined, "ELECTRICO") : Promise.resolve([]),
+      ]);
       if (mia !== secuencia) return;
+      elementos = elem ?? [];
       anio = r[0]?.anio ?? new Date().getFullYear();
       mes = r[0]?.mes ?? null;
       transcurrido = r[0]?.porcentajeMesTranscurrido != null ? Number(r[0].porcentajeMesTranscurrido) : null;
@@ -64,6 +72,12 @@
     cronogramaAnioInicial.set(anio);
     cronogramaSoloAtrasadas.set(true);
     subestacionesActiveTab.set("cronograma");
+  }
+
+  // Las visitas del año que marcaron ese elemento, en la pestaña Ejecuciones.
+  function verElemento(f) {
+    ejecucionesFiltroInicial.set({ elementoId: f.elementoId, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31` });
+    subestacionesActiveTab.set("ejecuciones");
   }
 
   function verImprevistos(soloMes) {
@@ -308,6 +322,9 @@
       {/each}
     </div>
     <p class="pie">Click en una estación para ver su detalle. Los imprevistos son registros sin cita del cronograma: no suman al avance.</p>
+    {#if $disciplinaFiltro === "ELECTRICO"}
+      <ElementosIntervenidos filas={elementos} alcance="{anio} · todas las estaciones" on:ver={(e) => verElemento(e.detail)} />
+    {/if}
   {/if}
   <SubToast />
 </div>

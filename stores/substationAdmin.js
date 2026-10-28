@@ -53,6 +53,9 @@ export const substationAdmin = {
         fetchWithAuth(`substation/indicadores/por-estacion${query({ anio, disciplina })}`),
     criticidad: (estacionId, disciplina) =>
         fetchWithAuth(`substation/indicadores/criticidad${query({ estacionId, disciplina })}`),
+    /** Elementos más intervenidos del año: [{ elementoId, nombre, intervenciones, estaciones }], de más a menos. */
+    elementosIntervenidos: (anio, disciplina, estacionId) =>
+        fetchWithAuth(`substation/indicadores/elementos${query({ anio, disciplina, estacionId })}`),
     /** Últimas ejecuciones de una estación en el año y la disciplina del detalle (página de Spring). */
     ultimasEjecuciones: (estacionId, anio, disciplina, size = 6) =>
         fetchWithAuth(

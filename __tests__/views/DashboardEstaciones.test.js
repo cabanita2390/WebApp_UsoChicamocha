@@ -18,6 +18,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
     obtenerCronograma: vi.fn(),
     obtenerEjecucion: vi.fn(),
     ejecucionDeCita: vi.fn(),
+    elementosIntervenidos: vi.fn(),
   },
 }));
 
@@ -44,6 +45,10 @@ const cita = (id, actividadId, mes, extra = {}) => ({
 describe('DashboardEstaciones', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    substationAdmin.elementosIntervenidos.mockResolvedValue([
+      { elementoId: 4, nombre: 'Breaker', intervenciones: 9, estaciones: 5 },
+      { elementoId: 7, nombre: 'Contactores', intervenciones: 1, estaciones: 1 },
+    ]);
     detalleEstacionId.set(null);
     anioDetalle.set(null);
     cronogramaSoloAtrasadas.set(false);
@@ -429,5 +434,33 @@ describe('DashboardEstaciones', () => {
     render(DashboardEstaciones);
     expect(await screen.findByText(/Mostrando los 1 más recientes de 63/)).toBeTruthy();
     expect(screen.getByText(/· 2026 · 63 registros · no suman al avance/)).toBeTruthy();
+  });
+
+  it('Eléctrico: tarjeta "Elementos más intervenidos" que abre Ejecuciones filtrado por el elemento', async () => {
+    disciplinaFiltro.set('ELECTRICO');
+    render(DashboardEstaciones);
+
+    expect(await screen.findByText('Elementos más intervenidos')).toBeTruthy();
+    expect(substationAdmin.elementosIntervenidos).toHaveBeenCalledWith(undefined, 'ELECTRICO');
+    expect(screen.getByText('5 estaciones', { exact: false })).toBeTruthy();
+    await fireEvent.click(screen.getByText('Breaker'));
+    expect(get(ejecucionesFiltroInicial)).toEqual({ elementoId: 4, fechaInicio: '2026-01-01', fechaFin: '2026-12-31' });
+    expect(get(subestacionesActiveTab)).toBe('ejecuciones');
+  });
+
+  it('Civil o todas: no muestra elementos ni los pide', async () => {
+    disciplinaFiltro.set('CIVIL');
+    render(DashboardEstaciones);
+    await screen.findByText(/Civil · cuánto se ha hecho en cada estación/);
+    expect(screen.queryByText('Elementos más intervenidos')).toBeNull();
+    expect(substationAdmin.elementosIntervenidos).not.toHaveBeenCalled();
+  });
+
+  it('detalle eléctrico: elementos de esa estación y del año del detalle', async () => {
+    disciplinaFiltro.set('ELECTRICO');
+    detalleEstacionId.set(1);
+    render(DashboardEstaciones);
+    expect(await screen.findByText('Elementos más intervenidos')).toBeTruthy();
+    expect(substationAdmin.elementosIntervenidos).toHaveBeenCalledWith(2026, 'ELECTRICO', 1);
   });
 });
