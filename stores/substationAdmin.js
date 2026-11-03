@@ -31,6 +31,19 @@ export const substationAdmin = {
     cambiarEstadoActividad: (id, activa) =>
         fetchWithAuth(`substation/actividades/${id}/estado`, { method: 'PATCH', body: json({ activa }) }),
 
+    // Conjuntos y elementos (Eléctrico: "¿Qué se intervino?"). body: { nombre, disciplina }
+    listarConjuntos: () => fetchWithAuth('substation/conjuntos?incluirInactivas=true'),
+    crearConjunto: (body) => fetchWithAuth('substation/conjuntos', { method: 'POST', body: json(body) }),
+    actualizarConjunto: (id, body) => fetchWithAuth(`substation/conjuntos/${id}`, { method: 'PUT', body: json(body) }),
+    cambiarEstadoConjunto: (id, activa) =>
+        fetchWithAuth(`substation/conjuntos/${id}/estado`, { method: 'PATCH', body: json({ activa }) }),
+
+    listarElementos: () => fetchWithAuth('substation/elementos?incluirInactivas=true'),
+    crearElemento: (body) => fetchWithAuth('substation/elementos', { method: 'POST', body: json(body) }),
+    actualizarElemento: (id, body) => fetchWithAuth(`substation/elementos/${id}`, { method: 'PUT', body: json(body) }),
+    cambiarEstadoElemento: (id, activa) =>
+        fetchWithAuth(`substation/elementos/${id}/estado`, { method: 'PATCH', body: json({ activa }) }),
+
     // Dashboard y Detalle por estación
     /**
      * Sin anio: el año actual del servidor. Sin disciplina: todas. Cada fila trae anio, vencidas,
@@ -40,6 +53,9 @@ export const substationAdmin = {
         fetchWithAuth(`substation/indicadores/por-estacion${query({ anio, disciplina })}`),
     criticidad: (estacionId, disciplina) =>
         fetchWithAuth(`substation/indicadores/criticidad${query({ estacionId, disciplina })}`),
+    /** Elementos más intervenidos del año: [{ elementoId, nombre, intervenciones, estaciones }], de más a menos. */
+    elementosIntervenidos: (anio, disciplina, estacionId) =>
+        fetchWithAuth(`substation/indicadores/elementos${query({ anio, disciplina, estacionId })}`),
     /** Últimas ejecuciones de una estación en el año y la disciplina del detalle (página de Spring). */
     ultimasEjecuciones: (estacionId, anio, disciplina, size = 6) =>
         fetchWithAuth(

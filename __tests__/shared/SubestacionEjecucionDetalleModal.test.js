@@ -157,4 +157,24 @@ describe('SubestacionEjecucionDetalleModal', () => {
     await fireEvent.click(container.querySelector('.modal'));
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('Eléctrico: muestra qué se intervino, con el texto de "Otro"', () => {
+    render(SubestacionEjecucionDetalleModal, { ejecucion: { ...ejecucionBase, disciplina: 'ELECTRICO',
+      conjuntos: [{ id: 1, nombre: 'Gabinetes de control' }], elementos: [{ id: 4, nombre: 'Breaker' }],
+      conjuntoOtro: null, elementoOtro: 'Celda de medida' } });
+
+    expect(screen.getByText('Qué se intervino')).toBeTruthy();
+    expect(screen.getByText('Gabinetes de control')).toBeTruthy();
+    expect(screen.getByText('Breaker')).toBeTruthy();
+    expect(screen.getByText('Otro: Celda de medida')).toBeTruthy();
+  });
+
+  it('Eléctrico sin nada marcado dice "No aplica"; Civil no muestra la sección', () => {
+    const { unmount } = render(SubestacionEjecucionDetalleModal, { ejecucion: { ...ejecucionBase, disciplina: 'ELECTRICO', conjuntos: [], elementos: [] } });
+    expect(screen.getByText(/No aplica/)).toBeTruthy();
+    unmount();
+
+    render(SubestacionEjecucionDetalleModal, { ejecucion: { ...ejecucionBase, disciplina: 'CIVIL', conjuntos: [], elementos: [] } });
+    expect(screen.queryByText('Qué se intervino')).toBeNull();
+  });
 });

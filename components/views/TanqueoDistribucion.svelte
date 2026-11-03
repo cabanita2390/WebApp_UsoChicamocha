@@ -447,9 +447,9 @@
   .btn-export {
     font-family: inherit;
     padding: 9px 20px;
-    background: #2e7d32;
-    color: #fff;
-    border: none;
+    background: #fff;
+    color: #0b0b0b;
+    border: 1px solid rgba(11, 11, 11, 0.12);
     border-radius: 999px;
     cursor: pointer;
     font-size: 12px;
@@ -458,7 +458,7 @@
     white-space: nowrap;
   }
   .btn-export:hover {
-    background: #256428;
+    background: #fafaf9;
   }
   .btn-export:disabled {
     opacity: 0.6;
@@ -468,7 +468,7 @@
     font-family: inherit;
     padding: 9px 20px;
     background: #fff;
-    color: #52514e;
+    color: #0b0b0b;
     border: 1px solid rgba(11, 11, 11, 0.12);
     border-radius: 999px;
     cursor: pointer;
@@ -478,27 +478,31 @@
     white-space: nowrap;
   }
   .btn-clear-filter:hover {
-    background: #f5f6f8;
+    background: #fafaf9;
   }
   .tipo-selector {
     display: flex;
-    gap: 8px;
+    padding: 3px;
+    background: #efefed;
+    border-radius: 999px;
     align-self: center;
   }
   .tipo-pill {
     font-family: inherit;
-    background: rgba(42, 120, 214, 0.1);
-    color: #2a78d6;
+    background: transparent;
+    color: #0b0b0b;
     border: none;
     border-radius: 999px;
-    padding: 8px 16px;
+    padding: 7px 16px;
     font-size: 12px;
     cursor: pointer;
+    white-space: nowrap;
   }
   .tipo-pill--active {
-    background: #2a78d6;
-    color: #fff;
+    background: #fff;
+    color: #0b0b0b;
     font-weight: 600;
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.1);
   }
   .fuel-loader {
     display: flex;
@@ -538,8 +542,6 @@
   .dist-chip {
     font-size: 11px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     padding: 5px 12px;
     border-radius: 999px;
   }

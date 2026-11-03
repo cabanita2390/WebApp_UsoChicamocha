@@ -58,6 +58,13 @@ export const vehicleInspectionReportColumns = [
   { header: 'Refrigerante', accessorKey: 'nivelRefrigerante', size: 88, meta: { isStatus: true } },
   { header: 'Líquido frenos', accessorKey: 'nivelFrenos', size: 88, meta: { isStatus: true } },
   { header: 'Llantas / aire', accessorKey: 'estadoLlantas', size: 88, meta: { isStatus: true } },
+  {
+    header: 'Presión llantas (PSI)',
+    accessorKey: 'presionLlantasEstado',
+    id: 'vi_presion',
+    size: 96,
+    meta: { isTirePressure: true, getTirePressureTitle: (row) => `Presión de llantas — ${vehiculoInspeccionLabel(row)}` },
+  },
   { header: 'Luces', accessorKey: 'lucesGeneral', size: 78, meta: { isStatus: true } },
   { header: 'Visual (pintura, golpes)', accessorKey: 'estadoVisual', size: 100, meta: { isStatus: true } },
   { header: 'Limpieza general', accessorKey: 'limpiezaGeneral', size: 88, meta: { isStatus: true } },
@@ -277,6 +284,13 @@ export const reportMotoColumns = [
     { header: `DOCUMENTACIÓN  SOAT`, accessorKey: 'checkSoat', size: 160, meta: { isStatus: true, isMultilineHeader: true } },
     { header: `DOCUMENTACIÓN  TECNICOMECÁNICA`, accessorKey: 'checkTecno', size: 160, meta: { isStatus: true, isMultilineHeader: true } },
     { header: 'Estado ACTUAL', accessorKey: 'estadoVisual', size: 130, meta: { isStatus: true } },
+    {
+        header: 'Presión llantas (PSI)',
+        accessorKey: 'presionLlantasEstado',
+        id: 'moto_presion',
+        size: 96,
+        meta: { isTirePressure: true, getTirePressureTitle: (row) => `Presión de llantas — ${row.placa ?? 'moto'}` },
+    },
     { header: 'Observaciones', accessorKey: 'observacionesFinales', size: 220, meta: { isMultiline: true } },
     { header: 'Responsable', accessorKey: 'responsable', size: 120 },
 ];

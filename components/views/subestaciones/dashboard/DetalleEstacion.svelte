@@ -9,6 +9,7 @@
   import { BADGE, IMPREVISTO, RESULTADO, SEGUIMIENTO, chip, fechaCorta, porcentaje, semaforoMes, aniosParaSelector } from "../../../../utils/cronograma.js";
   import { tipoMantenimientoLabel } from "../../../../config/table-definitions/substation.js";
   import { origenEjecucion, seguimientoTexto } from "../../../../utils/ordenes.js";
+  import ElementosIntervenidos from "./ElementosIntervenidos.svelte";
   import Loader from "../../../shared/Loader.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
   import SubestacionEjecucionDetalleModal from "../../../shared/SubestacionEjecucionDetalleModal.svelte";
@@ -25,6 +26,8 @@
   let citas = [];
   let actividadesPorId = new Map();
   let criticas = [];
+  /** Eléctrico: elementos más intervenidos en esta estación, en el año del detalle. */
+  let elementos = [];
   let ejecuciones = [];
   let noProgramadas = [];
   /** Total del año (la lista trae hasta 50; si hay más, se avisa en vez de cortar callado). */
@@ -55,10 +58,13 @@
       const ind = indicadores.find((i) => i.estacionId === estacionId) ?? null;
       const anioDatos = ind?.anio ?? pedido;
       // Todo lo de abajo, del año y la disciplina del detalle (como el resto de la página).
-      const [cron, fuera, ult] = await Promise.all([
+      const [cron, fuera, ult, elem] = await Promise.all([
         substationAdmin.obtenerCronograma(anioDatos),
         substationAdmin.noProgramadasDeEstacion(estacionId, anioDatos, $disciplinaFiltro),
         substationAdmin.ultimasEjecuciones(estacionId, anioDatos, $disciplinaFiltro),
+        $disciplinaFiltro === "ELECTRICO"
+          ? substationAdmin.elementosIntervenidos(anioDatos, "ELECTRICO", estacionId)
+          : Promise.resolve([]),
       ]);
       if (mia !== secuencia) return;
       indicador = ind;
@@ -66,6 +72,7 @@
       estacion = estaciones.find((s) => s.id === estacionId) ?? null;
       actividadesPorId = new Map(actividades.map((a) => [a.id, a]));
       criticas = crit.slice(0, 5);
+      elementos = elem ?? [];
       ejecuciones = ult?.content ?? [];
       noProgramadas = fuera?.content ?? [];
       totalNoProgramadas = fuera?.totalElements ?? noProgramadas.length;
@@ -351,6 +358,11 @@
       </div>
     </div>
   </div>
+
+  {#if $disciplinaFiltro === "ELECTRICO"}
+    <ElementosIntervenidos filas={elementos} alcance="{anio} · en esta estación" tope={6} conEstaciones={false}
+      on:ver={(e) => irAEjecuciones(null, { elementoId: e.detail.elementoId, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31` })} />
+  {/if}
 
   <div class="sub-card scroll-x">
     <div class="card-t entre">

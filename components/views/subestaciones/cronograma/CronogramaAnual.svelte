@@ -349,7 +349,7 @@
   function masivaEstacionAqui() {
     masiva = {
       modo: "estacion",
-      disciplina: unaDisciplina || "CIVIL",
+      disciplina: unaDisciplina || null,
       estacionIds: [celda.estacionId],
       meses: mesCerrado(anio, celda.mes, hoy) ? [] : [celda.mes],
     };
@@ -359,7 +359,7 @@
   // Abre en el modo de la grilla: filas por estación → "Por estación"; por actividad → "Por actividad".
   function abrirMasiva() {
     celda = null;
-    masiva = { modo: por === "est" ? "estacion" : "actividad", disciplina: unaDisciplina || "CIVIL" };
+    masiva = { modo: por === "est" ? "estacion" : "actividad", disciplina: unaDisciplina || null };
   }
 
   async function asignado(e) {
@@ -721,7 +721,7 @@
     gap: 7px;
   }
   .filtros-btn.activos {
-    border: 2px solid #0b0b0b;
+    border: 2px solid #2a78d6;
     padding: 7px 15px;
   }
   .badge {
@@ -729,7 +729,7 @@
     height: 18px;
     padding: 0 5px;
     border-radius: 999px;
-    background: #0b0b0b;
+    background: #2a78d6;
     color: #fff;
     font-size: 11px;
     font-weight: 700;

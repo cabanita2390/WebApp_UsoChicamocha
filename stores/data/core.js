@@ -54,6 +54,9 @@ export const initialState = {
     fuelPerformanceHistory: { MAQUINARIA: [], VEHICULO: [], MOTOCICLETA: [] },
     fuelDistribution: null,
     fuelAssetConfig: [],
+    // Presión de llantas — perfiles y su asignación por activo (stores/data/tire.js).
+    tireProfiles: [],
+    tireAssignments: [],
     // Subestaciones (mantenimiento Civil) — reporte de solo lectura, reusa el
     // isLoading/error global (igual que fuel/catalog/oils): no lo refresca
     // useWebSocketNotifications.js en segundo plano.
@@ -92,6 +95,8 @@ export const STORE_ARRAY_KEYS = new Set([
     'vehicleInspectionsFull',
     'substationEstaciones',
     'substationActividades',
+    'tireProfiles',
+    'tireAssignments',
 ]);
 
 /** Convierte cuerpo JSON a lista (array plano, Spring `content`, o `data`). */

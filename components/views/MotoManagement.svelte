@@ -9,12 +9,14 @@
   import DocHistoryModal from "../shared/DocHistoryModal.svelte";
   import EditAssetModal from "../shared/EditAssetModal.svelte";
   import FuelConfigFields from "../shared/FuelConfigFields.svelte";
+  import TireProfileField from "../shared/TireProfileField.svelte";
+  import { asignacionDeActivo, sincronizarPerfilLlantas } from "../../lib/presionLlantas.js";
   import { motoInventoryColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
   import { syncPreventiveAlertsFromServer } from "../../composables/useAlerts.js";
   import { download } from "../../stores/api.js";
-  import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
+  import { formatMotoVehiclePayload, validarPlaca } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
   import { normLower, normalizeBelongsTo, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
   import { createQuickCatalog } from '../../composables/useQuickCatalog.js';
@@ -105,6 +107,10 @@
   const initialFuelConfig = { fuelTypeDefaultId: "", consumoEstandar: "", unidadConsumo: "", tanqueCapacidadGal: "" };
   let fuelConfigNew = { ...initialFuelConfig };
   let fuelConfigEdit = { ...initialFuelConfig };
+  // Perfil de llantas (asset_llanta_config): también aparte del activo; solo se
+  // guarda si cambió respecto al que tenía al abrir el formulario.
+  let tirePerfilNew = "";
+  let tireConfigEdit = { perfilId: "", original: "" };
   let docSoatVencimiento = "";
   let docTecnoVencimiento = "";
   let docSoatFile = null;
@@ -137,8 +143,8 @@
 
   async function openDocModal(row) {
     try {
-      const v = await data.getVehicleByPlaca(row.placa);
-      docVehicleId = v?.id ?? null;
+      // La fila ya trae el id: buscar por placa fallaba con placas con símbolos (p. ej. "%").
+      docVehicleId = row?.id ?? null;
       if (docVehicleId == null) throw new Error('No se encontró la moto.');
       docModalRow = row;
       docModalOpen = true;
@@ -201,11 +207,16 @@
   $: locations = Array.isArray($data.locations) ? $data.locations : [];
   $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
   $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
+  $: tireProfiles = Array.isArray($data.tireProfiles) ? $data.tireProfiles : [];
   $: isLoading = $data.isLoadingMotos;
   $: motoTipoId =
     (types || []).find((t) => String(t?.name ?? t?.nombreTipo ?? "").toUpperCase() === "MOTOCICLETA")?.id ?? null;
 
   onMount(async () => {
+    if (isAdmin || isSupervisorOperativo) {
+      data.fetchTireProfiles().catch((e) => console.warn("No se cargaron los perfiles de llantas:", e));
+      data.fetchTireAssignments().catch((e) => console.warn("No se cargaron las asignaciones de llantas:", e));
+    }
     try {
       // Marcas y tipos no dependen de ubicaciones → se cargan en paralelo con ellas.
       // Motos SÍ depende de ubicaciones (el store enriquece nombres) → va después.
@@ -250,7 +261,8 @@
 
   async function handleCreateMoto(event) {
     event.preventDefault();
-    errorMessage = "";
+    errorMessage = validarPlaca(newMoto.placa) ?? "";
+    if (errorMessage) return;
     if (motoTipoId == null) {
       errorMessage =
         "No se encontró el tipo MOTOCICLETA en el catálogo. Verifique la base de datos (cat_tipos_vehiculo).";
@@ -295,9 +307,15 @@
         } catch (fuelErr) {
           docExtra += " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
         }
+        try {
+          await sincronizarPerfilLlantas(data, { vehicleId: vid }, tirePerfilNew);
+        } catch (tireErr) {
+          docExtra += " " + (tireErr.message || "No se pudo asignar el perfil de llantas.");
+        }
       }
       newMoto = { ...initialMotoState };
       fuelConfigNew = { ...initialFuelConfig };
+      tirePerfilNew = "";
       docSoatVencimiento = "";
       docTecnoVencimiento = "";
       docSoatFile = null;
@@ -344,8 +362,9 @@
   async function handleUpdateMoto(event) {
     event.preventDefault();
     if (!motoInEditor || motoTipoId == null) return;
+    errorMessage = validarPlaca(motoInEditor.placa) ?? "";
+    if (errorMessage) return;
     isSubmitting = true;
-    errorMessage = "";
     try {
       await data.updateMoto(motoInEditor.id, formatMotoVehiclePayload(motoInEditor, motoTipoId));
       let fuelExtra = "";
@@ -353,6 +372,11 @@
         await guardarFuelConfigMoto(motoInEditor.id, fuelConfigEdit);
       } catch (fuelErr) {
         fuelExtra = " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+      }
+      try {
+        await sincronizarPerfilLlantas(data, { vehicleId: motoInEditor.id }, tireConfigEdit.perfilId, tireConfigEdit.original);
+      } catch (tireErr) {
+        fuelExtra += " " + (tireErr.message || "No se pudo asignar el perfil de llantas.");
       }
       await data.fetchMotos();
       closeEditModal();
@@ -394,7 +418,10 @@
 
   async function openEditModal(moto) {
     try {
-      const fullMoto = await data.getMotoByPlaca(moto.placa);
+      // La fila de la tabla ya es el VehicleResponse completo (GET /moto). No se vuelve a
+      // pedir por placa: una placa con "%" hacía que el servidor rechazara la URL y no se
+      // podía abrir el editor para corregirla.
+      const fullMoto = { ...moto };
       motoInEditor = {
         ...fullMoto,
         idMarca: resolveBrandIdFromMoto(fullMoto),
@@ -416,6 +443,9 @@
             tanqueCapacidadGal: existingConfig.tanqueCapacidadGal != null ? String(existingConfig.tanqueCapacidadGal) : "",
           }
         : { ...initialFuelConfig };
+      const tireConfig = asignacionDeActivo($data.tireAssignments, { vehicleId: fullMoto.id });
+      const perfilActual = tireConfig ? String(tireConfig.perfilId) : "";
+      tireConfigEdit = { perfilId: perfilActual, original: perfilActual };
       showEditModal = true;
     } catch (e) {
       errorMessage = 'No se pudo cargar la moto para editar.';
@@ -427,6 +457,7 @@
     showEditModal = false;
     motoInEditor = null;
     fuelConfigEdit = { ...initialFuelConfig };
+    tireConfigEdit = { perfilId: "", original: "" };
     errorMessage = "";
   }
 
@@ -555,6 +586,13 @@
                 disabled={isSubmitting}
                 idPrefix="newMotoFuel"
               />
+              <TireProfileField
+                bind:perfilId={tirePerfilNew}
+                profiles={tireProfiles}
+                aplicaA="MOTOCICLETA"
+                disabled={isSubmitting}
+                idPrefix="newMotoTire"
+              />
             {/if}
           </div>
           <div class="create-docs-head">Documentación</div>
@@ -640,6 +678,9 @@
   locationTitle="Ej.: Unidad Pantano, Unidad Ayalas…"
   fuelConfig={fuelConfigEdit}
   {fuelTypes}
+  tireConfig={tireConfigEdit}
+  {tireProfiles}
+  tireAplicaA="MOTOCICLETA"
   on:close={closeEditModal}
   on:quickcatalog={(e) => quickCatalog.open(e.detail)}
   on:submit={handleUpdateMoto}

@@ -113,11 +113,12 @@
     box-sizing: border-box;
     margin-top: 0;
   }
-  .sidebar:not(:hover) .section-header {
-    justify-content: center;
-    font-size: 0;
-    height: 2px;
-    padding: 4px 0;
+  /* Contraído: se oculta solo el texto; la franja conserva su altura para que los íconos no se desplacen */
+  .section-header span {
+    transition: opacity 0.2s ease;
+  }
+  .sidebar:not(:hover) .section-header span {
+    opacity: 0;
   }
 
   .nav-item {

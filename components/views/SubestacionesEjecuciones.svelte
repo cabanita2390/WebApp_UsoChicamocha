@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { data } from "../../stores/data.js";
+  import { substationAdmin } from "../../stores/substationAdmin.js";
   import { addNotification } from "../../stores/ui.js";
   import Loader from "../shared/Loader.svelte";
   import DataGrid from "../shared/DataGrid.svelte";
@@ -13,6 +14,9 @@
   import { IMPREVISTO } from "../../utils/cronograma.js";
   import { origenEjecucion, ORDEN } from "../../utils/ordenes.js";
   import SelectorDisciplina from "./subestaciones/SelectorDisciplina.svelte";
+  import PanelFiltros from "../shared/PanelFiltros.svelte";
+  import SelectBuscable from "../shared/SelectBuscable.svelte";
+  import { opcionesActividades, opcionesElementos, opcionesEstaciones } from "../../utils/opcionesFiltro.js";
 
   /** Imprevistos (sin cita ni orden de trabajo): fila en terracota suave para verlos de un vistazo. */
   const claseFila = (r) => (origenEjecucion(r).tipo === "imprevisto" ? "fila-imprevisto" : "");
@@ -42,6 +46,7 @@
     return {
       estacionId: "",
       actividadId: "",
+      elementoId: "",
       tipoMantenimiento: "",
       tipoActividad: "",
       resultado: "",
@@ -62,6 +67,7 @@
       ...filtros,
       estacionId: filtroInicial.estacionId ?? "",
       actividadId: filtroInicial.actividadId ?? "",
+      elementoId: filtroInicial.elementoId ?? "",
       esProgramada: filtroInicial.esProgramada != null ? String(filtroInicial.esProgramada) : "",
       fechaInicio: filtroInicial.fechaInicio ?? "",
       fechaFin: filtroInicial.fechaFin ?? "",
@@ -75,6 +81,10 @@
   $: isLoading = $data.isLoading;
   $: estaciones = $data.substationEstaciones ?? [];
   $: actividades = ($data.substationActividades ?? []).filter((a) => !$disciplinaFiltro || a.disciplina === $disciplinaFiltro);
+  // Elementos eléctricos (también los desactivados: siguen en visitas viejas). El filtro solo se ofrece en Eléctrico.
+  let elementosTodos = [];
+  $: elementos = elementosTodos.filter((e) => e.disciplina === "ELECTRICO");
+  $: filtroElemento = $disciplinaFiltro === "ELECTRICO";
   $: pagina = $data.substationEjecuciones ?? { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 };
   $: columns = createEjecucionesColumns();
   $: soloHallazgosActivo = filtros.resultado === HALLAZGOS_PRESET.join(",");
@@ -86,6 +96,7 @@
     return {
       estacionId: filtros.estacionId || undefined,
       actividadId: filtros.actividadId || undefined,
+      elementoId: filtroElemento && filtros.elementoId ? filtros.elementoId : undefined,
       tipoMantenimiento: filtros.tipoMantenimiento || undefined,
       tipoActividad: filtros.tipoActividad || undefined,
       resultado: filtros.resultado ? filtros.resultado.split(",") : undefined,
@@ -125,6 +136,51 @@
     filtros = filtrosVacios();
     cargar(0);
   }
+
+  // Panel "Filtros" (como el del Cronograma Anual): los cambios se aplican con "Aplicar";
+  // cerrar sin aplicar deja los filtros como estaban.
+  let filtrosAbierto = false;
+  let filtrosAntes = null;
+
+  function abrirFiltros() {
+    filtrosAntes = { ...filtros };
+    filtrosAbierto = true;
+  }
+
+  function cerrarFiltros() {
+    if (filtrosAntes) filtros = filtrosAntes;
+    filtrosAbierto = false;
+  }
+
+  function aplicarFiltros() {
+    filtrosAntes = null;
+    filtrosAbierto = false;
+    cargar(0);
+  }
+
+  function quitar(campo) {
+    return () => {
+      filtros = { ...filtros, [campo]: "" };
+      cargar(0);
+    };
+  }
+
+  const fechaCorta = (iso) => (iso ? iso.split("-").reverse().slice(0, 2).join("/") : "");
+  const ORIGENES = { true: "Cronograma", orden: "Orden de trabajo" };
+
+  // Lo que está filtrado, como chips que se quitan con un clic. Los atajos (Solo imprevistos,
+  // Solo hallazgos, Sin atender) no se repiten aquí: ya se ven encendidos.
+  $: etiquetasFiltro = [
+    filtros.estacionId && { l: estaciones.find((e) => String(e.id) === String(filtros.estacionId))?.nombre ?? "Estación", quitar: quitar("estacionId") },
+    filtros.actividadId && { l: actividades.find((a) => String(a.id) === String(filtros.actividadId))?.nombre ?? "Actividad", quitar: quitar("actividadId") },
+    filtroElemento && filtros.elementoId && { l: elementos.find((e) => String(e.id) === String(filtros.elementoId))?.nombre ?? "Elemento", quitar: quitar("elementoId") },
+    filtros.resultado && !soloHallazgosActivo && { l: RESULTADOS.find((r) => r.value === filtros.resultado)?.label ?? filtros.resultado, quitar: quitar("resultado") },
+    ORIGENES[filtros.esProgramada] && { l: ORIGENES[filtros.esProgramada], quitar: quitar("esProgramada") },
+    filtros.tipoMantenimiento && { l: TIPOS_MANTENIMIENTO.find((t) => t.value === filtros.tipoMantenimiento)?.label ?? filtros.tipoMantenimiento, quitar: quitar("tipoMantenimiento") },
+    filtros.tipoActividad && { l: TIPOS_ACTIVIDAD.find((t) => t.value === filtros.tipoActividad)?.label ?? filtros.tipoActividad, quitar: quitar("tipoActividad") },
+    filtros.fechaInicio && { l: `Desde ${fechaCorta(filtros.fechaInicio)}`, quitar: quitar("fechaInicio") },
+    filtros.fechaFin && { l: `Hasta ${fechaCorta(filtros.fechaFin)}`, quitar: quitar("fechaFin") },
+  ].filter(Boolean);
 
   function toggleSoloHallazgos() {
     filtros = { ...filtros, resultado: soloHallazgosActivo ? "" : HALLAZGOS_PRESET.join(",") };
@@ -181,6 +237,7 @@
   onMount(() => {
     if (!estaciones.length) data.fetchSubstationEstaciones();
     if (!actividades.length) data.fetchSubstationActividades();
+    substationAdmin.listarElementos().then((l) => (elementosTodos = l ?? [])).catch(() => {});
     cargar(0);
   });
 </script>
@@ -199,70 +256,18 @@
   </div>
   <div class="filter-card">
     <div class="chip-row">
-      <label class="filter-chip">
-        <span class="chip-lab">Estación</span>
-        <select bind:value={filtros.estacionId}>
-          <option value="">Todas</option>
-          {#each estaciones as e}
-            <option value={e.id}>{e.nombre}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="filter-chip">
-        <span class="chip-lab">Actividad</span>
-        <select bind:value={filtros.actividadId}>
-          <option value="">Todas</option>
-          {#each actividades as a}
-            <option value={a.id}>{disciplinaLabel(a.disciplina)} · {a.nombre}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="filter-chip">
-        <span class="chip-lab">Resultado</span>
-        <select bind:value={filtros.resultado}>
-          <option value="">Todos</option>
-          {#each RESULTADOS as r}
-            <option value={r.value}>{r.label}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="filter-chip">
-        <span class="chip-lab">Origen</span>
-        <select bind:value={filtros.esProgramada}>
-          <option value="">Todos</option>
-          <option value="true">Cronograma</option>
-          <option value="orden">Orden de trabajo</option>
-          <option value="false">Imprevisto</option>
-        </select>
-      </label>
-      <label class="filter-chip">
-        <span class="chip-lab">Tipo de mantenimiento</span>
-        <select bind:value={filtros.tipoMantenimiento}>
-          <option value="">Todos</option>
-          {#each TIPOS_MANTENIMIENTO as t}
-            <option value={t.value}>{t.label}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="filter-chip">
-        <span class="chip-lab">Tipo de actividad</span>
-        <select bind:value={filtros.tipoActividad}>
-          <option value="">Todos</option>
-          {#each TIPOS_ACTIVIDAD as t}
-            <option value={t.value}>{t.label}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="filter-chip">
-        <span class="chip-lab">Desde</span>
-        <input type="date" bind:value={filtros.fechaInicio} />
-      </label>
-      <label class="filter-chip">
-        <span class="chip-lab">Hasta</span>
-        <input type="date" bind:value={filtros.fechaFin} />
-      </label>
-      <button type="button" class="btn-filter" on:click={handleFiltrar}>Filtrar</button>
-      <button type="button" class="btn-clear" on:click={handleLimpiarFiltro}>Limpiar</button>
+      <button type="button" class="btn-filtros" class:activos={etiquetasFiltro.length > 0} on:click={abrirFiltros}>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M2 4h12M4.5 8h7M7 12h2"></path>
+        </svg>
+        Filtros{#if etiquetasFiltro.length}<span class="badge">{etiquetasFiltro.length}</span>{/if}
+      </button>
+      {#each etiquetasFiltro as f (f.l)}
+        <button type="button" class="chip-activo" title="Quitar filtro" on:click={f.quitar}><strong>{f.l}</strong><span class="x">×</span></button>
+      {/each}
+      {#if etiquetasFiltro.length > 1}
+        <button type="button" class="lnk" on:click={handleLimpiarFiltro}>Limpiar todo</button>
+      {/if}
       <div class="presets">
         <button
           type="button"
@@ -296,6 +301,71 @@
       </div>
     </div>
   </div>
+
+  {#if filtrosAbierto}
+    <PanelFiltros on:aplicar={aplicarFiltros} on:limpiar={() => (filtros = filtrosVacios())} on:close={cerrarFiltros}>
+      <div class="panel-campos">
+        <label class="filter-chip">
+        <span class="chip-lab">Estación</span>
+        <SelectBuscable bind:value={filtros.estacionId} opciones={opcionesEstaciones(estaciones)} ariaLabel="Estación" buscarPlaceholder="Buscar estación…" />
+      </label>
+        <label class="filter-chip">
+        <span class="chip-lab">Actividad</span>
+        <SelectBuscable bind:value={filtros.actividadId} opciones={opcionesActividades(actividades)} ariaLabel="Actividad" buscarPlaceholder="Buscar actividad…" />
+      </label>
+      {#if filtroElemento}
+          <label class="filter-chip">
+          <span class="chip-lab">Elemento</span>
+          <SelectBuscable bind:value={filtros.elementoId} opciones={opcionesElementos(elementos)} todas="Todos" ariaLabel="Elemento" buscarPlaceholder="Buscar elemento…" />
+        </label>
+      {/if}
+        <label class="filter-chip">
+        <span class="chip-lab">Resultado</span>
+        <select bind:value={filtros.resultado}>
+          <option value="">Todos</option>
+          {#each RESULTADOS as r}
+            <option value={r.value}>{r.label}</option>
+          {/each}
+        </select>
+      </label>
+        <label class="filter-chip">
+        <span class="chip-lab">Origen</span>
+        <select bind:value={filtros.esProgramada}>
+          <option value="">Todos</option>
+          <option value="true">Cronograma</option>
+          <option value="orden">Orden de trabajo</option>
+          <option value="false">Imprevisto</option>
+        </select>
+      </label>
+        <label class="filter-chip">
+        <span class="chip-lab">Tipo de mantenimiento</span>
+        <select bind:value={filtros.tipoMantenimiento}>
+          <option value="">Todos</option>
+          {#each TIPOS_MANTENIMIENTO as t}
+            <option value={t.value}>{t.label}</option>
+          {/each}
+        </select>
+      </label>
+        <label class="filter-chip">
+        <span class="chip-lab">Tipo de actividad</span>
+        <select bind:value={filtros.tipoActividad}>
+          <option value="">Todos</option>
+          {#each TIPOS_ACTIVIDAD as t}
+            <option value={t.value}>{t.label}</option>
+          {/each}
+        </select>
+      </label>
+        <label class="filter-chip">
+        <span class="chip-lab">Desde</span>
+        <input type="date" bind:value={filtros.fechaInicio} />
+      </label>
+        <label class="filter-chip">
+        <span class="chip-lab">Hasta</span>
+        <input type="date" bind:value={filtros.fechaFin} />
+      </label>
+      </div>
+    </PanelFiltros>
+  {/if}
 
   {#if isLoading && !pagina.data.length}
     <div class="loader-wrap"><Loader /></div>
@@ -392,6 +462,97 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
+  }
+  .btn-filtros {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: inherit;
+    padding: 8px 16px;
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-filtros.activos {
+    border: 2px solid #2a78d6;
+    padding: 7px 15px;
+  }
+  .badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #2a78d6;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-grid;
+    place-items: center;
+  }
+  .chip-activo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+    padding: 6px 8px 6px 12px;
+    border: 1px solid rgba(42, 120, 214, 0.35);
+    border-radius: 999px;
+    background: #e8f1fb;
+    color: #1f5fae;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .chip-activo strong {
+    font-weight: 600;
+  }
+  .chip-activo .x {
+    font-size: 14px;
+    line-height: 1;
+  }
+  .lnk {
+    all: unset;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .panel-campos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .panel-campos .filter-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    font-size: 13px;
+  }
+  .panel-campos .chip-lab {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .panel-campos .filter-chip select,
+  .panel-campos .filter-chip input {
+    max-width: none;
+    font-size: 13px;
+    padding: 9px 12px;
+    border: 1px solid rgba(11, 11, 11, 0.14);
+    border-radius: 10px;
+    background: #fff;
+  }
+  .panel-campos .filter-chip select:focus,
+  .panel-campos .filter-chip input:focus {
+    outline: 2px solid #2a78d6;
+    outline-offset: 1px;
   }
   .filter-chip {
     display: inline-flex;

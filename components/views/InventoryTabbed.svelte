@@ -4,11 +4,13 @@
   import MachineManagement from './MachineManagement.svelte';
   import VehicleManagement from './VehicleManagement.svelte';
   import MotoManagement from './MotoManagement.svelte';
+  import TireProfileManagement from './TireProfileManagement.svelte';
 
   const tabs = [
     { id: 'maquinaria', label: 'Maquinaria' },
     { id: 'vehiculos',  label: 'Vehículos'  },
     { id: 'motos',      label: 'Motos'       },
+    { id: 'llantas',    label: 'Presión de llantas' },
   ];
   let activeTab = 'maquinaria';
 
@@ -34,6 +36,8 @@
       <VehicleManagement />
     {:else if activeTab === 'motos'}
       <MotoManagement />
+    {:else if activeTab === 'llantas'}
+      <TireProfileManagement />
     {/if}
   </TabPanel>
 </div>

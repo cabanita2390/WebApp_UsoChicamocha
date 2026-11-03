@@ -460,7 +460,6 @@
       </div>
     {:else}
       <div class="fuel-empty">
-        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#c7c6c2" stroke-width="1.6"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.5-4.5"></path></svg>
         <div class="fuel-empty-title">Ningún activo coincide con la búsqueda.</div>
         <div class="fuel-empty-sub">Prueba con otro nombre, combustible o quita el filtro.</div>
       </div>
@@ -471,7 +470,7 @@
 <style>
 .fuel-filtros-grid {
       display: grid;
-      grid-template-columns: 1fr auto 1fr;
+      grid-template-columns: auto minmax(0, 1fr) auto;
       gap: 8px 16px;
       align-items: end;
       margin-bottom: 4px;
@@ -493,9 +492,10 @@
     }
     .config-btn-wrap {
       display: flex;
+      flex-wrap: wrap;
       justify-content: flex-end;
       align-items: end;
-      gap: 12px;
+      gap: 8px;
     }
     @media (max-width: 700px) {
       .fuel-filtros-grid {
@@ -579,30 +579,41 @@
     font-family: inherit;
     padding: 9px 20px;
     background: #fff;
-    color: #52514e;
+    color: #0b0b0b;
     border: 1px solid rgba(11, 11, 11, 0.12);
     border-radius: 999px;
     cursor: pointer;
     font-size: 12px;
     font-weight: 600;
     height: 34px;
+    white-space: nowrap;
   }
   .btn-clear-filter:hover {
-    background: #f5f6f8;
+    background: #fafaf9;
   }
   .btn-config {
-    background: #52514e;
+    font-family: inherit;
+    padding: 9px 20px;
+    background: #fff;
+    color: #0b0b0b;
+    border: 1px solid rgba(11, 11, 11, 0.12);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    height: 34px;
+    white-space: nowrap;
     margin-left: auto;
   }
   .btn-config:hover {
-    background: #3d3c3a;
+    background: #fafaf9;
   }
   .btn-export {
     font-family: inherit;
     padding: 9px 20px;
-    background: #2e7d32;
-    color: #fff;
-    border: none;
+    background: #fff;
+    color: #0b0b0b;
+    border: 1px solid rgba(11, 11, 11, 0.12);
     border-radius: 999px;
     cursor: pointer;
     font-size: 12px;
@@ -611,7 +622,7 @@
     white-space: nowrap;
   }
   .btn-export:hover {
-    background: #256428;
+    background: #fafaf9;
   }
   .btn-export:disabled {
     opacity: 0.6;
@@ -619,26 +630,30 @@
   }
   .tipo-selector {
     display: flex;
-    gap: 8px;
+    padding: 3px;
+    background: #efefed;
+    border-radius: 999px;
     align-self: center;
   }
   .tipo-pill {
     font-family: inherit;
-    background: rgba(42, 120, 214, 0.1);
-    color: #2a78d6;
+    background: transparent;
+    color: #0b0b0b;
     border: none;
     border-radius: 999px;
-    padding: 8px 16px;
+    padding: 7px 16px;
     font-size: 12px;
     cursor: pointer;
+    white-space: nowrap;
   }
   .tipo-pill-count {
     opacity: 0.65;
   }
   .tipo-pill--active {
-    background: #2a78d6;
-    color: #fff;
+    background: #fff;
+    color: #0b0b0b;
     font-weight: 600;
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.1);
   }
   .fuel-loader {
     display: flex;
@@ -677,24 +692,27 @@
   }
   .fuel-chips {
     display: flex;
-    gap: 6px;
+    padding: 3px;
+    background: #efefed;
+    border-radius: 999px;
     flex-wrap: wrap;
   }
   .chip-mini {
     font-family: inherit;
-    border: 1px solid rgba(11, 11, 11, 0.1);
-    background: #fff;
-    color: var(--ink-muted);
+    background: transparent;
+    color: #0b0b0b;
+    border: none;
     border-radius: 999px;
-    padding: 7px 14px;
-    font-size: 11px;
-    font-weight: 600;
+    padding: 7px 16px;
+    font-size: 12px;
     cursor: pointer;
+    white-space: nowrap;
   }
   .chip-mini--active {
-    border: none;
-    background: rgba(42, 120, 214, 0.14);
-    color: #2a78d6;
+    background: #fff;
+    color: #0b0b0b;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.1);
   }
   .fuel-toolbar-spacer {
     flex: 1;
@@ -842,21 +860,21 @@
 
   /* ---- Vacío ---- */
   .fuel-empty {
+    background: #fff;
+    border: 1px solid rgba(11, 11, 11, 0.08);
+    border-radius: 10px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 8px;
-    padding: 56px 0;
+    gap: 2px;
   }
   .fuel-empty-title {
     font-size: 13px;
-    font-weight: 600;
-    color: var(--ink-secondary);
+    color: #52514e;
   }
   .fuel-empty-sub {
-    font-size: 11px;
-    color: var(--ink-muted);
+    font-size: 12px;
+    color: #898781;
   }
 
   /* ---- Modal "Exportar rendimiento mensual" ---- */
