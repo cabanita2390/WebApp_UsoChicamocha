@@ -302,7 +302,7 @@ describe('TanqueoDistribucion', () => {
     expect(screen.queryByRole('button', { name: /^eliminar$/i })).toBeNull();
   });
 
-  it('un ADMIN y un SUPERVISOR_OPERATIVO ven Editar en la tabla resumen, pero solo ADMIN ve Eliminar', () => {
+  it('un ADMIN y un SUPERVISOR_OPERATIVO ven Editar y Eliminar en la tabla resumen (CRUD completo en combustibles)', () => {
     const { unmount } = render(TanqueoDistribucion);
     expect(screen.getAllByRole('button', { name: /^editar$/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /^eliminar$/i }).length).toBeGreaterThan(0);
@@ -314,7 +314,7 @@ describe('TanqueoDistribucion', () => {
     });
     render(TanqueoDistribucion);
     expect(screen.getAllByRole('button', { name: /^editar$/i }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: /^eliminar$/i })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^eliminar$/i }).length).toBeGreaterThan(0);
   });
 
   it('click en Editar abre el modal de edición con los campos del tanqueo más reciente precargados', async () => {

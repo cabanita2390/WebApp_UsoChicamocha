@@ -54,8 +54,8 @@ describe('VehicleInspections', () => {
         currentPage: 0,
         pageSize: 20,
       },
-      isLoading: false,
-      error: null,
+      isLoadingVehicleInspections: false,
+      errorVehicleInspections: null,
     };
 
     data.subscribe.mockImplementation((callback) => {
@@ -65,7 +65,7 @@ describe('VehicleInspections', () => {
   });
 
   it('muestra el loader cuando está cargando sin datos', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingVehicleInspections = true;
     mockDataStore.vehicleInspections.data = [];
 
     render(VehicleInspections);
@@ -120,7 +120,7 @@ describe('VehicleInspections', () => {
 
   it('muestra error cuando el store reporta un error', async () => {
     mockDataStore.vehicleInspections.data = [];
-    mockDataStore.error = 'Error al cargar inspecciones';
+    mockDataStore.errorVehicleInspections = 'Error al cargar inspecciones';
 
     render(VehicleInspections);
     await tick();

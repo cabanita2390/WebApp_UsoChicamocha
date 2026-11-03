@@ -2,13 +2,15 @@
   import { createEventDispatcher } from 'svelte';
   import { locationLabel } from '@/lib/assetUtils.js';
   import FuelConfigFields from './FuelConfigFields.svelte';
+  import TireProfileField from './TireProfileField.svelte';
 
   export let open = false;
   export let title = '';
   export let asset = null;
   export let brands = [];
   export let locations = [];
-  export let isAdmin = false;
+  /** Muestra los campos de consumo estándar (combustibles): ADMIN y SUPERVISOR_OPERATIVO. */
+  export let canConfigFuel = false;
   export let isSubmitting = false;
   export let errorMessage = '';
   export let submitDisabled = false;
@@ -19,6 +21,12 @@
   // sí. Objeto aparte porque es una entidad distinta en el backend.
   export let fuelConfig = null;
   export let fuelTypes = [];
+  // Perfil de llantas (asset_llanta_config): { perfilId } con el id como texto, ""
+  // = sin perfil. Se muestra junto al consumo estándar (mismos roles).
+  export let tireConfig = null;
+  export let tireProfiles = [];
+  /** VEHICULO | MOTOCICLETA */
+  export let tireAplicaA = '';
 
   const dispatch = createEventDispatcher();
 
@@ -118,7 +126,7 @@
               <option value="0">Inactivo</option>
             </select>
           </label>
-          {#if isAdmin && fuelConfig}
+          {#if canConfigFuel && fuelConfig}
             <FuelConfigFields
               bind:fuelTypeDefaultId={fuelConfig.fuelTypeDefaultId}
               bind:consumoEstandar={fuelConfig.consumoEstandar}
@@ -127,6 +135,15 @@
               {fuelTypes}
               disabled={isSubmitting}
               idPrefix="editAssetFuel"
+            />
+          {/if}
+          {#if canConfigFuel && tireConfig}
+            <TireProfileField
+              bind:perfilId={tireConfig.perfilId}
+              profiles={tireProfiles}
+              aplicaA={tireAplicaA}
+              disabled={isSubmitting}
+              idPrefix="editAssetTire"
             />
           {/if}
         </div>

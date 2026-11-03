@@ -13,3 +13,4 @@ export * from './table-definitions/curriculum.js';
 export * from './table-definitions/vehicle-inspections.js';
 export * from './table-definitions/vehicle-management.js';
 export * from './table-definitions/fuel.js';
+export * from './table-definitions/substation.js';

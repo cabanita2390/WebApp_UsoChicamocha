@@ -12,8 +12,8 @@
   $: currentPage = $data.motoInspections.currentPage;
   $: pageSize = $data.motoInspections.pageSize;
   $: totalElements = $data.motoInspections.totalElements;
-  $: isLoading = $data.isLoading;
-  $: errorMessage = $data.error;
+  $: isLoading = $data.isLoadingMotoInspections;
+  $: errorMessage = $data.errorMotoInspections;
 
   let isExporting = false;
 

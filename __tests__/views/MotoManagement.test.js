@@ -66,7 +66,8 @@ vi.mock('../shared/Loader.svelte', () => ({
   })),
 }));
 
-vi.mock('@/lib/textFormat.js', () => ({
+vi.mock('@/lib/textFormat.js', async (importOriginal) => ({
+  ...(await importOriginal()),
   formatMotoVehiclePayload: vi.fn((v) => v),
 }));
 
@@ -89,7 +90,7 @@ describe('MotoManagement', () => {
         { id: 4, codigo: 'GAS', nombre: 'Gas natural vehicular', unidadMedida: 'M3' },
       ],
       fuelAssetConfig: [],
-      isLoading: false,
+      isLoadingMotos: false,
       error: null,
     };
 
@@ -109,7 +110,7 @@ describe('MotoManagement', () => {
   });
 
   it('muestra el estado de carga cuando está cargando sin motos', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingMotos = true;
     mockDataStore.motos = [];
 
     render(MotoManagement);
@@ -207,6 +208,18 @@ describe('MotoManagement', () => {
     expect(data.updateAssetFuelConfigVehicle).not.toHaveBeenCalled();
   });
 
+  it('no crea la moto si la placa tiene símbolos y explica por qué', async () => {
+    const { container } = render(MotoManagement);
+    await tick();
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: ABC12D'), { target: { value: 'SDZ%#F' } });
+    await fireEvent.submit(container.querySelector('form.create-form'));
+    await tick();
+
+    expect(data.createMoto).not.toHaveBeenCalled();
+    expect(screen.getByText(/solo puede tener letras, números y guion/)).toBeTruthy();
+  });
+
   it('el campo de placa es obligatorio', async () => {
     mockDataStore.motos = [];
 
@@ -219,7 +232,7 @@ describe('MotoManagement', () => {
 
   it('muestra el formulario aunque el store reporte error', async () => {
     mockDataStore.motos = [];
-    mockDataStore.error = 'No se pudo cargar motos';
+    mockDataStore.errorMotos = 'No se pudo cargar motos';
 
     render(MotoManagement);
     await tick();

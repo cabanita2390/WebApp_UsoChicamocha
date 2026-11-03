@@ -41,7 +41,8 @@
   $: activoId = Number(params.id);
 
   $: isLoading = $data.isLoading;
-  $: isAdmin = $auth?.currentUser?.role === "ADMIN";
+  // Editar el tanqueo desde el historial: ADMIN y SUPERVISOR_OPERATIVO (CRUD completo en combustibles).
+  $: canEditar = ["ADMIN", "SUPERVISOR_OPERATIVO"].includes($auth?.currentUser?.role);
   $: fuelTypes = $data.fuelTypes ?? [];
   $: fuelTypesById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.nombre]));
   $: unidadMedidaById = Object.fromEntries(fuelTypes.map((t) => [t.id, t.unidadMedida]));
@@ -87,7 +88,7 @@
   $: currentConfig =
     fuelAssetConfig.find((c) => (tipoElemento === "MAQUINARIA" ? c.machineId === activoId : c.vehicleId === activoId)) ?? null;
 
-  $: columns = createFuelPerformanceColumns(fuelTypesById, isAdmin, false, tipoElemento === "MAQUINARIA");
+  $: columns = createFuelPerformanceColumns(fuelTypesById, canEditar, false, tipoElemento === "MAQUINARIA");
 
   // Clave de store separada de la lista (fuelPerformance) a propósito — ver
   // fetchFuelPerformanceHistory: evita el parpadeo de pintar primero con las

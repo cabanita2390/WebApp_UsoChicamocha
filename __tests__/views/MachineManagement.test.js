@@ -16,6 +16,9 @@ vi.mock('../../stores/data.js', () => ({
     fetchFuelTypes: vi.fn(),
     fetchAssetFuelConfig: vi.fn(),
     updateAssetFuelConfigMachine: vi.fn(),
+    fetchTireProfiles: vi.fn(),
+    fetchTireAssignments: vi.fn(),
+    assignTireProfileMachine: vi.fn(),
   },
 }));
 
@@ -86,12 +89,17 @@ describe('MachineManagement', () => {
     // Configurar store de datos simulado
     mockDataStore = {
       machines: [],
-      isLoading: false,
+      isLoadingMachines: false,
       fuelTypes: [
         { id: 1, codigo: 'ACPM', nombre: 'ACPM / Diésel', unidadMedida: 'GALON' },
         { id: 4, codigo: 'GAS', nombre: 'Gas natural vehicular', unidadMedida: 'M3' },
       ],
       fuelAssetConfig: [],
+      tireProfiles: [
+        { id: 3, nombre: 'Retro 4x4', aplicaA: 'MAQUINARIA', posiciones: [{ codigo: 'DI', psiMin: 30, psiMax: 35 }] },
+        { id: 4, nombre: 'Moto', aplicaA: 'MOTOCICLETA', posiciones: [] },
+      ],
+      tireAssignments: [],
     };
 
     data.subscribe.mockImplementation((callback) => {
@@ -101,6 +109,9 @@ describe('MachineManagement', () => {
     data.fetchFuelTypes.mockResolvedValue();
     data.fetchAssetFuelConfig.mockResolvedValue();
     data.updateAssetFuelConfigMachine.mockResolvedValue({});
+    data.fetchTireProfiles.mockResolvedValue([]);
+    data.fetchTireAssignments.mockResolvedValue([]);
+    data.assignTireProfileMachine.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -108,7 +119,7 @@ describe('MachineManagement', () => {
   });
 
   it('renders loading state when loading and no machines', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingMachines = true;
     mockDataStore.machines = [];
 
     render(MachineManagement);
@@ -120,7 +131,7 @@ describe('MachineManagement', () => {
   });
 
   it('renders machine management interface when not loading', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [{ id: 1, name: 'Machine 1' }];
 
     render(MachineManagement);
@@ -132,7 +143,7 @@ describe('MachineManagement', () => {
   });
 
   it('calls fetchMachines when refresh button is clicked', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [{ id: 1, name: 'Machine 1' }];
 
     render(MachineManagement);
@@ -146,7 +157,7 @@ describe('MachineManagement', () => {
   });
 
   it('creates new machine successfully', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
     data.createMachine.mockResolvedValue();
 
@@ -214,6 +225,27 @@ describe('MachineManagement', () => {
     });
   });
 
+  it('al crear una máquina con configuración de llantas, se la asigna; solo ofrece las de maquinaria', async () => {
+    mockDataStore.machines = [];
+    data.createMachine.mockResolvedValue({ id: 7, name: 'Retro' });
+
+    render(MachineManagement);
+    await tick();
+
+    const select = screen.getByLabelText(/presión de llantas/i);
+    expect([...select.options].map((o) => o.textContent)).toEqual(['— No pedir presión —', 'Retro 4x4 · 1 llanta']);
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: Excavadora CAT'), { target: { value: 'Retro' } });
+    await fireEvent.input(screen.getByPlaceholderText('Ej: 320D'), { target: { value: '3CX' } });
+    await fireEvent.change(select, { target: { value: '3' } });
+    await fireEvent.click(screen.getByText('Registrar máquina'));
+    await tick();
+    await tick();
+    await tick();
+
+    expect(data.assignTireProfileMachine).toHaveBeenCalledWith(7, 3);
+  });
+
   it('si no se elige combustible al crear una máquina, NO llama a guardar el consumo estándar', async () => {
     mockDataStore.machines = [];
     data.createMachine.mockResolvedValue({ id: 6, name: 'No Fuel Machine' });
@@ -229,10 +261,12 @@ describe('MachineManagement', () => {
       expect(data.createMachine).toHaveBeenCalled();
     });
     expect(data.updateAssetFuelConfigMachine).not.toHaveBeenCalled();
+    // Sin perfil de llantas elegido tampoco se toca asset_llanta_config.
+    expect(data.assignTireProfileMachine).not.toHaveBeenCalled();
   });
 
   it('handles machine creation failure', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
     data.createMachine.mockRejectedValue(new Error('Creation failed'));
 
@@ -255,7 +289,7 @@ describe('MachineManagement', () => {
   });
 
   it('opens delete confirmation modal', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [{ id: 1, name: 'Machine 1', model: 'Model 1' }];
 
     render(MachineManagement);
@@ -269,7 +303,7 @@ describe('MachineManagement', () => {
   });
 
   it('handles belongsTo selection', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
 
     render(MachineManagement);
@@ -283,7 +317,7 @@ describe('MachineManagement', () => {
   });
 
   it('validates required fields', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
 
     render(MachineManagement);
@@ -298,7 +332,7 @@ describe('MachineManagement', () => {
   });
 
   it('resets form after successful creation', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingMachines = false;
     mockDataStore.machines = [];
     data.createMachine.mockResolvedValue();
 

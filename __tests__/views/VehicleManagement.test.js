@@ -66,7 +66,8 @@ vi.mock('../shared/Loader.svelte', () => ({
   })),
 }));
 
-vi.mock('@/lib/textFormat.js', () => ({
+vi.mock('@/lib/textFormat.js', async (importOriginal) => ({
+  ...(await importOriginal()),
   formatVehiclePayload: vi.fn((v) => v),
 }));
 
@@ -89,7 +90,7 @@ describe('VehicleManagement', () => {
         { id: 4, codigo: 'GAS', nombre: 'Gas natural vehicular', unidadMedida: 'M3' },
       ],
       fuelAssetConfig: [],
-      isLoading: false,
+      isLoadingVehicles: false,
       error: null,
     };
 
@@ -109,7 +110,7 @@ describe('VehicleManagement', () => {
   });
 
   it('muestra el estado de carga cuando está cargando', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingVehicles = true;
     mockDataStore.vehicles = [];
 
     render(VehicleManagement);
@@ -168,6 +169,18 @@ describe('VehicleManagement', () => {
     });
   });
 
+  it('no crea el vehículo si la placa tiene símbolos y explica por qué', async () => {
+    const { container } = render(VehicleManagement);
+    await tick();
+
+    await fireEvent.input(screen.getByPlaceholderText('Ej: ABC123'), { target: { value: 'SDZ%#F' } });
+    await fireEvent.submit(container.querySelector('form.create-form'));
+    await tick();
+
+    expect(data.createVehicle).not.toHaveBeenCalled();
+    expect(screen.getByText(/solo puede tener letras, números y guion/)).toBeTruthy();
+  });
+
   it('el campo de placa es obligatorio', async () => {
     mockDataStore.vehicles = [];
 
@@ -180,7 +193,7 @@ describe('VehicleManagement', () => {
 
   it('muestra el formulario aunque el store reporte error', async () => {
     mockDataStore.vehicles = [];
-    mockDataStore.error = 'No se pudo cargar vehículos';
+    mockDataStore.errorVehicles = 'No se pudo cargar vehículos';
 
     render(VehicleManagement);
     await tick();

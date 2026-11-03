@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import Loader from './Loader.svelte';
   import { formatSubidoPor } from '@/lib/assetUtils.js';
-  import { openDocumentSafely } from '../../stores/api.js';
+  import { openDocumentSafely, conAccesoArchivo } from '../../stores/api.js';
 
   export let open = false;
   export let plate = '';
@@ -83,7 +83,7 @@
                   <td class="doc-col-por">{formatSubidoPor(row.subidoPor)}</td>
                   <td>
                     {#if row.urlArchivo}
-                      <a href={row.urlArchivo} target="_blank" rel="noopener noreferrer" on:click|preventDefault={() => openDocumentSafely(row.urlArchivo)}>Ver</a>
+                      <a href={conAccesoArchivo(row.urlArchivo)} target="_blank" rel="noopener noreferrer" on:click|preventDefault={() => openDocumentSafely(row.urlArchivo)}>Ver</a>
                     {:else}
                       —
                     {/if}

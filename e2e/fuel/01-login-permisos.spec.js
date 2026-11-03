@@ -6,14 +6,15 @@ import { loginWeb, loginAndGoToFuel, fillLoginForm, goToFuelTab, QA_USERS, PASSW
  *
  * Referencia de permisos usada para las aserciones (leída directamente del
  * código, no asumida):
- * - stores/auth.js: `allowedRoles = ['ADMIN', 'SUPERVISOR_OPERATIVO', 'ALMACEN']`
+ * - Los roles del sistema son 3 (ADMIN, SUPERVISOR_OPERATIVO, OPERARIO).
+ *   stores/auth.js: `allowedRoles = ['ADMIN', 'SUPERVISOR_OPERATIVO']`
  *   — OPERARIO tiene acceso denegado a la web SIEMPRE (mensaje "Acceso denegado.
  *   Usa la app móvil 📱"), sin importar sus permisos de API.
  * - back/.../fuel/web/FuelDashboardController.java, FuelPerformanceController.java:
  *   @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO','ADMIN')") en Dashboard
- *   Financiero y Rendimiento -> ALMACEN no debería poder verlos.
+ *   Financiero y Rendimiento.
  * - back/.../fuel/web/RefuelingRecordController.java: POST/GET tanqueo abierto a
- *   OPERARIO/ALMACEN/SUPERVISOR_OPERATIVO/ADMIN; PUT/DELETE solo ADMIN
+ *   OPERARIO/SUPERVISOR_OPERATIVO/ADMIN; PUT/DELETE solo ADMIN
  *   (@PreAuthorize("hasRole('ADMIN')")) -> el botón "Eliminar" y la columna
  *   "Acciones" (Editar) del DataGrid solo deberían aparecer para ADMIN
  *   (createRefuelingColumns: showActions = isAdmin).
@@ -59,53 +60,6 @@ test.describe("Combustibles — Login y permisos por rol", () => {
     await goToFuelTab(page, "Dashboard Financiero");
     await expect(page.locator(".kpi-card")).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: "e2e/fuel/screenshots/01-supervisor-dashboard-financiero.png", fullPage: true });
-  });
-
-  test("ALMACEN inicia sesión y accede al panel (Combustibles visible en el sidebar para los 3 roles web)", async ({ page }) => {
-    await loginAndGoToFuel(page, QA_USERS.almacen.username);
-
-    // El link "Combustibles" del Sidebar no está condicionado por rol
-    // (Sidebar.svelte solo oculta "Usuarios" para no-ADMIN) — los 3 roles con
-    // acceso web llegan aquí; las restricciones reales viven en cada endpoint.
-    await expect(page.getByRole("tab", { name: "Tanqueo y Distribución" })).toBeVisible();
-    // Corregido: la pestaña activa por defecto es "Dashboard Financiero", no
-    // "Tanqueo y Distribución" (ver fix en el test de ADMIN de este archivo).
-    await goToFuelTab(page, "Tanqueo y Distribución");
-    await expect(page.locator(".btn-registrar")).toBeVisible();
-
-    await page.screenshot({ path: "e2e/fuel/screenshots/01-almacen-tanqueo-distribucion.png", fullPage: true });
-
-    // ANOMALÍA REAL (ver reporte final): pese a que RefuelingReportController
-    // (GET /api/v1/fuel/refueling/reporte, usado por esta pestaña) declara
-    // @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO','ADMIN')"), el backend
-    // real responde 200 para ALMACEN y la tabla se llena con datos reales — se
-    // documenta tal cual se observa, no se fuerza un 403 aquí.
-    // No se afirma vacío/error: se deja constancia del estado real observado.
-  });
-
-  test("ALMACEN no ve datos en Dashboard Financiero ni en Rendimiento (403 real del backend, sin mensaje de error visible en la UI)", async ({ page }) => {
-    await loginAndGoToFuel(page, QA_USERS.almacen.username);
-
-    await goToFuelTab(page, "Dashboard Financiero");
-    // fetchFuelDashboard falla con 403 (@PreAuthorize ADMIN/SUPERVISOR_OPERATIVO
-    // en FuelDashboardController) -> $data.fuelDashboard queda null -> el
-    // template de FuelFinancialDashboard.svelte no tiene rama {:else} final, así
-    // que no se renderiza ni el KPI ni ningún mensaje de error: queda en blanco
-    // debajo de los filtros. Se documenta el comportamiento observado. Se espera
-    // a que el loader desaparezca (isLoading pasa a false incluso en el catch)
-    // en vez de un timeout fijo.
-    await expect(page.locator(".fuel-loader")).toHaveCount(0, { timeout: 10000 });
-    await expect(page.locator(".kpi-card")).toHaveCount(0);
-    await page.screenshot({ path: "e2e/fuel/screenshots/01-almacen-dashboard-financiero-vacio.png", fullPage: true });
-
-    await goToFuelTab(page, "Rendimiento");
-    // fetchFuelPerformanceAllTipos falla con 403 (FuelPerformanceController) ->
-    // fuelPerformance conserva su valor inicial ({MAQUINARIA:[],VEHICULO:[],
-    // MOTOCICLETA:[]}) -> la UI muestra el mensaje genérico de "sin datos", que
-    // es engañoso (parece "no hay actividad" y en realidad es 403 de permisos).
-    await expect(page.locator(".fuel-loader")).toHaveCount(0, { timeout: 10000 });
-    await expect(page.getByText("Sin activos con línea base y consumo configurado en el rango seleccionado.")).toBeVisible();
-    await page.screenshot({ path: "e2e/fuel/screenshots/01-almacen-rendimiento-sin-datos-403.png", fullPage: true });
   });
 
   test("OPERARIO no puede iniciar sesión en la web (acceso denegado explícito, no llega al panel)", async ({ page }) => {

@@ -1,9 +1,9 @@
-import { validateDocumentFileSize } from '../../src/lib/fileValidation.js';
+import { validateDocumentFileSize } from '../../lib/fileValidation.js';
 
 export function createUserActions({ update, get, subscribe, fetchAll, fetchWithAuth }) {
     return {
         // Usuarios
-        fetchUsers: () => fetchAll('users', 'user'),
+        fetchUsers: () => fetchAll('users', 'user', { loadingKey: 'isLoadingUsers', errorKey: 'errorUsers' }),
         createUser: async (newUser) => {
             const createdUser = await fetchWithAuth('user', { method: 'POST', body: JSON.stringify(newUser) });
             update(s => ({ ...s, users: [...s.users, createdUser] }));

@@ -18,6 +18,7 @@
     import { fetchAllAlerts } from "../../composables/useAlerts.js";
     import { location } from "svelte-spa-router";
     import { getPageTitle } from "../../config/page-titles.js";
+    import { pantallaAmpliada } from "../../stores/subestacionesFilters.js";
 
     export let isAutoRefreshEnabled = true;
     export let isAutoRefreshActive = false;
@@ -88,9 +89,10 @@
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <div class="app-container" on:click={handleContainerClick}>
-    <Sidebar />
+    {#if !$pantallaAmpliada}<Sidebar />{/if}
 
     <main class="main-content">
+        {#if !$pantallaAmpliada}
         <header class="header">
             <div class="header-left">
                 <div class="logo">
@@ -184,6 +186,7 @@
                 >
             </div>
         </header>
+        {/if}
 
         <div class="content">
             <slot />

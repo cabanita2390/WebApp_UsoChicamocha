@@ -88,9 +88,9 @@ describe('FuelWarehouseControl', () => {
     expect(data.fetchFuelWarehouseMovements).toHaveBeenLastCalledWith('2026-06-01', '2026-06-30');
   });
 
-  it('un usuario ALMACEN ve saldos pero no el botón de reintegro', () => {
+  it('un rol sin permiso de reintegro ve saldos pero no el botón', () => {
     auth.subscribe.mockImplementation((callback) => {
-      callback({ isAuthenticated: true, currentUser: { name: 'Alm', role: 'ALMACEN' }, isRefreshing: false });
+      callback({ isAuthenticated: true, currentUser: { name: 'Op', role: 'OPERARIO' }, isRefreshing: false });
       return () => {};
     });
     render(FuelWarehouseControl);

@@ -163,7 +163,7 @@ describe('FuelHistory', () => {
     expect(data.deleteRefueling).toHaveBeenCalledWith(100);
   });
 
-  it('un SUPERVISOR_OPERATIVO ve Editar pero no Eliminar (el backend exige ADMIN o SUPERVISOR_OPERATIVO para editar, solo ADMIN para eliminar)', () => {
+  it('un SUPERVISOR_OPERATIVO ve Editar y Eliminar (CRUD completo en combustibles, igual que ADMIN)', () => {
     auth.subscribe.mockImplementation((callback) => {
       callback({ isAuthenticated: true, currentUser: { name: 'Sup', role: 'SUPERVISOR_OPERATIVO' }, isRefreshing: false });
       return () => {};
@@ -171,7 +171,7 @@ describe('FuelHistory', () => {
     render(FuelHistory, { props: { params: { tipoElemento: 'VEHICULO', id: '5' } } });
 
     expect(screen.getAllByRole('button', { name: /^editar$/i }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: /^eliminar$/i })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^eliminar$/i }).length).toBeGreaterThan(0);
   });
 
   it('Editar/Eliminar no se muestran para un rol sin permiso de editar (OPERARIO)', () => {

@@ -1,5 +1,5 @@
-import { normalizePlaca, normalizeFreeTextPreserveCase } from '../../src/lib/textFormat.js';
-import { validateDocumentFileSize } from '../../src/lib/fileValidation.js';
+import { normalizePlaca, normalizeFreeTextPreserveCase } from '../../lib/textFormat.js';
+import { validateDocumentFileSize } from '../../lib/fileValidation.js';
 
 export function createVehicleMaintenanceActions({ fetchWithAuth }) {
     return {

@@ -1,8 +1,10 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { get } from "svelte/store";
-  import Router, { location } from "svelte-spa-router";
+  import Router, { location, replace } from "svelte-spa-router";
+  import { wrap } from "svelte-spa-router/wrap";
   import { getPageTitle } from "./config/page-titles.js";
+  import { puedeVerRuta } from "./config/route-access.js";
   import MainLayout from "./components/layouts/MainLayout.svelte";
   import WorkOrderModal from "./components/shared/WorkOrderModal.svelte";
   import Login from "./components/views/Login.svelte";
@@ -18,6 +20,8 @@
   import MotoCambioAceiteForm from "./components/views/MotoCambioAceiteForm.svelte";
   import InventoryTabbed from "./components/views/InventoryTabbed.svelte";
   import FuelTabbed from "./components/views/FuelTabbed.svelte";
+  import SubestacionesTabbed from "./components/views/SubestacionesTabbed.svelte";
+  import SubestacionesConfiguracion from "./components/views/subestaciones/SubestacionesConfiguracion.svelte";
   import FuelHistory from "./components/views/FuelHistory.svelte";
   import FuelPerformanceHistory from "./components/views/FuelPerformanceHistory.svelte";
   import DocumentErrorModal from "./components/shared/DocumentErrorModal.svelte";
@@ -52,9 +56,17 @@
   import ImageCarouselModal from "./components/shared/ImageCarouselModal.svelte";
 
   // --- ROUTES DEFINITION ---
+  // Las rutas de RUTAS_SOLO_ADMIN se protegen aquí, no solo en el Sidebar: la URL abre la
+  // página aunque el enlace esté oculto (ver handleConditionsFailed).
+  const soloSiPuedeVer = (component) =>
+    wrap({
+      component,
+      conditions: [(detail) => puedeVerRuta(detail.location, get(auth).currentUser?.role)],
+    });
+
   const routes = {
     "/": DashboardTabbed,
-    "/users": UserManagement,
+    "/users": soloSiPuedeVer(UserManagement),
     "/inventory": InventoryTabbed,
     "/work-orders": WorkOrdersTabbed,
     "/consolidado": ConsolidadoTabbed,
@@ -66,6 +78,8 @@
     "/fuel": FuelTabbed,
     "/fuel-history/:tipoElemento/:id": FuelHistory,
     "/fuel-performance-history/:tipoElemento/:id": FuelPerformanceHistory,
+    "/subestaciones": SubestacionesTabbed,
+    "/subestaciones/configuracion": soloSiPuedeVer(SubestacionesConfiguracion),
   };
 
   function handleActivateSound() {
@@ -180,6 +194,11 @@
     }
   }
 
+  function handleConditionsFailed() {
+    addNotification({ id: Date.now(), text: "No tienes permiso para ver esa página." });
+    replace("/");
+  }
+
   function handleCancelWorkOrder() {
     ui.closeWorkOrderModal();
   }
@@ -226,8 +245,12 @@
       data.fetchMotos();
     } else if (location.includes("/work-orders")) {
       ui.setCurrentView("work-orders");
+      // Solo se precarga la pestaña por defecto (Maquinaria). Vehículos/Motos
+      // los pide WorkOrdersTabbed.svelte al cambiar de pestaña, ya filtrados
+      // por soloMotos — precargar aquí sin filtro corría en carrera contra ese
+      // fetch filtrado y, según el timing de red, terminaba pisándolo con datos
+      // sin filtrar (bug real detectado probando en navegador).
       data.fetchWorkOrders();
-      data.fetchVehicleWorkOrders();
     } else if (location.includes("/consolidado")) {
       ui.setCurrentView("consolidado");
       data.fetchConsolidadoData();
@@ -305,7 +328,7 @@
     isAutoRefreshActive={$isAutoRefreshActive}
     on:toggleAutoRefresh={toggleAutoRefresh}
   >
-    <Router {routes} on:routeLoaded={routeLoaded} />
+    <Router {routes} on:routeLoaded={routeLoaded} on:conditionsFailed={handleConditionsFailed} />
   </MainLayout>
 
   {#if $ui.showWorkOrderModal}

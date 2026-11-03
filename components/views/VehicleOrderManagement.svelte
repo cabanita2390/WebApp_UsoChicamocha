@@ -10,18 +10,18 @@
   export let overrideData = null;
   export let soloMotos = false;
 
-  $: workOrderInfo = overrideData ?? $data.vehicleWorkOrders;
+  $: workOrderInfo = overrideData ?? (soloMotos ? $data.motoWorkOrders : $data.vehicleWorkOrders);
   $: isLoading = $data.isLoading;
 
   let selectedWorkOrder = null;
   let isExporting = false;
 
   function handlePageChange(event) {
-    data.fetchVehicleWorkOrders(event.detail, workOrderInfo.pageSize);
+    data.fetchVehicleWorkOrders(event.detail, workOrderInfo.pageSize, soloMotos);
   }
 
   function handleSizeChange(event) {
-    data.fetchVehicleWorkOrders(0, event.detail);
+    data.fetchVehicleWorkOrders(0, event.detail, soloMotos);
   }
 
   function handleAction(event) {
@@ -33,7 +33,7 @@
 
   async function handleExecute(event) {
     try {
-      await data.executeVehicleWorkOrder(event.detail);
+      await data.executeVehicleWorkOrder(event.detail, soloMotos);
       const orderNumber = selectedWorkOrder?.order?.consecutive || '?????';
       addNotification({ id: Date.now(), text: `Orden ${orderNumber} ejecutada con éxito.` });
       selectedWorkOrder = null;
@@ -70,7 +70,7 @@
       </div>
     {:else}
       <div class="vehicle-toolbar">
-        <button type="button" class="vehicle-btn" on:click={() => data.fetchVehicleWorkOrders()}>
+        <button type="button" class="vehicle-btn" on:click={() => data.fetchVehicleWorkOrders(0, 20, soloMotos)}>
           Refrescar
         </button>
         <button type="button" class="vehicle-btn vehicle-btn--export" on:click={handleExport} disabled={isExporting}>

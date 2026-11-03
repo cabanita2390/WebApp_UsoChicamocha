@@ -1,7 +1,7 @@
 export function createMachineActions({ update, setLoading, setError, fetchAll, fetchWithAuth }) {
     return {
         // Máquinas y Currículum
-        fetchMachines: () => fetchAll('machines', 'machine'),
+        fetchMachines: () => fetchAll('machines', 'machine', { loadingKey: 'isLoadingMachines', errorKey: 'errorMachines' }),
         createMachine: async (newMachine) => {
             const createdMachine = await fetchWithAuth('machine', { method: 'POST', body: JSON.stringify(newMachine) });
             update(s => ({ ...s, machines: [...s.machines, createdMachine] }));

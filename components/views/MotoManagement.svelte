@@ -9,14 +9,18 @@
   import DocHistoryModal from "../shared/DocHistoryModal.svelte";
   import EditAssetModal from "../shared/EditAssetModal.svelte";
   import FuelConfigFields from "../shared/FuelConfigFields.svelte";
+  import TireProfileField from "../shared/TireProfileField.svelte";
+  import { asignacionDeActivo, sincronizarPerfilLlantas } from "../../lib/presionLlantas.js";
   import { motoInventoryColumns } from "../../config/table-definitions.js";
   import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
   import { syncPreventiveAlertsFromServer } from "../../composables/useAlerts.js";
   import { download } from "../../stores/api.js";
-  import { formatMotoVehiclePayload } from "@/lib/textFormat.js";
+  import { formatMotoVehiclePayload, validarPlaca } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
   import { normLower, normalizeBelongsTo, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
+  import { createQuickCatalog } from '../../composables/useQuickCatalog.js';
+  import { createSoftDeleteRestore } from '../../composables/useSoftDeleteRestore.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -26,9 +30,11 @@
   let errorMessage = "";
 
   // Soft-delete recovery
-  let softDeletedMotoToRestore = null;
-  let showSoftDeletedModal = false;
-  let isRestoringMoto = false;
+  const softDeleteRestore = createSoftDeleteRestore({
+    restore: (id) => data.restoreMoto(id),
+    refetch: () => data.fetchMotos(),
+    entityLabel: 'Motocicleta',
+  });
 
   let showCvModal = false;
   let isCvLoading = false;
@@ -54,21 +60,26 @@
     curriculumData = null;
   }
 
-  let quickModal = null;
-  let quickName = "";
-  let quickError = "";
-  let quickSubmitting = false;
-
-  const quickModalTitles = {
-    brand: "Nueva marca",
-    location: "Nueva ubicación",
-  };
-
-  /** Placeholder del modal rápido según tipo de catálogo. */
-  const quickPlaceholder = {
-    brand: "Ej: Honda",
-    location: "Ej: Unidad Pantano, Represa LA COPA…",
-  };
+  const quickCatalog = createQuickCatalog({
+    brand: {
+      title: 'Nueva marca',
+      placeholder: 'Ej: Honda',
+      create: (name) => data.createVehicleBrand({ descripcion: name }),
+      getId: (created) => created?.idMarca,
+      targetField: 'idMarca',
+      successMessage: 'Marca registrada.',
+    },
+    location: {
+      title: 'Nueva ubicación',
+      placeholder: 'Ej: Unidad Pantano, Represa LA COPA…',
+      create: (name) => data.createCatalogItem('location', { name }),
+      afterCreate: () => data.fetchLocations(),
+      getId: (created) => created?.id,
+      targetField: 'idUbicacionBase',
+      successMessage: 'Ubicación registrada.',
+    },
+  });
+  const quickCatalogTarget = () => (showEditModal && motoInEditor ? motoInEditor : newMoto);
 
   function resolveBrandIdFromMoto(v) {
     if (v?.idMarca != null && v.idMarca !== "") return Number(v.idMarca);
@@ -79,53 +90,6 @@
     return hit?.idMarca != null ? Number(hit.idMarca) : null;
   }
 
-  function openQuickCatalog(kind) {
-    quickModal = kind;
-    quickName = "";
-    quickError = "";
-  }
-
-  function closeQuickCatalog() {
-    quickModal = null;
-    quickName = "";
-    quickError = "";
-    quickSubmitting = false;
-  }
-
-  async function submitQuickCatalog() {
-    const name = quickName.trim();
-    if (!name) {
-      quickError = "Escriba un nombre.";
-      return;
-    }
-    quickSubmitting = true;
-    quickError = "";
-    try {
-      if (quickModal === "brand") {
-        const created = await data.createVehicleBrand({ descripcion: name });
-        const id = created?.idMarca;
-        if (id != null) {
-          if (showEditModal && motoInEditor) motoInEditor.idMarca = id;
-          else newMoto.idMarca = id;
-        }
-        addNotification({ id: Date.now(), text: "Marca registrada." });
-      } else if (quickModal === "location") {
-        const created = await data.createCatalogItem("location", { name });
-        await data.fetchLocations();
-        const id = created?.id;
-        if (id != null) {
-          if (showEditModal && motoInEditor) motoInEditor.idUbicacionBase = id;
-          else newMoto.idUbicacionBase = id;
-        }
-        addNotification({ id: Date.now(), text: "Ubicación registrada." });
-      }
-      closeQuickCatalog();
-    } catch (e) {
-      quickError = e.message || "No se pudo guardar.";
-    } finally {
-      quickSubmitting = false;
-    }
-  }
 
   const initialMotoState = {
     placa: "",
@@ -143,6 +107,10 @@
   const initialFuelConfig = { fuelTypeDefaultId: "", consumoEstandar: "", unidadConsumo: "", tanqueCapacidadGal: "" };
   let fuelConfigNew = { ...initialFuelConfig };
   let fuelConfigEdit = { ...initialFuelConfig };
+  // Perfil de llantas (asset_llanta_config): también aparte del activo; solo se
+  // guarda si cambió respecto al que tenía al abrir el formulario.
+  let tirePerfilNew = "";
+  let tireConfigEdit = { perfilId: "", original: "" };
   let docSoatVencimiento = "";
   let docTecnoVencimiento = "";
   let docSoatFile = null;
@@ -175,8 +143,8 @@
 
   async function openDocModal(row) {
     try {
-      const v = await data.getVehicleByPlaca(row.placa);
-      docVehicleId = v?.id ?? null;
+      // La fila ya trae el id: buscar por placa fallaba con placas con símbolos (p. ej. "%").
+      docVehicleId = row?.id ?? null;
       if (docVehicleId == null) throw new Error('No se encontró la moto.');
       docModalRow = row;
       docModalOpen = true;
@@ -239,11 +207,16 @@
   $: locations = Array.isArray($data.locations) ? $data.locations : [];
   $: fuelTypes = Array.isArray($data.fuelTypes) ? $data.fuelTypes : [];
   $: fuelAssetConfigs = Array.isArray($data.fuelAssetConfig) ? $data.fuelAssetConfig : [];
-  $: isLoading = $data.isLoading;
+  $: tireProfiles = Array.isArray($data.tireProfiles) ? $data.tireProfiles : [];
+  $: isLoading = $data.isLoadingMotos;
   $: motoTipoId =
     (types || []).find((t) => String(t?.name ?? t?.nombreTipo ?? "").toUpperCase() === "MOTOCICLETA")?.id ?? null;
 
   onMount(async () => {
+    if (isAdmin || isSupervisorOperativo) {
+      data.fetchTireProfiles().catch((e) => console.warn("No se cargaron los perfiles de llantas:", e));
+      data.fetchTireAssignments().catch((e) => console.warn("No se cargaron las asignaciones de llantas:", e));
+    }
     try {
       // Marcas y tipos no dependen de ubicaciones → se cargan en paralelo con ellas.
       // Motos SÍ depende de ubicaciones (el store enriquece nombres) → va después.
@@ -288,7 +261,8 @@
 
   async function handleCreateMoto(event) {
     event.preventDefault();
-    errorMessage = "";
+    errorMessage = validarPlaca(newMoto.placa) ?? "";
+    if (errorMessage) return;
     if (motoTipoId == null) {
       errorMessage =
         "No se encontró el tipo MOTOCICLETA en el catálogo. Verifique la base de datos (cat_tipos_vehiculo).";
@@ -333,9 +307,15 @@
         } catch (fuelErr) {
           docExtra += " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
         }
+        try {
+          await sincronizarPerfilLlantas(data, { vehicleId: vid }, tirePerfilNew);
+        } catch (tireErr) {
+          docExtra += " " + (tireErr.message || "No se pudo asignar el perfil de llantas.");
+        }
       }
       newMoto = { ...initialMotoState };
       fuelConfigNew = { ...initialFuelConfig };
+      tirePerfilNew = "";
       docSoatVencimiento = "";
       docTecnoVencimiento = "";
       docSoatFile = null;
@@ -348,8 +328,7 @@
       addNotification({ id: Date.now(), text: "Motocicleta registrada." + docExtra });
     } catch (e) {
       if (e.status === 409 && e.body?.softDeletedVehicle) {
-        softDeletedMotoToRestore = e.body.softDeletedVehicle;
-        showSoftDeletedModal = true;
+        softDeleteRestore.trigger(e.body.softDeletedVehicle);
         errorMessage = e.body.error || e.message || "Motocicleta eliminada detectada";
       } else {
         errorMessage = e.message || "Error al crear motocicleta.";
@@ -360,39 +339,32 @@
   }
 
   async function handleRestoreMoto() {
-    if (!softDeletedMotoToRestore?.id) return;
-    isRestoringMoto = true;
     try {
-      const restored = await data.restoreMoto(softDeletedMotoToRestore.id);
-      showSoftDeletedModal = false;
-      softDeletedMotoToRestore = null;
+      await softDeleteRestore.confirm(() => {
+        newMoto = { ...initialMotoState };
+        docSoatVencimiento = "";
+        docTecnoVencimiento = "";
+        docSoatFile = null;
+        docTecnoFile = null;
+        docTarjetaPropiedadFile = null;
+      });
       errorMessage = "";
-      newMoto = { ...initialMotoState };
-      docSoatVencimiento = "";
-      docTecnoVencimiento = "";
-      docSoatFile = null;
-      docTecnoFile = null;
-      docTarjetaPropiedadFile = null;
-      data.fetchMotos();
-      addNotification({ id: Date.now(), text: "Motocicleta restaurada exitosamente." });
     } catch (e) {
       errorMessage = "Error al restaurar motocicleta: " + (e.message || "desconocido");
-    } finally {
-      isRestoringMoto = false;
     }
   }
 
   function handleCreateDifferent() {
-    showSoftDeletedModal = false;
-    softDeletedMotoToRestore = null;
+    softDeleteRestore.cancel();
     errorMessage = "✏️ Por favor, cambia la placa en el formulario de arriba";
   }
 
   async function handleUpdateMoto(event) {
     event.preventDefault();
     if (!motoInEditor || motoTipoId == null) return;
+    errorMessage = validarPlaca(motoInEditor.placa) ?? "";
+    if (errorMessage) return;
     isSubmitting = true;
-    errorMessage = "";
     try {
       await data.updateMoto(motoInEditor.id, formatMotoVehiclePayload(motoInEditor, motoTipoId));
       let fuelExtra = "";
@@ -400,6 +372,11 @@
         await guardarFuelConfigMoto(motoInEditor.id, fuelConfigEdit);
       } catch (fuelErr) {
         fuelExtra = " " + (fuelErr.message || "No se pudo guardar el consumo estándar.");
+      }
+      try {
+        await sincronizarPerfilLlantas(data, { vehicleId: motoInEditor.id }, tireConfigEdit.perfilId, tireConfigEdit.original);
+      } catch (tireErr) {
+        fuelExtra += " " + (tireErr.message || "No se pudo asignar el perfil de llantas.");
       }
       await data.fetchMotos();
       closeEditModal();
@@ -441,7 +418,10 @@
 
   async function openEditModal(moto) {
     try {
-      const fullMoto = await data.getMotoByPlaca(moto.placa);
+      // La fila de la tabla ya es el VehicleResponse completo (GET /moto). No se vuelve a
+      // pedir por placa: una placa con "%" hacía que el servidor rechazara la URL y no se
+      // podía abrir el editor para corregirla.
+      const fullMoto = { ...moto };
       motoInEditor = {
         ...fullMoto,
         idMarca: resolveBrandIdFromMoto(fullMoto),
@@ -463,6 +443,9 @@
             tanqueCapacidadGal: existingConfig.tanqueCapacidadGal != null ? String(existingConfig.tanqueCapacidadGal) : "",
           }
         : { ...initialFuelConfig };
+      const tireConfig = asignacionDeActivo($data.tireAssignments, { vehicleId: fullMoto.id });
+      const perfilActual = tireConfig ? String(tireConfig.perfilId) : "";
+      tireConfigEdit = { perfilId: perfilActual, original: perfilActual };
       showEditModal = true;
     } catch (e) {
       errorMessage = 'No se pudo cargar la moto para editar.';
@@ -474,6 +457,7 @@
     showEditModal = false;
     motoInEditor = null;
     fuelConfigEdit = { ...initialFuelConfig };
+    tireConfigEdit = { perfilId: "", original: "" };
     errorMessage = "";
   }
 
@@ -492,7 +476,7 @@
   function handleKeydown(event) {
     if (event.key !== "Escape") return;
     if (motoToDelete) motoToDelete = null;
-    else if (showSoftDeletedModal) showSoftDeletedModal = false;
+    else if ($softDeleteRestore.show) softDeleteRestore.cancel();
   }
 </script>
 
@@ -530,7 +514,7 @@
             <label class="field">
               <span class="field-lab field-lab-row">
                 Marca
-                <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog("brand")}>+ Añadir</button>
+                <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => quickCatalog.open("brand")}>+ Añadir</button>
               </span>
               <select
                 required
@@ -562,7 +546,7 @@
             <label class="field">
               <span class="field-lab field-lab-row">
                 Ubicación
-                <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => openQuickCatalog("location")}>+ Añadir</button>
+                <button type="button" class="field-add-btn" disabled={isSubmitting} on:click={() => quickCatalog.open("location")}>+ Añadir</button>
               </span>
               <select
                 disabled={isSubmitting}
@@ -592,7 +576,7 @@
                 <option value="0">Inactivo</option>
               </select>
             </label>
-            {#if isAdmin}
+            {#if isAdmin || isSupervisorOperativo}
               <FuelConfigFields
                 bind:fuelTypeDefaultId={fuelConfigNew.fuelTypeDefaultId}
                 bind:consumoEstandar={fuelConfigNew.consumoEstandar}
@@ -601,6 +585,13 @@
                 {fuelTypes}
                 disabled={isSubmitting}
                 idPrefix="newMotoFuel"
+              />
+              <TireProfileField
+                bind:perfilId={tirePerfilNew}
+                profiles={tireProfiles}
+                aplicaA="MOTOCICLETA"
+                disabled={isSubmitting}
+                idPrefix="newMotoTire"
               />
             {/if}
           </div>
@@ -679,7 +670,7 @@
   asset={motoInEditor}
   {brands}
   {locations}
-  {isAdmin}
+  canConfigFuel={isAdmin || isSupervisorOperativo}
   {isSubmitting}
   {errorMessage}
   submitDisabled={motoTipoId == null}
@@ -687,8 +678,11 @@
   locationTitle="Ej.: Unidad Pantano, Unidad Ayalas…"
   fuelConfig={fuelConfigEdit}
   {fuelTypes}
+  tireConfig={tireConfigEdit}
+  {tireProfiles}
+  tireAplicaA="MOTOCICLETA"
   on:close={closeEditModal}
-  on:quickcatalog={(e) => openQuickCatalog(e.detail)}
+  on:quickcatalog={(e) => quickCatalog.open(e.detail)}
   on:submit={handleUpdateMoto}
 />
 {/if}
@@ -722,14 +716,14 @@
 />
 
 <QuickCatalogModal
-  open={!!quickModal}
-  title={quickModal ? quickModalTitles[quickModal] : ''}
-  placeholder={quickModal ? (quickPlaceholder[quickModal] ?? 'Ej: …') : 'Ej: …'}
-  bind:value={quickName}
-  error={quickError}
-  submitting={quickSubmitting}
-  on:close={closeQuickCatalog}
-  on:submit={submitQuickCatalog}
+  open={!!$quickCatalog.modal}
+  title={quickCatalog.titleFor($quickCatalog.modal)}
+  placeholder={quickCatalog.placeholderFor($quickCatalog.modal)}
+  bind:value={$quickCatalog.name}
+  error={$quickCatalog.error}
+  submitting={$quickCatalog.submitting}
+  on:close={quickCatalog.close}
+  on:submit={() => quickCatalog.submit(quickCatalogTarget)}
 />
 
 {#if docModalOpen && docModalRow}
@@ -746,10 +740,10 @@
   {/key}
 {/if}
 
-{#if showSoftDeletedModal && softDeletedMotoToRestore}
+{#if $softDeleteRestore.show && $softDeleteRestore.pending}
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <div class="modal-overlay" role="presentation" on:click={() => (showSoftDeletedModal = false)}>
+  <div class="modal-overlay" role="presentation" on:click={softDeleteRestore.cancel}>
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="modal-content" on:click|stopPropagation>
@@ -757,9 +751,9 @@
       <p>{errorMessage}</p>
 
       <div class="soft-delete-info">
-        <p><strong>Placa:</strong> {softDeletedMotoToRestore.placa}</p>
-        <p><strong>Marca:</strong> {softDeletedMotoToRestore.marca}</p>
-        <p><strong>Tipo:</strong> {softDeletedMotoToRestore.tipoVehiculo}</p>
+        <p><strong>Placa:</strong> {$softDeleteRestore.pending.placa}</p>
+        <p><strong>Marca:</strong> {$softDeleteRestore.pending.marca}</p>
+        <p><strong>Tipo:</strong> {$softDeleteRestore.pending.tipoVehiculo}</p>
       </div>
 
       <p style="margin-top: 12px; font-size: 12px; color: #606060;">¿Qué deseas hacer?</p>
@@ -767,8 +761,8 @@
       <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
         <button
           type="button"
-          on:click={() => (showSoftDeletedModal = false)}
-          disabled={isRestoringMoto}
+          on:click={softDeleteRestore.cancel}
+          disabled={$softDeleteRestore.restoring}
           style="padding: 6px 12px; background: #f0f0f0; border: 1px solid #c0c0c0; cursor: pointer; border-radius: 3px;"
         >
           Cancelar
@@ -776,7 +770,7 @@
         <button
           type="button"
           on:click={handleCreateDifferent}
-          disabled={isRestoringMoto}
+          disabled={$softDeleteRestore.restoring}
           style="padding: 6px 12px; background: #e8e8e8; border: 1px solid #b0b0b0; cursor: pointer; border-radius: 3px;"
         >
           Crear con otra placa
@@ -784,10 +778,10 @@
         <button
           type="button"
           on:click={handleRestoreMoto}
-          disabled={isRestoringMoto}
+          disabled={$softDeleteRestore.restoring}
           style="padding: 6px 12px; background: #5cb85c; color: white; border: 1px solid #4cae4c; cursor: pointer; border-radius: 3px; font-weight: bold;"
         >
-          {isRestoringMoto ? "Restaurando..." : "Restaurar Motocicleta"}
+          {$softDeleteRestore.restoring ? "Restaurando..." : "Restaurar Motocicleta"}
         </button>
       </div>
     </div>

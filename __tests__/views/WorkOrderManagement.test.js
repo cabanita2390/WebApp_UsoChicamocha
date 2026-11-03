@@ -68,7 +68,7 @@ describe('WorkOrderManagement', () => {
         currentPage: 0,
         pageSize: 20,
       },
-      isLoading: false,
+      isLoadingWorkOrders: false,
     };
 
     data.subscribe.mockImplementation((callback) => {
@@ -78,7 +78,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('renders loading state when loading and no work orders', async () => {
-    mockDataStore.isLoading = true;
+    mockDataStore.isLoadingWorkOrders = true;
     mockDataStore.workOrders.data = [];
 
     render(WorkOrderManagement);
@@ -90,7 +90,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('renders work order management interface when not loading', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders.data = [
       { id: 1, order: { id: 'WO001', description: 'Fix machine' }, status: 'Pending' },
     ];
@@ -103,7 +103,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('calls fetchWorkOrders when refresh button is clicked', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders.data = [{ id: 1, order: { id: 'WO001' } }];
 
     render(WorkOrderManagement);
@@ -117,7 +117,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('passes correct props to DataGrid', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders = {
       data: [{ id: 1, order: { id: 'WO001' } }],
       totalElements: 1,
@@ -135,7 +135,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('opens execute modal when execute action is triggered', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders.data = [
       { id: 1, order: { id: 'WO001', description: 'Fix machine' } },
     ];
@@ -150,7 +150,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('executes work order successfully', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders.data = [
       { id: 1, order: { id: 'WO001', description: 'Fix machine' } },
     ];
@@ -167,7 +167,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('shows success notification after successful execution', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders.data = [
       { id: 1, order: { id: 'WO001', description: 'Fix machine' } },
     ];
@@ -183,7 +183,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('shows error notification on execution failure', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders.data = [
       { id: 1, order: { id: 'WO001', description: 'Fix machine' } },
     ];
@@ -199,7 +199,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('handles page change events', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders = {
       data: [{ id: 1, order: { id: 'WO001' } }],
       totalElements: 1,
@@ -218,7 +218,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('handles size change events', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders = {
       data: [{ id: 1, order: { id: 'WO001' } }],
       totalElements: 1,
@@ -235,7 +235,7 @@ describe('WorkOrderManagement', () => {
   });
 
   it('closes execute modal after execution', async () => {
-    mockDataStore.isLoading = false;
+    mockDataStore.isLoadingWorkOrders = false;
     mockDataStore.workOrders.data = [
       { id: 1, order: { id: 'WO001', description: 'Fix machine' } },
     ];

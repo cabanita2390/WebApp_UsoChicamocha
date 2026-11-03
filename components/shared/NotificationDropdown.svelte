@@ -3,7 +3,7 @@
   import { createEventDispatcher } from 'svelte';
   import { fetchAllAlerts, deleteAlert, alertsLoading, alertsError } from '../../composables/useAlerts.js';
   import { visibleAlertCount } from '../../stores/ui.js';
-  import { sortAlertsBySeverity, getSeverityInfo } from '../../utils/alertSeverity.js';
+  import { sortAlertsBySeverity, getSeverityInfo } from '../../lib/alertSeverity.js';
 
   export let messages = [];
   export let alerts = [];

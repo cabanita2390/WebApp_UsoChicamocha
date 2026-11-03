@@ -51,6 +51,15 @@ export const dashboardColumns = [
         meta: { isStatus: true },
     },
     {
+        accessorKey: "presionLlantasEstado",
+        id: "presionLlantas",
+        header: "Presión Llantas (PSI)",
+        meta: {
+            isTirePressure: true,
+            getTirePressureTitle: (row) => `Presión de llantas — ${row.machine?.name ?? ""} ${row.machine?.model ?? ""}`.trim(),
+        },
+    },
+    {
         accessorKey: "carIgnitionStatus",
         header: "Sistema Encendido",
 
