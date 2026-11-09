@@ -374,6 +374,21 @@ describe('CronogramaAnual', () => {
     expect(within(panel).getByText('Ninguna actividad coincide.')).toBeTruthy();
   });
 
+  it('las estaciones se ordenan por nombre o por avance con clic en el encabezado', async () => {
+    const { container } = render(CronogramaAnual);
+    await screen.findByText('Ayalas');
+    const nombres = () => [...container.querySelectorAll('.nombre-fila .nombre')].map((n) => n.textContent);
+    expect(nombres()).toEqual(['Ayalas', 'CLAN']);
+
+    await fireEvent.click(screen.getByRole('button', { name: /^Estación/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Estación/ }));
+    expect(nombres()).toEqual(['CLAN', 'Ayalas']);
+
+    await fireEvent.click(screen.getByRole('button', { name: /^Avance/ }));
+    expect(nombres()).toHaveLength(2); // sin citas publicadas (sin avance) van al final, nunca se pierden
+    expect(container.querySelectorAll('.fila.alterna')).toHaveLength(1);
+  });
+
   it('"+N más" agranda solo esa fila, "Contraer" y "Tamaño normal" la devuelven', async () => {
     substationAdmin.obtenerCronograma.mockResolvedValue(cronograma({
       citas: [1, 2, 3, 4, 5].map((i) => cita(300 + i, 1, i % 2 ? 10 : 11, 10)).concat(cita(310, 2, 10, 10)),

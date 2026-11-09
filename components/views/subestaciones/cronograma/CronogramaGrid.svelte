@@ -4,6 +4,7 @@
   import {
     NOMBRE_W, TOTAL_W, LIMITES, capacidadCelda, altoParaChips, recortarChips,
   } from "../../../../utils/cronograma.js";
+  import ThOrden from "../ThOrden.svelte";
 
   export let filas = [];
   /** Meses que se ven (1..12); el filtro de meses oculta los demás. */
@@ -27,6 +28,8 @@
   export let actualizando = false;
   /** Hay columnas o filas con un tamaño distinto del Normal (para el botón "Tamaño normal"). */
   export let hayAjustes = false;
+  /** Orden de las filas { campo: "nombre" | "avance", dir } o null; lo aplica quien arma las filas. */
+  export let orden = null;
 
   const dispatch = createEventDispatcher();
   const TRIMESTRES = ["1er trimestre", "2do trimestre", "3er trimestre", "4to trimestre"];
@@ -170,7 +173,10 @@
       </div>
       <div class="grid">
         <div class="fija blanco etiqueta">
-          {etiquetaFila}
+          <span class="orden-filas">
+            <ThOrden campo="nombre" {orden} on:orden>{etiquetaFila}</ThOrden>
+            <ThOrden campo="avance" dirInicial="desc" der {orden} on:orden title="Avance del año: citas ejecutadas de las publicadas">Avance</ThOrden>
+          </span>
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <span class="asa-col" class:activa={arrastre?.tipo === "nombre"} title="Arrastre para ensanchar · doble clic: ajustar al nombre más largo"
             on:pointerdown={(e) => empezar(e, "nombre")} on:dblclick={ajustarNombre}></span>
@@ -365,6 +371,11 @@
   .trim {
     padding: 8px 8px 2px;
     border-left: 1px solid rgba(11, 11, 11, 0.1);
+  }
+  .orden-filas {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
   }
   .etiqueta {
     padding: 4px 14px 8px;

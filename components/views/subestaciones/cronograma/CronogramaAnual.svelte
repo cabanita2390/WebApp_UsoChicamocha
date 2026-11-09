@@ -31,6 +31,7 @@
   import SubToast from "../SubToast.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
   import CronogramaGrid from "./CronogramaGrid.svelte";
+  import { ordenarFilas } from "../../../../utils/ordenTabla.js";
   import CeldaPanel from "./CeldaPanel.svelte";
   import AsignacionMasiva from "./AsignacionMasiva.svelte";
   import PublicarModal from "./PublicarModal.svelte";
@@ -67,6 +68,8 @@
   // Filtros y vista. Todos los filtros viven en un solo panel ("Filtros"); nada se guarda:
   // al volver a entrar, el Cronograma abre sin filtros y en tamaño Normal.
   let por = "est";
+  /** Orden de las filas de la grilla (clic en el encabezado): por nombre o por avance del año. */
+  let ordenFilas = null;
   let vista = "act";
   // Misma disciplina que Dashboard y Resumen; desde la tarjeta "Atrasadas" se llega con
   // el estado "No ejecutada" ya puesto.
@@ -230,6 +233,9 @@
           soloConCitas: soloConCitas || !modoEdicion,
           disciplinaLabel,
         });
+  // Las bandas alternas siguen la posición en pantalla, no la de antes de ordenar.
+  $: filasOrdenadas = ordenarFilas(filas, ordenFilas, { nombre: (f) => f.nombre, avance: (f) => f.pct }, (f) => f.nombre)
+    .map((f, i) => ({ ...f, alterna: i % 2 === 1 }));
   $: totales = totalesPorMes(visibles, estacionesVisibles);
   // Citas de las estaciones que se ven (respeta la búsqueda): cabecera y total de la grilla.
   $: totalVisible = totales.reduce((a, n) => a + n, 0);
@@ -584,7 +590,9 @@
       <CronogramaGrid
         bind:this={grilla}
         bind:hayAjustes
-        {filas}
+        filas={filasOrdenadas}
+        orden={ordenFilas}
+        on:orden={(e) => (ordenFilas = e.detail)}
         meses={mesesVisibles}
         totalesMes={totales}
         total={totalVisible}
