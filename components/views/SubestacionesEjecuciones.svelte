@@ -252,10 +252,11 @@
         "Ver detalle" muestra las fotos y el hallazgo; desde ahí se crea la orden de trabajo para corregirlo.
       </p>
     </div>
-    <SelectorDisciplina on:change={cambiarDisciplina} />
   </div>
   <div class="filter-card">
     <div class="chip-row">
+      <!-- La disciplina junto a Filtros: todo lo que filtra la lista queda en un solo lugar. -->
+      <SelectorDisciplina on:change={cambiarDisciplina} />
       <button type="button" class="btn-filtros" class:activos={etiquetasFiltro.length > 0} on:click={abrirFiltros}>
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
           <path d="M2 4h12M4.5 8h7M7 12h2"></path>
