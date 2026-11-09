@@ -8,13 +8,13 @@
   import { ordenDetalleId, disciplinaFiltro, subestacionesActiveTab } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarOrdenes, alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { disciplinaLabel } from "../../../../config/subestaciones.js";
-  import { fechaCorta } from "../../../../utils/cronograma.js";
-  import { ORDEN_ESTADO, PRIORIDAD } from "../../../../utils/ordenes.js";
+  import { PRIORIDAD } from "../../../../utils/ordenes.js";
   import Loader from "../../../shared/Loader.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
   import SubToast from "../SubToast.svelte";
   import SelectorDisciplina from "../SelectorDisciplina.svelte";
-  import ThOrden from "../ThOrden.svelte";
+  import DataGrid from "../../../shared/DataGrid.svelte";
+  import { createOrdenesColumns, ordenesSortParam } from "../../../../config/table-definitions/substation.js";
   import PanelFiltros from "../../../shared/PanelFiltros.svelte";
   import SelectBuscable from "../../../shared/SelectBuscable.svelte";
   import { opcionesEstaciones } from "../../../../utils/opcionesFiltro.js";
@@ -29,19 +29,15 @@
     { id: "anuladas", l: "Anuladas", estado: ["ANULADA"] },
     { id: "todas", l: "Todas", estado: [] },
   ];
-  const TAM = 20;
+  const columns = createOrdenesColumns();
 
   let vista = "pendientes";
   let estacionId = "";
   let prioridad = "";
   let pagina = 0;
-  /** Orden por columna { campo, dir } (clic en el encabezado); null = las más recientes primero. */
-  let orden = null;
-  // Se ordena en el servidor: la lista viene paginada y ordenar en el navegador solo movería la página visible.
-  const ORDEN_SERVIDOR = {
-    orden: "consecutivo", estacion: "estacion.nombre", prioridad: "prioridad", asignado: "asignadoA.fullName", vence: "fechaLimite",
-  };
-  const ordenar = (e) => ((orden = e.detail), (pagina = 0));
+  let pageSize = 20;
+  /** Orden de la tabla (SortingState de TanStack); se aplica en el servidor. Vacío = las más recientes primero. */
+  let sorting = [];
   let resultado = null;
   let conteos = {};
   let estaciones = [];
@@ -58,14 +54,15 @@
     prioridad,
     disciplina: $disciplinaFiltro,
   };
-  $: if (!$ordenDetalleId) cargar(filtros, pagina, orden);
+  $: if (!$ordenDetalleId) cargar(filtros, pagina, sorting, pageSize);
 
-  async function cargar(f = filtros, p = pagina, o = orden) {
+  async function cargar(f = filtros, p = pagina, orden = sorting, tam = pageSize) {
+    const sort = ordenesSortParam(orden);
     const mio = ++pedido;
     error = "";
     try {
       const [r, ...cuentas] = await Promise.all([
-        substationAdmin.listarOrdenes(f, p, TAM, ...(o ? [`${ORDEN_SERVIDOR[o.campo]},${o.dir}`] : [])),
+        substationAdmin.listarOrdenes(f, p, tam, ...(sort ? [sort] : [])),
         // Los números de las vistas rápidas, con los mismos filtros de estación, prioridad y disciplina.
         ...VISTAS.filter((v) => v.id !== "todas").map((v) =>
           substationAdmin.listarOrdenes({ ...f, estado: v.estado, vencidas: v.vencidas }, 0, 1)),
@@ -197,42 +194,27 @@
     {:else if error && !resultado}
       <ErrorCarga que="las órdenes de trabajo" mensaje={error} on:reintentar={() => cargar()} />
     {:else}
-      <div class="sub-card tabla">
-        <div class="sub-th fila">
-          <ThOrden campo="orden" dirInicial="desc" {orden} on:orden={ordenar}>Orden</ThOrden>
-          <ThOrden campo="estacion" {orden} on:orden={ordenar}>Estación · hallazgo</ThOrden>
-          <ThOrden campo="prioridad" {orden} on:orden={ordenar} title="Primero las de prioridad alta">Prioridad</ThOrden>
-          <ThOrden campo="asignado" {orden} on:orden={ordenar}>Asignada a</ThOrden>
-          <ThOrden campo="vence" {orden} on:orden={ordenar} title="Primero las que vencen antes">Vence</ThOrden>
-          <span title="Para ver un solo estado, use las vistas de arriba">Estado</span>
-        </div>
-        {#each filas as o (o.id)}
-          {@const est = ORDEN_ESTADO[o.estado] ?? ORDEN_ESTADO.ASIGNADA}
-          {@const pr = PRIORIDAD[o.prioridad] ?? PRIORIDAD.MEDIA}
-          <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-          <div class="sub-tr clickable fila" role="button" tabindex="0" on:click={() => ordenDetalleId.set(o.id)}
-            on:keydown={(e) => e.key === "Enter" && ordenDetalleId.set(o.id)}>
-            <span class="ot"><strong>{o.consecutivo}</strong><span class="gris">{o.diasAbierta} {o.diasAbierta === 1 ? "día" : "días"}</span></span>
-            <span class="que">
-              <strong>{o.estacionNombre}</strong>
-              <span class="gris trunc" title={o.hallazgoObservaciones}>{o.hallazgoObservaciones}</span>
-            </span>
-            <span><span class="sub-badge" style="color:{pr.c};background:{pr.bg}">{pr.l}</span></span>
-            <span class="trunc" class:gris={o.paraCualquiera}>{o.paraCualquiera ? "Cualquier operario" : o.asignadoANombre}</span>
-            <span class:vencida={o.vencida} title={o.vencida ? "Ya pasó la fecha límite" : ""}>{o.vencida ? "⚠ " : ""}{fechaCorta(o.fechaLimite)}</span>
-            <span><span class="sub-badge" style="color:{est.c};background:{est.bg}" title={est.ayuda}>{est.g} {est.l}</span></span>
-          </div>
-        {:else}
-          <div class="sub-empty">
+      <div class="table-card">
+        {#if !filas.length}
+          <p class="no-data">
             {vista === "pendientes" ? "No hay órdenes pendientes. Los hallazgos sin atender se ven en Ejecuciones y hallazgos." : "Ninguna orden para este filtro."}
-          </div>
-        {/each}
-        {#if resultado && resultado.totalPages > 1}
-          <div class="paginas">
-            <button class="sub-btn" disabled={pagina === 0} on:click={() => (pagina -= 1)}>← Anterior</button>
-            <span class="gris">Página {pagina + 1} de {resultado.totalPages} · {resultado.totalElements} órdenes</span>
-            <button class="sub-btn" disabled={pagina + 1 >= resultado.totalPages} on:click={() => (pagina += 1)}>Siguiente →</button>
-          </div>
+          </p>
+        {:else}
+          <DataGrid
+            {columns}
+            data={filas}
+            totalElements={resultado?.totalElements ?? 0}
+            totalPages={resultado?.totalPages ?? 0}
+            currentPage={pagina}
+            {pageSize}
+            on:action={(e) => e.detail.type === "verDetalle" && ordenDetalleId.set(e.detail.data.id)}
+            on:pageChange={(e) => (pagina = e.detail)}
+            on:sizeChange={(e) => ((pageSize = e.detail), (pagina = 0))}
+            manualSorting
+            {sorting}
+            on:sortChange={(e) => ((sorting = e.detail), (pagina = 0))}
+            variant="modern"
+          />
         {/if}
       </div>
     {/if}
@@ -372,43 +354,22 @@
     outline: 2px solid #2a78d6;
     outline-offset: 1px;
   }
+  .table-card {
+    background: #fff;
+    border: 1px solid rgba(11, 11, 11, 0.08);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 12px rgba(11, 11, 11, 0.05);
+    padding: 18px 20px;
+    min-width: 0;
+  }
+  .no-data {
+    color: #898781;
+    font-size: 12px;
+    margin: 0;
+  }
   .centro {
     display: flex;
     justify-content: center;
     padding: 48px;
-  }
-  .tabla {
-    overflow-x: auto;
-  }
-  .fila {
-    grid-template-columns: 120px minmax(220px, 2fr) 90px minmax(130px, 1fr) 100px 140px;
-    gap: 12px;
-    min-width: 820px;
-  }
-  .ot,
-  .que {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .gris {
-    color: #898781;
-    font-size: 12px;
-  }
-  .trunc {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .vencida {
-    color: #d03b3b;
-    font-weight: 650;
-  }
-  .paginas {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    gap: 10px;
   }
 </style>

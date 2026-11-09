@@ -65,25 +65,24 @@ describe('OrdenesTrabajo', () => {
     expect(await screen.findByText('OT-EB-00002')).toBeTruthy();
     expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(
       expect.objectContaining({ estado: ['ASIGNADA', 'POR_VERIFICAR'] }), 0, 20);
-    expect(screen.getByText('Duitama', { selector: 'strong' })).toBeTruthy();
+    expect(screen.getByText('Duitama')).toBeTruthy();
     expect(screen.getByText('Orlando Operario')).toBeTruthy();
-    expect(screen.getByText('◐ Por verificar')).toBeTruthy();
+    expect(screen.getByText('Por verificar', { selector: '.badge-cell' })).toBeTruthy();
+    expect(screen.getByText('Alta', { selector: '.badge-cell' })).toBeTruthy();
     expect(screen.getByText('19/10/2026')).toBeTruthy();
   });
 
-  it('ordena por columna en el servidor y vuelve a la página 1', async () => {
+  it('ordena por columna en el servidor (la misma tabla que Ejecuciones)', async () => {
     render(OrdenesTrabajo);
     await screen.findByText('OT-EB-00002');
 
-    await fireEvent.click(screen.getByRole('button', { name: /Asignada a/ }));
-    await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenLastCalledWith(
-      expect.anything(), 0, 1));
-    expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(expect.anything(), 0, 20, 'asignadoA.fullName,asc');
-
-    await fireEvent.click(screen.getByRole('button', { name: /Asignada a/ }));
+    await fireEvent.click(screen.getByText('Asignada a'));
+    await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(expect.anything(), 0, 20, 'asignadoA.fullName,asc'));
+    await fireEvent.click(screen.getByText('Asignada a'));
     await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(expect.anything(), 0, 20, 'asignadoA.fullName,desc'));
-    await fireEvent.click(screen.getByRole('button', { name: /^Vence/ }));
-    await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(expect.anything(), 0, 20, 'fechaLimite,asc'));
+    // "Abierta": más días primero = creada antes.
+    await fireEvent.click(screen.getByText('Abierta'));
+    await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(expect.anything(), 0, 20, 'creadoEn,asc'));
   });
 
   it('la vista "Vencidas" pide solo las vencidas', async () => {
@@ -124,7 +123,8 @@ describe('OrdenesTrabajo', () => {
   it('el detalle muestra antes y después, y verificar la cierra con la observación', async () => {
     substationAdmin.cerrarOrden.mockResolvedValue(resumen({ estado: 'CERRADA' }));
     render(OrdenesTrabajo);
-    await fireEvent.click(await screen.findByText('OT-EB-00002'));
+    await screen.findByText('OT-EB-00002');
+    await fireEvent.click(screen.getByRole('button', { name: 'Ver detalle' }));
 
     expect(await screen.findByText('Antes · el hallazgo')).toBeTruthy();
     expect(screen.getByText('Después · la corrección')).toBeTruthy();
@@ -173,7 +173,7 @@ describe('OrdenesTrabajo', () => {
     render(OrdenesTrabajo);
 
     expect(await screen.findByText('Cualquier operario')).toBeTruthy();
-    await fireEvent.click(screen.getByText('OT-EB-00008'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Ver detalle' }));
     expect(await screen.findByText(/la ven todos; queda a nombre de quien la registre/)).toBeTruthy();
   });
 });

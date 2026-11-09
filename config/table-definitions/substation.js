@@ -103,3 +103,78 @@ export const createEjecucionesColumns = () => [
     },
     { id: 'ej_detalle', header: '', size: 110, meta: { isVerDetalleAction: true } },
 ];
+
+// ---- Pestaña Órdenes de trabajo: misma tabla (DataGrid moderno) que Ejecuciones y hallazgos ----
+
+const ORDEN_ESTADO_BADGE = {
+    ASIGNADA: { label: 'Asignada', color: 'yellow' },
+    POR_VERIFICAR: { label: 'Por verificar', color: 'blue' },
+    CERRADA: { label: 'Cerrada', color: 'green' },
+    ANULADA: { label: 'Anulada', color: 'gray' },
+};
+const PRIORIDAD_BADGE = { ALTA: { label: 'Alta', color: 'red' }, MEDIA: { label: 'Media', color: 'yellow' } };
+
+/**
+ * Campos de orden en el servidor (`sort` sobre OrdenTrabajoEntity) por columna; la lista es paginada.
+ * "Abierta" ordena por la fecha de creación al revés: más días abierta = creada antes.
+ */
+export const ORDENES_SORT = {
+    ot_orden: { campo: 'consecutivo' },
+    ot_estacion: { campo: 'estacion.nombre' },
+    ot_prioridad: { campo: 'prioridad' },
+    ot_asignado: { campo: 'asignadoA.fullName' },
+    ot_vence: { campo: 'fechaLimite' },
+    ot_abierta: { campo: 'creadoEn', invertido: true },
+};
+
+/** SortingState de TanStack → `sort` ("campo,asc|desc") para el backend; undefined sin orden. */
+export function ordenesSortParam(sorting = []) {
+    const s = sorting.find((x) => ORDENES_SORT[x.id]);
+    if (!s) return undefined;
+    const { campo, invertido } = ORDENES_SORT[s.id];
+    return `${campo},${s.desc !== Boolean(invertido) ? 'desc' : 'asc'}`;
+}
+
+export const createOrdenesColumns = () => [
+    { header: 'Orden', accessorKey: 'consecutivo', id: 'ot_orden', size: 120, sortDescFirst: true },
+    { header: 'Estación', accessorKey: 'estacionNombre', id: 'ot_estacion', size: 150 },
+    { header: 'Hallazgo', accessorFn: (r) => r.hallazgoObservaciones ?? '—', id: 'ot_hallazgo', size: 260, enableSorting: false },
+    {
+        header: 'Prioridad',
+        accessorFn: (r) => PRIORIDAD_BADGE[r.prioridad]?.label ?? r.prioridad,
+        id: 'ot_prioridad',
+        size: 100,
+        meta: { isTextBadge: true, getBadge: (row) => PRIORIDAD_BADGE[row.prioridad] ?? null },
+    },
+    {
+        header: 'Asignada a',
+        accessorFn: (r) => (r.paraCualquiera ? 'Cualquier operario' : r.asignadoANombre ?? '—'),
+        id: 'ot_asignado',
+        size: 160,
+    },
+    {
+        header: 'Vence',
+        accessorFn: (r) => formatLocalDate(r.fechaLimite),
+        id: 'ot_vence',
+        size: 120,
+        // Solo la vencida se resalta; las demás, texto plano.
+        meta: { isTextBadge: true, getBadge: (row) => (row.vencida ? { label: `⚠ ${formatLocalDate(row.fechaLimite)}`, color: 'red' } : null) },
+    },
+    {
+        header: 'Abierta',
+        accessorFn: (r) => `${r.diasAbierta} ${r.diasAbierta === 1 ? 'día' : 'días'}`,
+        id: 'ot_abierta',
+        size: 90,
+        sortDescFirst: true,
+    },
+    {
+        header: 'Estado',
+        accessorFn: (r) => ORDEN_ESTADO_BADGE[r.estado]?.label ?? r.estado,
+        id: 'ot_estado',
+        size: 130,
+        // Para ver un solo estado están las vistas (Pendientes, Por verificar…); el orden alfabético no sirve.
+        enableSorting: false,
+        meta: { isTextBadge: true, getBadge: (row) => ORDEN_ESTADO_BADGE[row.estado] ?? null },
+    },
+    { id: 'ot_detalle', header: '', size: 110, meta: { isVerDetalleAction: true } },
+];
