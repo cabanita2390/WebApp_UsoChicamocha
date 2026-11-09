@@ -14,6 +14,7 @@
   import ErrorCarga from "../ErrorCarga.svelte";
   import SubToast from "../SubToast.svelte";
   import SelectorDisciplina from "../SelectorDisciplina.svelte";
+  import ThOrden from "../ThOrden.svelte";
   import PanelFiltros from "../../../shared/PanelFiltros.svelte";
   import SelectBuscable from "../../../shared/SelectBuscable.svelte";
   import { opcionesEstaciones } from "../../../../utils/opcionesFiltro.js";
@@ -34,6 +35,13 @@
   let estacionId = "";
   let prioridad = "";
   let pagina = 0;
+  /** Orden por columna { campo, dir } (clic en el encabezado); null = las más recientes primero. */
+  let orden = null;
+  // Se ordena en el servidor: la lista viene paginada y ordenar en el navegador solo movería la página visible.
+  const ORDEN_SERVIDOR = {
+    orden: "consecutivo", estacion: "estacion.nombre", prioridad: "prioridad", asignado: "asignadoA.fullName", vence: "fechaLimite",
+  };
+  const ordenar = (e) => ((orden = e.detail), (pagina = 0));
   let resultado = null;
   let conteos = {};
   let estaciones = [];
@@ -50,14 +58,14 @@
     prioridad,
     disciplina: $disciplinaFiltro,
   };
-  $: if (!$ordenDetalleId) cargar(filtros, pagina);
+  $: if (!$ordenDetalleId) cargar(filtros, pagina, orden);
 
-  async function cargar(f = filtros, p = pagina) {
+  async function cargar(f = filtros, p = pagina, o = orden) {
     const mio = ++pedido;
     error = "";
     try {
       const [r, ...cuentas] = await Promise.all([
-        substationAdmin.listarOrdenes(f, p, TAM),
+        substationAdmin.listarOrdenes(f, p, TAM, ...(o ? [`${ORDEN_SERVIDOR[o.campo]},${o.dir}`] : [])),
         // Los números de las vistas rápidas, con los mismos filtros de estación, prioridad y disciplina.
         ...VISTAS.filter((v) => v.id !== "todas").map((v) =>
           substationAdmin.listarOrdenes({ ...f, estado: v.estado, vencidas: v.vencidas }, 0, 1)),
@@ -191,7 +199,12 @@
     {:else}
       <div class="sub-card tabla">
         <div class="sub-th fila">
-          <span>Orden</span><span>Estación · hallazgo</span><span>Prioridad</span><span>Asignada a</span><span>Vence</span><span>Estado</span>
+          <ThOrden campo="orden" dirInicial="desc" {orden} on:orden={ordenar}>Orden</ThOrden>
+          <ThOrden campo="estacion" {orden} on:orden={ordenar}>Estación · hallazgo</ThOrden>
+          <ThOrden campo="prioridad" {orden} on:orden={ordenar} title="Primero las de prioridad alta">Prioridad</ThOrden>
+          <ThOrden campo="asignado" {orden} on:orden={ordenar}>Asignada a</ThOrden>
+          <ThOrden campo="vence" {orden} on:orden={ordenar} title="Primero las que vencen antes">Vence</ThOrden>
+          <span title="Para ver un solo estado, use las vistas de arriba">Estado</span>
         </div>
         {#each filas as o (o.id)}
           {@const est = ORDEN_ESTADO[o.estado] ?? ORDEN_ESTADO.ASIGNADA}

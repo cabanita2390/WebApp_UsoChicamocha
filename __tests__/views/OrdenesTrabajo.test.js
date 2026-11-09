@@ -71,6 +71,21 @@ describe('OrdenesTrabajo', () => {
     expect(screen.getByText('19/10/2026')).toBeTruthy();
   });
 
+  it('ordena por columna en el servidor y vuelve a la página 1', async () => {
+    render(OrdenesTrabajo);
+    await screen.findByText('OT-EB-00002');
+
+    await fireEvent.click(screen.getByRole('button', { name: /Asignada a/ }));
+    await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenLastCalledWith(
+      expect.anything(), 0, 1));
+    expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(expect.anything(), 0, 20, 'asignadoA.fullName,asc');
+
+    await fireEvent.click(screen.getByRole('button', { name: /Asignada a/ }));
+    await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(expect.anything(), 0, 20, 'asignadoA.fullName,desc'));
+    await fireEvent.click(screen.getByRole('button', { name: /^Vence/ }));
+    await waitFor(() => expect(substationAdmin.listarOrdenes).toHaveBeenCalledWith(expect.anything(), 0, 20, 'fechaLimite,asc'));
+  });
+
   it('la vista "Vencidas" pide solo las vencidas', async () => {
     render(OrdenesTrabajo);
     await screen.findByText('OT-EB-00002');

@@ -101,8 +101,9 @@ export const substationAdmin = {
     /** { ejecucionOrigenId, prioridad, fechaLimite, asignadoAId, actividadId, instrucciones } */
     crearOrden: (body) => fetchWithAuth('substation/ordenes', { method: 'POST', body: json(body) }),
     /** filtros: { estado: [], estacionId, prioridad, vencidas, disciplina }; página de Spring. */
-    listarOrdenes: ({ estado = [], estacionId, prioridad, vencidas, disciplina } = {}, page = 0, size = 20) =>
-        fetchWithAuth(`substation/ordenes${query({ estado: estado.join(','), estacionId, prioridad, vencidas: vencidas || '', disciplina, page, size })}`),
+    /** sort: "campo,asc|desc" (el servidor solo acepta los campos de la tabla; sin sort, las más recientes). */
+    listarOrdenes: ({ estado = [], estacionId, prioridad, vencidas, disciplina } = {}, page = 0, size = 20, sort) =>
+        fetchWithAuth(`substation/ordenes${query({ estado: estado.join(','), estacionId, prioridad, vencidas: vencidas || '', disciplina, page, size, sort })}`),
     obtenerOrden: (id) => fetchWithAuth(`substation/ordenes/${id}`),
     editarOrden: (id, body) => fetchWithAuth(`substation/ordenes/${id}`, { method: 'PUT', body: json(body) }),
     anularOrden: (id, comentario) => fetchWithAuth(`substation/ordenes/${id}/anular`, { method: 'PUT', body: json({ comentario }) }),
