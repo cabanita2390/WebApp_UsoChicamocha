@@ -137,7 +137,6 @@
           <button class="sub-link" on:click={irAHallazgos}>Ejecuciones y hallazgos</button>.
         </p>
       </div>
-      <SelectorDisciplina />
     </div>
 
     <div class="barra">
@@ -150,6 +149,8 @@
         {/each}
       </div>
       <div class="filtros">
+        <!-- La disciplina junto a Filtros: todo lo que filtra la lista queda en un solo lugar. -->
+        <SelectorDisciplina />
         <button type="button" class="btn-filtros" class:activos={etiquetasFiltro.length > 0} on:click={abrirFiltros}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
             <path d="M2 4h12M4.5 8h7M7 12h2"></path>
