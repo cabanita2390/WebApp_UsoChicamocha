@@ -1,5 +1,5 @@
 <script>
-  import { usaConjuntos, usaElementos } from "../../stores/disciplinas.js";
+  import { disciplinaLabel, usaConjuntos, usaElementos } from "../../stores/disciplinas.js";
   import { createEventDispatcher } from "svelte";
   import Loader from "./Loader.svelte";
   import { getFileUrl } from "../../stores/api.js";
@@ -116,6 +116,7 @@
 
         <div class="data-grid2">
           <div class="dl"><span class="dl-lab">Estación</span><span class="dl-val">{ejecucion.estacionNombre}</span></div>
+          <div class="dl"><span class="dl-lab">Disciplina</span><span class="dl-val">{disciplinaLabel(ejecucion.disciplina)}</span></div>
           <div class="dl"><span class="dl-lab">Mes / semana ejecución</span><span class="dl-val">{MESES[ejecucion.mesEjecucion] ?? "—"} · Semana {ejecucion.semanaEjecucion ?? "—"}</span></div>
           <div class="dl"><span class="dl-lab">Tipo de mantenimiento</span><span class="dl-val">{tipoMantenimientoLabel(ejecucion.tipoMantenimiento)}</span></div>
           <div class="dl"><span class="dl-lab">Tipo de actividad</span><span class="dl-val">{tipoActividadLabel(ejecucion.tipoActividad)}</span></div>

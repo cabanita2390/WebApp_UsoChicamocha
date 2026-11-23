@@ -83,6 +83,7 @@ describe('definiciones de columnas', () => {
 describe('ejecucionesSortParams', () => {
   it('traduce el orden de la tabla a los campos de la entidad para el servidor', () => {
     expect(ejecucionesSortParams([{ id: 'ej_estacion', desc: false }])).toEqual(['estacion.nombre,asc']);
+    expect(ejecucionesSortParams([{ id: 'ej_disciplina', desc: true }])).toEqual(['disciplina.orden,desc']);
     expect(ejecucionesSortParams([{ id: 'ej_responsable', desc: true }])).toEqual(['usuario.username,desc']);
   });
 

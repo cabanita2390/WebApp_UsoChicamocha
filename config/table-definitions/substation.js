@@ -1,4 +1,5 @@
 import { formatLocalDate } from './helpers.js';
+import { disciplinaLabel } from '../../stores/disciplinas.js';
 import { origenEjecucion, seguimientoTexto, SEGUIMIENTO_COLOR } from '../../utils/ordenes.js';
 
 const RESULTADO_LABELS = {
@@ -40,6 +41,8 @@ export function estacionTipoLabel(v) {
 export const EJECUCIONES_SORT = {
     ej_fecha: ['fecha'],
     ej_estacion: ['estacion.nombre'],
+    // En el orden del back (Civil, Eléctrico, Electromecánico), no alfabético.
+    ej_disciplina: ['disciplina.orden'],
     // Los registros libres no tienen actividad: se ordenan por su descripción.
     ej_actividad: ['actividad.nombre', 'descripcionLibre'],
     ej_tipomant: ['tipoMantenimiento'],
@@ -60,6 +63,8 @@ export function ejecucionesSortParams(sorting = []) {
 export const createEjecucionesColumns = () => [
     { header: 'Fecha', accessorFn: (r) => formatLocalDate(r.fecha), id: 'ej_fecha', size: 100, sortDescFirst: true },
     { header: 'Estación', accessorKey: 'estacionNombre', id: 'ej_estacion', size: 160 },
+    // Con "Todas las disciplinas", un imprevisto no deja ver de qué disciplina es sin esta columna.
+    { header: 'Disciplina', accessorFn: (r) => disciplinaLabel(r.disciplina), id: 'ej_disciplina', size: 120 },
     { header: 'Actividad', accessorFn: (r) => r.actividadNombre ?? r.descripcionLibre ?? '—', id: 'ej_actividad', size: 240 },
     { header: 'Tipo de mantenimiento', accessorFn: (r) => tipoMantenimientoLabel(r.tipoMantenimiento), id: 'ej_tipomant', size: 130 },
     { header: 'Tipo de actividad', accessorFn: (r) => tipoActividadLabel(r.tipoActividad), id: 'ej_tipoact', size: 120 },

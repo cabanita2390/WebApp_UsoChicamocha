@@ -187,6 +187,13 @@ describe('SubestacionEjecucionDetalleModal', () => {
     expect(screen.queryByText('Sin conjunto')).toBeNull();
   });
 
+  it('muestra la disciplina con su nombre visible', () => {
+    render(SubestacionEjecucionDetalleModal, { ejecucion: { ...ejecucionBase, disciplina: 'ELECTRICO', conjuntos: [], elementos: [] } });
+
+    expect(screen.getByText('Disciplina')).toBeTruthy();
+    expect(screen.getByText('Eléctrico')).toBeTruthy();
+  });
+
   it('Eléctrico sin nada marcado dice "No aplica"; Civil no muestra la sección', () => {
     const { unmount } = render(SubestacionEjecucionDetalleModal, { ejecucion: { ...ejecucionBase, disciplina: 'ELECTRICO', conjuntos: [], elementos: [] } });
     expect(screen.getByText(/No aplica/)).toBeTruthy();
