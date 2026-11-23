@@ -17,6 +17,8 @@
   import ItemsCatalogoTabla from "./config/ItemsCatalogoTabla.svelte";
   import ProgramacionPanel from "./config/ProgramacionPanel.svelte";
   import CatalogoModal from "./config/CatalogoModal.svelte";
+  import EsperaDisciplinas from "./EsperaDisciplinas.svelte";
+  import { disciplinas, usaConjuntos, usaElementos } from "../../../stores/disciplinas.js";
 
   const TABS = [
     ["est", "Estaciones"],
@@ -25,7 +27,7 @@
     ["elem", "Elementos"],
     ["prog", "Programación"],
   ];
-  // Lo que el operario marca en el paso «¿Qué se intervino?» del móvil (hoy solo Eléctrico).
+  // Lo que el operario marca en el paso «¿Qué se intervino?» del móvil (las disciplinas que lo usan).
   const TEXTOS_ITEMS = {
     conj: { singular: "conjunto", plural: "conjuntos", ayuda: "lo que el operario marca como «conjunto intervenido»" },
     elem: { singular: "elemento", plural: "elementos", ayuda: "lo que el operario marca como «elementos revisados»" },
@@ -102,8 +104,19 @@
     iniciado = true;
     cargar();
   }
+
+  /**
+   * Disciplina con la que abre un registro nuevo: la del filtro si sirve para ese catálogo; si no,
+   * la primera que lo usa (conjuntos y elementos) o la primera de todas (actividades).
+   */
+  function disciplinaDelModal(tipo, filtro) {
+    const sirve = tipo === "conj" ? usaConjuntos : tipo === "elem" ? usaElementos : () => true;
+    if (filtro && sirve(filtro)) return filtro;
+    return $disciplinas.find((d) => sirve(d.codigo))?.codigo ?? "";
+  }
 </script>
 
+<EsperaDisciplinas>
 <div class="sub-mod">
   {#if !esAdmin}
     <div class="sub-card denegado">
@@ -156,13 +169,14 @@
     {#if modal}
       {#key modal}
         <CatalogoModal tipo={modal.tipo} registro={modal.registro}
-          disciplinaInicial={modal.tipo === "conj" || modal.tipo === "elem" ? "ELECTRICO" : $disciplinaFiltro || "CIVIL"}
+          disciplinaInicial={disciplinaDelModal(modal.tipo, $disciplinaFiltro)}
           on:close={() => (modal = null)} on:saved={guardado} />
       {/key}
     {/if}
   {/if}
   <SubToast />
 </div>
+</EsperaDisciplinas>
 
 <style>
   .denegado {

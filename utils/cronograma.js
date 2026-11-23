@@ -7,6 +7,7 @@
  *    "se quitará" si pendienteRetiro = true.
  */
 import { MESES_LARGOS } from '../config/subestaciones.js';
+import { disciplinaSigla } from '../stores/disciplinas.js';
 
 export const COLOR = { ok: '#006300', warn: '#c98500', bad: '#d03b3b' };
 export const BADGE = {
@@ -27,7 +28,6 @@ export const SEGUIMIENTO = {
     EN_PROCESO: { ...BADGE.warn, g: '⧗', l: 'En corrección' },
     RESUELTO: { ...BADGE.ok, g: '✓', l: 'Resuelto' },
 };
-export const DISC_TAG = { CIVIL: 'C', ELECTRICO: 'E', ELECTROMECANICO: 'M' };
 /**
  * Imprevistos (ejecuciones sin cita): terracota suave. Distinto del rojo del semáforo y de los
  * hallazgos: no es una alarma, es "ojo, esto no estaba planeado" para notar si se repite.
@@ -156,7 +156,7 @@ export function chip(cita, { anio, hoy, actividad, disciplinaFiltrada }) {
         bg: st.bg,
         bd: st.bd,
         tachada: seQuita(cita),
-        dTag: disciplinaFiltrada ? '' : (DISC_TAG[cita.disciplina] ?? ''),
+        dTag: disciplinaFiltrada ? '' : disciplinaSigla(cita.disciplina),
         short: nombreChip(actividad),
         title: `${actividad?.nombre ?? ''} · ${MESES_LARGOS[cita.mes - 1]} · ${st.t}`,
     };

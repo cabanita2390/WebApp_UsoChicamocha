@@ -4,7 +4,8 @@
    * aplica con "Mostrar N citas". Cerrar sin aplicar no cambia nada.
    */
   import { createEventDispatcher, onMount } from "svelte";
-  import { DISCIPLINAS, MESES, TIPOS_ESTACION } from "../../../../config/subestaciones.js";
+  import { MESES, TIPOS_ESTACION } from "../../../../config/subestaciones.js";
+  import { opcionesDisciplina } from "../../../../stores/disciplinas.js";
   import { ESTADOS_CITA, estadoVisible, filtrarCitas, filtrosVacios } from "../../../../utils/cronograma.js";
 
   export let filtros;
@@ -42,7 +43,7 @@
   const normal = (t) => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const coincide = (nombre, q) => !q || normal(nombre).includes(normal(q));
   $: estacionesLista = estaciones.filter((s) => coincide(s.nombre, buscarEstacion));
-  $: gruposActividad = DISCIPLINAS.map((d) => ({
+  $: gruposActividad = $opcionesDisciplina.map((d) => ({
     ...d,
     items: actividades.filter((a) => a.disciplina === d.value && (!b.disciplinas.length || b.disciplinas.includes(d.value)) && coincide(a.nombre, buscarActividad)),
   })).filter((g) => g.items.length);
@@ -96,7 +97,7 @@
       <section>
         <h3>Disciplina</h3>
         <div class="pills">
-          {#each DISCIPLINAS as d}
+          {#each $opcionesDisciplina as d}
             <button class="pill" class:on={b.disciplinas.includes(d.value)} aria-pressed={b.disciplinas.includes(d.value)}
               on:click={() => conmutar("disciplinas", d.value)}>
               {d.label} <span class="n">{conteo((c) => c.disciplina === d.value)}</span>

@@ -1,4 +1,5 @@
 <script>
+  import { usaConjuntos, usaElementos } from "../../stores/disciplinas.js";
   import { createEventDispatcher } from "svelte";
   import Loader from "./Loader.svelte";
   import { getFileUrl } from "../../stores/api.js";
@@ -111,7 +112,7 @@
           <div class="dl full"><span class="dl-lab">Observaciones</span><span class="dl-val">{ejecucion.observaciones}</span></div>
         </div>
 
-        {#if ejecucion.disciplina === "ELECTRICO"}
+        {#if usaConjuntos(ejecucion.disciplina) || usaElementos(ejecucion.disciplina) || intervenido.length}
           <div class="section-h">Qué se intervino</div>
           {#if intervenido.length}
             <div class="intervenido">

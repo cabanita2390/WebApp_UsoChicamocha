@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher } from "svelte";
-  import { DISCIPLINAS, MESES, MESES_LARGOS } from "../../../../config/subestaciones.js";
+  import { MESES, MESES_LARGOS } from "../../../../config/subestaciones.js";
+  import { opcionesDisciplina } from "../../../../stores/disciplinas.js";
   import { PRESETS, mesesDePreset, mesCerrado, paresAsignacion } from "../../../../utils/cronograma.js";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
 
@@ -27,8 +28,8 @@
   let modo = inicial.modo === "estacion" ? "estacion" : "actividad";
   // Sin disciplina elegida en la pantalla ("Todas"): la primera que tenga actividades activas.
   let disciplina = inicial.disciplina
-    || DISCIPLINAS.find((d) => actividades.some((a) => a.disciplina === d.value))?.value
-    || DISCIPLINAS[0].value;
+    || $opcionesDisciplina.find((d) => actividades.some((a) => a.disciplina === d.value))?.value
+    || $opcionesDisciplina[0]?.value;
   let actividadId = inicial.actividadId ?? null;
   /** Modo estación: actividades marcadas (pueden ser de varias disciplinas). */
   let actIds = [...(inicial.actividadIds ?? [])];
@@ -202,7 +203,7 @@
             {#if porEstacion}<span class="normal">{actIds.length} {actIds.length === 1 ? "marcada" : "marcadas"}</span>{/if}
           </div>
           <div class="seg">
-            {#each DISCIPLINAS as d}
+            {#each $opcionesDisciplina as d}
               <button class:on={disciplina === d.value} on:click={() => elegirDisciplina(d.value)}>
                 {d.label}
                 <span class="n">{#if porEstacion && marcadasDe(d.value)}{marcadasDe(d.value)}/{/if}{actividades.filter((a) => a.disciplina === d.value).length}</span>

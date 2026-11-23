@@ -1,4 +1,5 @@
 <script>
+  import { disciplinas, usaElementos } from "../../stores/disciplinas.js";
   import { onMount, onDestroy } from "svelte";
   import { data } from "../../stores/data.js";
   import { substationAdmin } from "../../stores/substationAdmin.js";
@@ -81,10 +82,11 @@
   $: isLoading = $data.isLoading;
   $: estaciones = $data.substationEstaciones ?? [];
   $: actividades = ($data.substationActividades ?? []).filter((a) => !$disciplinaFiltro || a.disciplina === $disciplinaFiltro);
-  // Elementos eléctricos (también los desactivados: siguen en visitas viejas). El filtro solo se ofrece en Eléctrico.
+  // Elementos de la disciplina filtrada (también los desactivados: siguen en visitas viejas). El filtro
+  // solo se ofrece con una disciplina que use elementos (lo dice el back, ver stores/disciplinas.js).
   let elementosTodos = [];
-  $: elementos = elementosTodos.filter((e) => e.disciplina === "ELECTRICO");
-  $: filtroElemento = $disciplinaFiltro === "ELECTRICO";
+  $: filtroElemento = !!$disciplinaFiltro && $disciplinas && usaElementos($disciplinaFiltro);
+  $: elementos = elementosTodos.filter((e) => e.disciplina === $disciplinaFiltro);
   $: pagina = $data.substationEjecuciones ?? { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 };
   $: columns = createEjecucionesColumns();
   $: soloHallazgosActivo = filtros.resultado === HALLAZGOS_PRESET.join(",");

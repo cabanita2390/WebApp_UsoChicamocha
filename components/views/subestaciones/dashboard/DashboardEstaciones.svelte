@@ -1,4 +1,5 @@
 <script>
+  import { usaElementos } from "../../../../stores/disciplinas.js";
   import { onDestroy } from "svelte";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import {
@@ -38,10 +39,10 @@
     else cargando = true;
     errorCarga = "";
     try {
-      const electrico = $disciplinaFiltro === "ELECTRICO";
+      const conElementos = !!$disciplinaFiltro && usaElementos($disciplinaFiltro);
       const [r, elem] = await Promise.all([
         substationAdmin.indicadoresPorEstacion(undefined, $disciplinaFiltro),
-        electrico ? substationAdmin.elementosIntervenidos(undefined, "ELECTRICO") : Promise.resolve([]),
+        conElementos ? substationAdmin.elementosIntervenidos(undefined, $disciplinaFiltro) : Promise.resolve([]),
       ]);
       if (mia !== secuencia) return;
       elementos = elem ?? [];
@@ -322,7 +323,7 @@
       {/each}
     </div>
     <p class="pie">Click en una estación para ver su detalle. Los imprevistos son registros sin cita del cronograma: no suman al avance.</p>
-    {#if $disciplinaFiltro === "ELECTRICO"}
+    {#if $disciplinaFiltro && usaElementos($disciplinaFiltro)}
       <ElementosIntervenidos filas={elementos} alcance="{anio} · todas las estaciones" on:ver={(e) => verElemento(e.detail)} />
     {/if}
   {/if}

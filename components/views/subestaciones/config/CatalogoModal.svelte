@@ -2,7 +2,8 @@
   import { createEventDispatcher } from "svelte";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import { flash } from "../../../../stores/subestacionesToast.js";
-  import { TIPOS_ESTACION, FRECUENCIAS, DISCIPLINAS } from "../../../../config/subestaciones.js";
+  import { TIPOS_ESTACION, FRECUENCIAS } from "../../../../config/subestaciones.js";
+  import { disciplinas, usaConjuntos, usaElementos } from "../../../../stores/disciplinas.js";
   import { ICONOS_CONJUNTO } from "../../../../config/iconosConjunto.js";
   import IconoConjunto from "./IconoConjunto.svelte";
 
@@ -11,7 +12,7 @@
   /** Registro a editar (EstacionResponse / ActividadResponse / ItemCatalogoResponse), o null para crear. */
   export let registro = null;
   /** Disciplina con la que arranca un registro nuevo (la del filtro de la pantalla que lo abre). */
-  export let disciplinaInicial = "CIVIL";
+  export let disciplinaInicial = "";
 
   const dispatch = createEventDispatcher();
 
@@ -19,6 +20,11 @@
   // Conjuntos y elementos solo tienen nombre y disciplina, y desactivarlos no toca el cronograma.
   const esItem = tipo === "conj" || tipo === "elem";
   const editando = !!registro?.id;
+  // Conjuntos y elementos: solo las disciplinas que los usan (y la del registro, si ya no los usa).
+  const usaItem = tipo === "conj" ? usaConjuntos : usaElementos;
+  $: opcionesDisc = $disciplinas
+    .filter((d) => !esItem || usaItem(d.codigo) || d.codigo === registro?.disciplina)
+    .map((d) => ({ value: d.codigo, label: d.nombre }));
   let f = esEst
     ? { nombre: registro?.nombre ?? "", tipo: registro?.tipo ?? "BOMBEO", frecuenciaBase: registro?.frecuenciaBase ?? "TRIMESTRAL" }
     : esItem
@@ -147,7 +153,7 @@
       {#if esItem}
         <label class="sub-field">Disciplina
           <select class="sub-select" bind:value={f.disciplina} disabled={disciplinaBloqueada}>
-            {#each DISCIPLINAS as o}<option value={o.value}>{o.label}</option>{/each}
+            {#each opcionesDisc as o}<option value={o.value}>{o.label}</option>{/each}
           </select>
           <span class="sub-field-hint">
             {disciplinaBloqueada
@@ -195,7 +201,7 @@
         </label>
         <label class="sub-field">Disciplina
           <select class="sub-select" bind:value={f.disciplina} disabled={disciplinaBloqueada}>
-            {#each DISCIPLINAS as o}<option value={o.value}>{o.label}</option>{/each}
+            {#each opcionesDisc as o}<option value={o.value}>{o.label}</option>{/each}
           </select>
           {#if disciplinaBloqueada}
             <span class="sub-field-hint">No se puede cambiar: la actividad ya tiene citas o ejecuciones registradas.</span>

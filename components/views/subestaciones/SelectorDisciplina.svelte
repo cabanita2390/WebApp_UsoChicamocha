@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher } from "svelte";
   import { disciplinaFiltro } from "../../../stores/subestacionesFilters.js";
-  import { DISCIPLINAS } from "../../../config/subestaciones.js";
+  import { opcionesDisciplina } from "../../../stores/disciplinas.js";
 
   const dispatch = createEventDispatcher();
 
@@ -13,7 +13,7 @@
 
 <select class="sel-disc" value={$disciplinaFiltro} on:change={cambiar} aria-label="Disciplina">
   <option value="">Todas las disciplinas</option>
-  {#each DISCIPLINAS as d}<option value={d.value}>{d.label}</option>{/each}
+  {#each $opcionesDisciplina as d}<option value={d.value}>{d.label}</option>{/each}
 </select>
 
 <style>

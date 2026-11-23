@@ -1,4 +1,5 @@
 <script>
+  import { usaElementos } from "../../../../stores/disciplinas.js";
   import { createEventDispatcher, onDestroy } from "svelte";
   import { get } from "svelte/store";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
@@ -62,8 +63,8 @@
         substationAdmin.obtenerCronograma(anioDatos),
         substationAdmin.noProgramadasDeEstacion(estacionId, anioDatos, $disciplinaFiltro),
         substationAdmin.ultimasEjecuciones(estacionId, anioDatos, $disciplinaFiltro),
-        $disciplinaFiltro === "ELECTRICO"
-          ? substationAdmin.elementosIntervenidos(anioDatos, "ELECTRICO", estacionId)
+        $disciplinaFiltro && usaElementos($disciplinaFiltro)
+          ? substationAdmin.elementosIntervenidos(anioDatos, $disciplinaFiltro, estacionId)
           : Promise.resolve([]),
       ]);
       if (mia !== secuencia) return;
@@ -359,7 +360,7 @@
     </div>
   </div>
 
-  {#if $disciplinaFiltro === "ELECTRICO"}
+  {#if $disciplinaFiltro && usaElementos($disciplinaFiltro)}
     <ElementosIntervenidos filas={elementos} alcance="{anio} · en esta estación" tope={6} conEstaciones={false}
       on:ver={(e) => irAEjecuciones(null, { elementoId: e.detail.elementoId, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31` })} />
   {/if}

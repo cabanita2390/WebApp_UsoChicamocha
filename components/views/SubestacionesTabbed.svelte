@@ -5,6 +5,7 @@
   import SubestacionesEjecuciones from "./SubestacionesEjecuciones.svelte";
   import CronogramaAnual from "./subestaciones/cronograma/CronogramaAnual.svelte";
   import OrdenesTrabajo from "./subestaciones/ordenes/OrdenesTrabajo.svelte";
+  import EsperaDisciplinas from "./subestaciones/EsperaDisciplinas.svelte";
   import { subestacionesActiveTab, pantallaAmpliada } from "../../stores/subestacionesFilters.js";
 
   const tabs = [
@@ -22,6 +23,7 @@
 
 <div class="tabbed-wrap">
   <TabPanel {tabs} activeTab={$subestacionesActiveTab} hideBar={$pantallaAmpliada} on:tabChange={handleTabChange}>
+    <EsperaDisciplinas>
     {#if $subestacionesActiveTab === "dashboard"}
       <DashboardEstaciones />
     {:else if $subestacionesActiveTab === "resumenActividad"}
@@ -33,6 +35,7 @@
     {:else if $subestacionesActiveTab === "cronograma"}
       <CronogramaAnual />
     {/if}
+    </EsperaDisciplinas>
   </TabPanel>
 </div>
 

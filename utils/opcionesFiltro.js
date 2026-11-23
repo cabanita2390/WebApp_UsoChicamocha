@@ -2,7 +2,7 @@
  * Opciones para SelectBuscable en los filtros de Estaciones: ordenadas por nombre, con las
  * actividades agrupadas por disciplina y lo inactivo al final, en su propio grupo.
  */
-import { DISCIPLINAS, disciplinaLabel } from '../config/subestaciones.js';
+import { disciplinaLabel, ordenDisciplina } from '../stores/disciplinas.js';
 
 const porNombre = (a, b) => String(a.nombre ?? '').localeCompare(String(b.nombre ?? ''), 'es', { sensitivity: 'base' });
 const inactivo = (x) => x.activa === false;
@@ -24,12 +24,8 @@ export const opcionesElementos = (elementos = []) =>
   conInactivos([...elementos].sort(porNombre), 'Activos', 'Inactivos');
 
 export function opcionesActividades(actividades = []) {
-  const orden = (d) => {
-    const i = DISCIPLINAS.findIndex((x) => x.value === d);
-    return i < 0 ? DISCIPLINAS.length : i;
-  };
   return [...actividades]
-    .sort((a, b) => orden(a.disciplina) - orden(b.disciplina) || porNombre(a, b))
+    .sort((a, b) => ordenDisciplina(a.disciplina) - ordenDisciplina(b.disciplina) || porNombre(a, b))
     .map((a) => ({ value: a.id, label: inactivo(a) ? `${a.nombre} (inactiva)` : a.nombre, grupo: a.disciplina ? disciplinaLabel(a.disciplina) : undefined }));
 }
 
