@@ -169,6 +169,24 @@ describe('SubestacionEjecucionDetalleModal', () => {
     expect(screen.getByText('Otro: Celda de medida')).toBeTruthy();
   });
 
+  it('Eléctrico: un grupo por conjunto con sus elementos y el texto de los que lo piden', () => {
+    render(SubestacionEjecucionDetalleModal, { ejecucion: { ...ejecucionBase, disciplina: 'ELECTRICO',
+      conjuntos: [{ id: 7, nombre: 'Transformador' }, { id: 1, nombre: 'Subestación' }, { id: 9, nombre: 'Postes' }],
+      elementos: [
+        { id: 4, nombre: 'Fusibles', conjuntoId: 1, conjuntoNombre: 'Subestación', detalle: null },
+        { id: 4, nombre: 'Fusibles', conjuntoId: 7, conjuntoNombre: 'Transformador', detalle: null },
+        { id: 5, nombre: 'Estado físico', conjuntoId: 7, conjuntoNombre: 'Transformador', detalle: 'Con óxido' },
+      ],
+      conjuntoOtro: null, elementoOtro: null } });
+
+    expect(screen.getByText('Transformador')).toBeTruthy();
+    expect(screen.getByText('Subestación')).toBeTruthy();
+    expect(screen.getAllByText('Fusibles').length).toBe(2);
+    expect(screen.getByText('Estado físico: Con óxido')).toBeTruthy();
+    expect(screen.getByText('Sin elementos marcados')).toBeTruthy();
+    expect(screen.queryByText('Sin conjunto')).toBeNull();
+  });
+
   it('Eléctrico sin nada marcado dice "No aplica"; Civil no muestra la sección', () => {
     const { unmount } = render(SubestacionEjecucionDetalleModal, { ejecucion: { ...ejecucionBase, disciplina: 'ELECTRICO', conjuntos: [], elementos: [] } });
     expect(screen.getByText(/No aplica/)).toBeTruthy();

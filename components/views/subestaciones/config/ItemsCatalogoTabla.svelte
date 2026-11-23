@@ -13,14 +13,18 @@
   export let textos;
   /** Conjuntos: el ícono que ve el operario en el móvil, junto al nombre. */
   export let conIcono = false;
+  /** Conjuntos: columna con cuántos elementos tiene adentro (y cuántos faltan por revisar). */
+  export let conElementos = false;
 
   const dispatch = createEventDispatcher();
-  const cols = "minmax(0,1.6fr) 160px 120px";
+  $: cols = conElementos ? "minmax(0,1.6fr) 150px 160px 120px" : "minmax(0,1.6fr) 160px 120px";
+  const porRevisar = (x) => (x.elementos ?? []).filter((e) => e.provisional).length;
 
   let orden = null;
   const VALORES = {
     nombre: (x) => x.nombre,
     disciplina: (x) => disciplinaLabel(x.disciplina),
+    elementos: (x) => (x.elementos ?? []).length,
     estado: (x) => (x.activa ? 0 : 1),
   };
   $: filas = ordenarFilas(items, orden, VALORES, (x) => x.nombre);
@@ -30,7 +34,8 @@
   let q = "";
   let pagina = 0;
   $: (q, orden, (pagina = 0));
-  $: visibles = filas.filter((it) => coincideTexto([it.nombre], q));
+  // En conjuntos también se busca por los elementos que tienen adentro ("fusibles" muestra sus conjuntos).
+  $: visibles = filas.filter((it) => coincideTexto([it.nombre, ...(it.elementos ?? []).map((e) => e.nombre)], q));
   $: if (pagina > 0 && pagina * tam >= visibles.length) pagina = Math.max(0, Math.ceil(visibles.length / tam) - 1);
   $: pag = visibles.slice(pagina * tam, (pagina + 1) * tam);
 </script>
@@ -45,6 +50,7 @@
   </div>
   <div class="sub-th" style="grid-template-columns:{cols}">
     <ThOrden campo="nombre" {orden} on:orden={(e) => (orden = e.detail)}>Nombre</ThOrden>
+    {#if conElementos}<ThOrden campo="elementos" {orden} on:orden={(e) => (orden = e.detail)}>Elementos</ThOrden>{/if}
     <ThOrden campo="disciplina" {orden} on:orden={(e) => (orden = e.detail)}>Disciplina</ThOrden>
     <ThOrden campo="estado" {orden} on:orden={(e) => (orden = e.detail)}>Estado</ThOrden>
   </div>
@@ -57,6 +63,12 @@
         {#if conIcono}<span class="icono"><IconoConjunto codigo={x.icono} size={18} /></span>{/if}
         {x.nombre}
       </span>
+      {#if conElementos}
+        <span class="gris elems">
+          {(x.elementos ?? []).length || "Sin elementos"}
+          {#if porRevisar(x)}<span class="sub-badge warn" title="Agregados por un operario con «Otro»">{porRevisar(x)} por revisar</span>{/if}
+        </span>
+      {/if}
       <span class="gris">{disciplinaLabel(x.disciplina)}</span>
       <span>
         {#if x.activa}
@@ -101,6 +113,12 @@
   }
   .gris {
     color: #52514e;
+  }
+  .elems {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
   }
   .inactiva,
   .inactiva .gris {

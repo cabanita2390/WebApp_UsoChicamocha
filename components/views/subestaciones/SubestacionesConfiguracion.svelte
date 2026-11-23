@@ -18,20 +18,22 @@
   import ProgramacionPanel from "./config/ProgramacionPanel.svelte";
   import CatalogoModal from "./config/CatalogoModal.svelte";
   import EsperaDisciplinas from "./EsperaDisciplinas.svelte";
-  import { disciplinas, usaConjuntos, usaElementos } from "../../../stores/disciplinas.js";
+  import { disciplinas, usaConjuntos } from "../../../stores/disciplinas.js";
 
   const TABS = [
     ["est", "Estaciones"],
     ["act", "Actividades"],
-    ["conj", "Conjuntos"],
-    ["elem", "Elementos"],
+    ["conj", "Conjuntos y elementos"],
     ["prog", "Programación"],
   ];
-  // Lo que el operario marca en el paso «¿Qué se intervino?» del móvil (las disciplinas que lo usan).
-  const TEXTOS_ITEMS = {
-    conj: { singular: "conjunto", plural: "conjuntos", ayuda: "lo que el operario marca como «conjunto intervenido»" },
-    elem: { singular: "elemento", plural: "elementos", ayuda: "lo que el operario marca como «elementos revisados»" },
+  // Lo que el operario marca en el paso «¿Qué se intervino?» del móvil: el conjunto y, adentro, sus elementos.
+  const TEXTOS_CONJUNTOS = {
+    singular: "conjunto",
+    plural: "conjuntos",
+    ayuda: "cada conjunto con los elementos que el operario revisa adentro",
   };
+  // La pestaña "Elementos" se unió a Conjuntos: quien la tenía abierta llega a la nueva.
+  $: if ($configuracionTab === "elem") configuracionTab.set("conj");
 
   $: esAdmin = $auth?.currentUser?.role === "ADMIN";
 
@@ -44,7 +46,7 @@
   let anioActual = new Date().getFullYear();
   let citasOrigen = 0;
   let citasDestino = 0;
-  /** { tipo: "est" | "act" | "conj" | "elem", registro } | null */
+  /** { tipo: "est" | "act" | "conj", registro } | null */
   let modal = null;
 
   $: estacionesInactivas = estaciones.filter((e) => !e.activa).length;
@@ -110,7 +112,7 @@
    * la primera que lo usa (conjuntos y elementos) o la primera de todas (actividades).
    */
   function disciplinaDelModal(tipo, filtro) {
-    const sirve = tipo === "conj" ? usaConjuntos : tipo === "elem" ? usaElementos : () => true;
+    const sirve = tipo === "conj" ? usaConjuntos : () => true;
     if (filtro && sirve(filtro)) return filtro;
     return $disciplinas.find((d) => sirve(d.codigo))?.codigo ?? "";
   }
@@ -153,13 +155,10 @@
       <ActividadesTabla {actividades} {anioActual}
         on:nueva={() => (modal = { tipo: "act", registro: null })}
         on:editar={(e) => (modal = { tipo: "act", registro: e.detail })} />
-    {:else if $configuracionTab === "conj" || $configuracionTab === "elem"}
-      {#key $configuracionTab}
-        <ItemsCatalogoTabla items={$configuracionTab === "conj" ? conjuntos : elementos} textos={TEXTOS_ITEMS[$configuracionTab]}
-          conIcono={$configuracionTab === "conj"}
-          on:nueva={() => (modal = { tipo: $configuracionTab, registro: null })}
-          on:editar={(e) => (modal = { tipo: $configuracionTab, registro: e.detail })} />
-      {/key}
+    {:else if $configuracionTab === "conj"}
+      <ItemsCatalogoTabla items={conjuntos} textos={TEXTOS_CONJUNTOS} conIcono conElementos
+        on:nueva={() => (modal = { tipo: "conj", registro: null })}
+        on:editar={(e) => (modal = { tipo: "conj", registro: e.detail })} />
     {:else}
       <ProgramacionPanel {anioActual} {citasOrigen} {citasDestino} {estacionesInactivas}
         on:copiado={(e) => irAlCronograma(e.detail)}
@@ -168,7 +167,7 @@
 
     {#if modal}
       {#key modal}
-        <CatalogoModal tipo={modal.tipo} registro={modal.registro}
+        <CatalogoModal tipo={modal.tipo} registro={modal.registro} catalogoElementos={elementos}
           disciplinaInicial={disciplinaDelModal(modal.tipo, $disciplinaFiltro)}
           on:close={() => (modal = null)} on:saved={guardado} />
       {/key}

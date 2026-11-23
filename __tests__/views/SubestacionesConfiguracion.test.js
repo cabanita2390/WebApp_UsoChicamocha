@@ -27,6 +27,7 @@ vi.mock('../../stores/substationAdmin.js', () => ({
     crearElemento: vi.fn(),
     actualizarElemento: vi.fn(),
     cambiarEstadoElemento: vi.fn(),
+    guardarElementosConjunto: vi.fn(),
     copiarAnio: vi.fn(),
   },
 }));
@@ -48,11 +49,16 @@ const ACTIVIDADES = [
 ];
 
 const CONJUNTOS = [
-  { id: 21, nombre: 'Gabinetes de control', disciplina: 'ELECTRICO', activa: true, enUso: true, icono: 'GABINETE' },
+  { id: 21, nombre: 'Gabinetes de control', disciplina: 'ELECTRICO', activa: true, enUso: true, icono: 'GABINETE',
+    elementos: [{ id: 31, nombre: 'Breaker', pideDetalle: false, provisional: false },
+      { id: 33, nombre: 'Bornera auxiliar', pideDetalle: false, provisional: true }] },
   { id: 22, nombre: 'Postes', disciplina: 'ELECTRICO', activa: false, enUso: false },
 ];
 const ELEMENTOS = [
   { id: 31, nombre: 'Breaker', disciplina: 'ELECTRICO', activa: true, enUso: false },
+  { id: 32, nombre: 'Fusibles', disciplina: 'ELECTRICO', activa: true, enUso: false },
+  { id: 33, nombre: 'Bornera auxiliar', disciplina: 'ELECTRICO', activa: true, enUso: false },
+  { id: 34, nombre: 'Muro', disciplina: 'CIVIL', activa: true, enUso: false },
 ];
 
 function cronograma(anio, citas) {
@@ -252,7 +258,7 @@ describe('SubestacionesConfiguracion', () => {
   it('pestaña Conjuntos: nombre, disciplina y estado (sin la columna "¿Ya se usó?")', async () => {
     render(SubestacionesConfiguracion);
     await screen.findByText('Ayalas');
-    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos' }));
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos y elementos' }));
 
     expect(screen.getByText('Gabinetes de control')).toBeTruthy();
     expect(screen.queryByText('¿Ya se usó?')).toBeNull();
@@ -261,59 +267,93 @@ describe('SubestacionesConfiguracion', () => {
     expect(screen.getAllByText('Eléctrico').length).toBe(2);
   });
 
-  it('Elementos: muchos se paginan de a 20 y el buscador filtra sin tildes', async () => {
-    substationAdmin.listarElementos.mockResolvedValue(Array.from({ length: 45 }, (_, i) => ({
-      id: 100 + i, nombre: `Elemento ${String(i + 1).padStart(2, '0')}`, disciplina: 'ELECTRICO', activa: true, enUso: false,
-    })).concat({ id: 200, nombre: 'Bujía de encendido', disciplina: 'ELECTRICO', activa: true, enUso: false }));
+  it('no hay pestaña Elementos: viven dentro de cada conjunto', async () => {
     render(SubestacionesConfiguracion);
     await screen.findByText('Ayalas');
-    await fireEvent.click(screen.getByRole('tab', { name: 'Elementos' }));
 
-    expect(await screen.findByText('Mostrando 1–20 de 46')).toBeTruthy();
-    expect(screen.getByText('Elemento 20')).toBeTruthy();
-    expect(screen.queryByText('Elemento 21')).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'Siguiente ›' }));
-    expect(screen.getByText('Mostrando 21–40 de 46')).toBeTruthy();
-    expect(screen.getByText('Elemento 21')).toBeTruthy();
-
-    // La cantidad por página se elige; al cambiarla vuelve a la página 1.
-    await fireEvent.change(screen.getByLabelText('Filas por página'), { target: { value: '50' } });
-    expect(screen.getByText('Mostrando 1–46 de 46')).toBeTruthy();
-    expect(screen.getByText('Elemento 45')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Siguiente ›' }).disabled).toBe(true);
-
-    // Buscar vuelve a la página 1; con una sola página no hay paginación.
-    await fireEvent.input(screen.getByRole('searchbox', { name: 'Buscar elemento' }), { target: { value: 'BUJIA' } });
-    expect(screen.getByText('Bujía de encendido')).toBeTruthy();
-    expect(screen.queryByText('Elemento 01')).toBeNull();
-    expect(screen.queryByText(/Mostrando/)).toBeNull();
-    await fireEvent.input(screen.getByRole('searchbox', { name: 'Buscar elemento' }), { target: { value: 'zzz' } });
-    expect(screen.getByText('Ningún elemento coincide con «zzz».')).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Elementos' })).toBeNull();
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos y elementos' }));
+    expect(screen.getByText('Elementos')).toBeTruthy();
+    expect(screen.getByText('1 por revisar')).toBeTruthy();
+    expect(screen.getByText('Sin elementos')).toBeTruthy();
   });
 
-  it('nuevo elemento: arranca en Eléctrico, guarda con nombre y disciplina y recarga', async () => {
-    substationAdmin.crearElemento.mockResolvedValue({ id: 32 });
+  it('quien tenía abierta la pestaña Elementos llega a Conjuntos y elementos', async () => {
+    configuracionTab.set('elem');
+    render(SubestacionesConfiguracion);
+
+    expect(await screen.findByText('Gabinetes de control')).toBeTruthy();
+    expect(get(configuracionTab)).toBe('conj');
+  });
+
+  it('el buscador de conjuntos también encuentra por sus elementos, sin tildes', async () => {
     render(SubestacionesConfiguracion);
     await screen.findByText('Ayalas');
-    await fireEvent.click(screen.getByRole('tab', { name: 'Elementos' }));
-    await fireEvent.click(screen.getByText('+ Nuevo elemento'));
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos y elementos' }));
 
-    expect(screen.getByText('Nuevo elemento')).toBeTruthy();
-    expect(screen.getByLabelText(/Disciplina/).value).toBe('ELECTRICO');
-    expect(screen.queryByLabelText(/Nombre corto/)).toBeNull();
-    await fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'Celda de medida' } });
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Buscar conjunto' }), { target: { value: 'BREAKER' } });
+    expect(screen.getByText('Gabinetes de control')).toBeTruthy();
+    expect(screen.queryByText('Postes')).toBeNull();
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Buscar conjunto' }), { target: { value: 'zzz' } });
+    expect(screen.getByText('Ningún conjunto coincide con «zzz».')).toBeTruthy();
+  });
+
+  it('nuevo conjunto: se le agregan elementos reutilizando nombres o creando uno nuevo', async () => {
+    substationAdmin.crearConjunto.mockResolvedValue({ id: 40 });
+    substationAdmin.guardarElementosConjunto.mockResolvedValue({});
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos y elementos' }));
+    await fireEvent.click(screen.getByText('+ Nuevo conjunto'));
+    await fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'Transformador' } });
+
+    const buscar = screen.getByLabelText('Agregar elemento');
+    // Escribirlo distinto ("fusibles") reutiliza el nombre que ya existe; Muro es de Civil y no se ofrece.
+    await fireEvent.focus(buscar);
+    await fireEvent.input(buscar, { target: { value: 'mu' } });
+    expect(screen.queryByRole('option', { name: 'Muro' })).toBeNull();
+    await fireEvent.input(buscar, { target: { value: 'fusibles' } });
+    expect(screen.queryByRole('option', { name: /Crear/ })).toBeNull();
+    await fireEvent.click(screen.getByRole('option', { name: 'Fusibles' }));
+    // Uno que no existe se crea.
+    await fireEvent.input(buscar, { target: { value: 'estado   físico' } });
+    await fireEvent.click(screen.getByRole('option', { name: '+ Crear «estado físico»' }));
+    expect(screen.getByText('Nuevo')).toBeTruthy();
+    await fireEvent.click(screen.getAllByLabelText('Pide texto')[1]);
+    // El orden se cambia con las flechas.
+    await fireEvent.click(screen.getByRole('button', { name: 'Subir Estado físico' }));
+
+    await fireEvent.click(screen.getByText('Guardar'));
+    await waitFor(() => expect(substationAdmin.crearConjunto)
+      .toHaveBeenCalledWith({ nombre: 'Transformador', disciplina: 'ELECTRICO', icono: null }));
+    await waitFor(() => expect(substationAdmin.guardarElementosConjunto).toHaveBeenCalledWith(40, [
+      { elementoId: null, nombre: 'Estado físico', pideDetalle: true },
+      { elementoId: 32, nombre: 'Fusibles', pideDetalle: false },
+    ]));
+  });
+
+  it('editar conjunto: muestra sus elementos, los por revisar, y quitar uno lo saca de la lista', async () => {
+    substationAdmin.actualizarConjunto.mockResolvedValue({});
+    substationAdmin.guardarElementosConjunto.mockResolvedValue({});
+    render(SubestacionesConfiguracion);
+    await screen.findByText('Ayalas');
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos y elementos' }));
+    await fireEvent.click(screen.getByText('Gabinetes de control'));
+
+    expect(screen.getByText('Por revisar')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Quitar Breaker' }));
     await fireEvent.click(screen.getByText('Guardar'));
 
-    await waitFor(() => expect(substationAdmin.crearElemento)
-      .toHaveBeenCalledWith({ nombre: 'Celda de medida', disciplina: 'ELECTRICO' }));
-    await waitFor(() => expect(substationAdmin.listarElementos).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(substationAdmin.guardarElementosConjunto).toHaveBeenCalledWith(21, [
+      { elementoId: 33, nombre: 'Bornera auxiliar', pideDetalle: false },
+    ]));
   });
 
   it('conjunto en uso: no cambia de disciplina y se desactiva en un solo paso', async () => {
     substationAdmin.cambiarEstadoConjunto.mockResolvedValue({});
     render(SubestacionesConfiguracion);
     await screen.findByText('Ayalas');
-    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos' }));
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos y elementos' }));
     await fireEvent.click(screen.getByText('Gabinetes de control'));
 
     expect(screen.getByLabelText(/Disciplina/).disabled).toBe(true);
@@ -328,7 +368,7 @@ describe('SubestacionesConfiguracion', () => {
     substationAdmin.cambiarEstadoConjunto.mockResolvedValue({});
     render(SubestacionesConfiguracion);
     await screen.findByText('Ayalas');
-    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos' }));
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos y elementos' }));
     await fireEvent.click(screen.getByText('Postes'));
 
     await fireEvent.click(screen.getByText('Reactivar'));
@@ -340,7 +380,7 @@ describe('SubestacionesConfiguracion', () => {
     substationAdmin.actualizarConjunto.mockResolvedValue({});
     render(SubestacionesConfiguracion);
     await screen.findByText('Ayalas');
-    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos' }));
+    await fireEvent.click(screen.getByRole('tab', { name: 'Conjuntos y elementos' }));
 
     await fireEvent.click(screen.getByText('Gabinetes de control'));
     expect(screen.getByRole('radio', { name: 'Gabinete' }).getAttribute('aria-checked')).toBe('true');

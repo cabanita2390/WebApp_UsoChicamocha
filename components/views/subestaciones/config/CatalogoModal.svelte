@@ -6,6 +6,7 @@
   import { disciplinas, usaConjuntos, usaElementos } from "../../../../stores/disciplinas.js";
   import { ICONOS_CONJUNTO } from "../../../../config/iconosConjunto.js";
   import IconoConjunto from "./IconoConjunto.svelte";
+  import ElementosDelConjunto from "./ElementosDelConjunto.svelte";
 
   /** "est" | "act" | "conj" (conjunto) | "elem" (elemento) */
   export let tipo = "est";
@@ -13,6 +14,8 @@
   export let registro = null;
   /** Disciplina con la que arranca un registro nuevo (la del filtro de la pantalla que lo abre). */
   export let disciplinaInicial = "";
+  /** Conjuntos: todos los nombres de elemento (ItemCatalogoResponse[]), para reutilizarlos adentro. */
+  export let catalogoElementos = [];
 
   const dispatch = createEventDispatcher();
 
@@ -28,7 +31,18 @@
   let f = esEst
     ? { nombre: registro?.nombre ?? "", tipo: registro?.tipo ?? "BOMBEO", frecuenciaBase: registro?.frecuenciaBase ?? "TRIMESTRAL" }
     : esItem
-      ? { nombre: registro?.nombre ?? "", disciplina: registro?.disciplina ?? disciplinaInicial, icono: registro?.icono ?? null }
+      ? {
+          nombre: registro?.nombre ?? "",
+          disciplina: registro?.disciplina ?? disciplinaInicial,
+          icono: registro?.icono ?? null,
+          // Lo que tiene adentro el conjunto (solo conjuntos).
+          elementos: (registro?.elementos ?? []).map((e) => ({
+            elementoId: e.id,
+            nombre: e.nombre,
+            pideDetalle: !!e.pideDetalle,
+            provisional: !!e.provisional,
+          })),
+        }
       : {
           nombre: registro?.nombre ?? "",
           nombreCorto: registro?.nombreCorto ?? "",
@@ -62,6 +76,9 @@
   // Ya usado (citas, ejecuciones o visitas que lo marcaron): no cambia de disciplina (el backend responde 409).
   $: disciplinaBloqueada = !esEst && editando && registro?.enUso === true;
   $: invalido = !f.nombre.trim() || (tipo === "act" && f.nombreCorto.trim().length > 24);
+  // Conjunto de una disciplina que usa elementos: sus elementos se arman aquí mismo.
+  $: conElementos = tipo === "conj" && $disciplinas.length > 0 && usaElementos(f.disciplina);
+  $: catalogoDisciplina = catalogoElementos.filter((e) => e.disciplina === f.disciplina);
 
   function cerrar() {
     dispatch("close");
@@ -75,13 +92,21 @@
       const body = esEst
         ? { nombre: f.nombre, tipo: f.tipo, frecuenciaBase: f.frecuenciaBase }
         : esItem
-          ? (tipo === "conj" ? { ...f } : { nombre: f.nombre, disciplina: f.disciplina })
+          ? (tipo === "conj"
+              ? { nombre: f.nombre, disciplina: f.disciplina, icono: f.icono }
+              : { nombre: f.nombre, disciplina: f.disciplina })
           : { ...f, nombreCorto: f.nombreCorto.trim() || null };
       if (esEst) {
         editando ? await substationAdmin.actualizarEstacion(registro.id, body) : await substationAdmin.crearEstacion(body);
       } else {
         const [crear, actualizar] = API[tipo];
-        editando ? await actualizar(registro.id, body) : await crear(body);
+        const r = editando ? await actualizar(registro.id, body) : await crear(body);
+        if (conElementos) {
+          await substationAdmin.guardarElementosConjunto(
+            editando ? registro.id : r.id,
+            f.elementos.map((e) => ({ elementoId: e.elementoId, nombre: e.nombre, pideDetalle: e.pideDetalle })),
+          );
+        }
       }
       flash("Guardado");
       dispatch("saved");
@@ -139,7 +164,7 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
 <div class="sub-overlay" on:click|self={cerrar}>
-  <div class="sub-modal" role="dialog" aria-modal="true" aria-label={titulo}>
+  <div class="sub-modal" class:ancho={tipo === "conj"} role="dialog" aria-modal="true" aria-label={titulo}>
     <div class="sub-modal-head">
       <span class="sub-modal-title">{titulo}</span>
       <button class="sub-modal-x" aria-label="Cerrar" on:click={cerrar}>×</button>
@@ -178,6 +203,9 @@
             </div>
             <span class="sub-field-hint">Así aparece el mosaico de este conjunto en el teléfono.</span>
           </div>
+          {#if conElementos}
+            <ElementosDelConjunto bind:lista={f.elementos} catalogo={catalogoDisciplina} />
+          {/if}
         {/if}
       {:else if esEst}
         <div class="two">
@@ -237,6 +265,15 @@
 </div>
 
 <style>
+  .sub-modal.ancho {
+    width: 640px;
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+  }
+  .sub-modal.ancho .sub-modal-body {
+    overflow-y: auto;
+  }
   .two {
     display: grid;
     grid-template-columns: 1fr 1fr;

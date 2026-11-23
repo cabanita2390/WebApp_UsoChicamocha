@@ -20,13 +20,27 @@
 
   $: badge = ejecucion ? resultadoBadge(ejecucion.resultado) : null;
   $: origen = ejecucion ? origenEjecucion(ejecucion) : null;
-  // Eléctrico: conjuntos y elementos marcados en la visita, con el texto de "Otro" al final de cada grupo.
-  $: intervenido = ejecucion
-    ? [
-        { titulo: "Conjuntos", items: [...(ejecucion.conjuntos ?? []).map((c) => c.nombre), ...(ejecucion.conjuntoOtro ? [`Otro: ${ejecucion.conjuntoOtro}`] : [])] },
-        { titulo: "Elementos", items: [...(ejecucion.elementos ?? []).map((e) => e.nombre), ...(ejecucion.elementoOtro ? [`Otro: ${ejecucion.elementoOtro}`] : [])] },
-      ].filter((g) => g.items.length)
-    : [];
+  $: intervenido = ejecucion ? agruparIntervenido(ejecucion) : [];
+
+  /**
+   * Qué se intervino, un grupo por conjunto con los elementos que se marcaron adentro (y el texto de
+   * los que lo piden, ej. "Estado físico: con óxido"). Las visitas anteriores al ajuste traen
+   * elementos sin conjunto: van en su propio grupo, al final.
+   */
+  function agruparIntervenido(e) {
+    const etiqueta = (m) => (m.detalle ? `${m.nombre}: ${m.detalle}` : m.nombre);
+    const grupos = (e.conjuntos ?? []).map((c) => ({
+      titulo: c.nombre,
+      items: (e.elementos ?? []).filter((m) => m.conjuntoId === c.id).map(etiqueta),
+    }));
+    if (e.conjuntoOtro) grupos.push({ titulo: `Otro: ${e.conjuntoOtro}`, items: [] });
+    const sueltos = [
+      ...(e.elementos ?? []).filter((m) => !m.conjuntoId || !(e.conjuntos ?? []).some((c) => c.id === m.conjuntoId)).map(etiqueta),
+      ...(e.elementoOtro ? [`Otro: ${e.elementoOtro}`] : []),
+    ];
+    if (sueltos.length) grupos.push({ titulo: "Sin conjunto", items: sueltos });
+    return grupos;
+  }
   const ORIGEN_AYUDA = {
     cronograma: "Cronograma",
     orden: "corrige un hallazgo; no suma al avance",
@@ -120,7 +134,7 @@
                 <div class="dl">
                   <span class="dl-lab">{grupo.titulo}</span>
                   <span class="chips">
-                    {#each grupo.items as nombre}<span class="chip-item">{nombre}</span>{/each}
+                    {#each grupo.items as nombre}<span class="chip-item">{nombre}</span>{:else}<span class="sin-elem">Sin elementos marcados</span>{/each}
                   </span>
                 </div>
               {/each}
@@ -280,6 +294,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+  }
+  .sin-elem {
+    font-size: 12.5px;
+    color: #898781;
   }
   .chip-item {
     padding: 4px 10px;

@@ -37,6 +37,9 @@ export const substationAdmin = {
     actualizarConjunto: (id, body) => fetchWithAuth(`substation/conjuntos/${id}`, { method: 'PUT', body: json(body) }),
     cambiarEstadoConjunto: (id, activa) =>
         fetchWithAuth(`substation/conjuntos/${id}/estado`, { method: 'PATCH', body: json({ activa }) }),
+    /** Lo que tiene adentro el conjunto, en orden: [{ elementoId | nombre, pideDetalle }]. Reemplaza la lista. */
+    guardarElementosConjunto: (id, elementos) =>
+        fetchWithAuth(`substation/conjuntos/${id}/elementos`, { method: 'PUT', body: json({ elementos }) }),
 
     listarElementos: () => fetchWithAuth('substation/elementos?incluirInactivas=true'),
     crearElemento: (body) => fetchWithAuth('substation/elementos', { method: 'POST', body: json(body) }),
