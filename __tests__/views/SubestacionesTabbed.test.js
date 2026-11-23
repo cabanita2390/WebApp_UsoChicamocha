@@ -33,6 +33,7 @@ vi.mock('../../stores/auth.js', () => ({
 vi.mock('../../stores/substationAdmin.js', () => ({
   substationAdmin: {
     indicadoresPorEstacion: vi.fn(async () => []),
+    elementosIntervenidos: vi.fn(async () => []),
     resumenPorActividad: vi.fn(async () => []),
     listarEstaciones: vi.fn(async () => []),
     listarActividades: vi.fn(async () => []),

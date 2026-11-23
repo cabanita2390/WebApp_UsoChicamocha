@@ -1,4 +1,5 @@
 <script>
+  import DescargaExcel from "../DescargaExcel.svelte";
   import { onDestroy } from "svelte";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import {
@@ -222,6 +223,7 @@
         <select class="ctl" value={String(anio)} on:change={cambiarAnio} aria-label="Año">
           {#each opcionesAnio as y}<option value={String(y)}>{y}</option>{/each}
         </select>
+        <DescargaExcel hoja="ACTIVIDADES" filtros={{ anio }} />
       </div>
     </div>
 

@@ -1,5 +1,7 @@
 <script>
-  import { usaElementos } from "../../../../stores/disciplinas.js";
+  import DescargaExcel from "../DescargaExcel.svelte";
+  import { disciplinas, usaElementos } from "../../../../stores/disciplinas.js";
+  import { get } from "svelte/store";
   import { onDestroy } from "svelte";
   import { substationAdmin } from "../../../../stores/substationAdmin.js";
   import {
@@ -8,7 +10,8 @@
   } from "../../../../stores/subestacionesFilters.js";
   import { alCambiarEjecuciones } from "../../../../stores/subestacionesEventos.js";
   import { tipoLabel, disciplinaLabel, MESES_LARGOS } from "../../../../config/subestaciones.js";
-  import { IMPREVISTO, porcentaje, semaforoMes } from "../../../../utils/cronograma.js";
+  import { IMPREVISTO, porcentaje, semaforoMes, nivelCriticidad } from "../../../../utils/cronograma.js";
+  import ActividadesMasEjecutadas from "./ActividadesMasEjecutadas.svelte";
   import Loader from "../../../shared/Loader.svelte";
   import SubToast from "../SubToast.svelte";
   import ErrorCarga from "../ErrorCarga.svelte";
@@ -21,6 +24,8 @@
   let filas = [];
   /** Eléctrico: elementos más intervenidos del año, todas las estaciones. */
   let elementos = [];
+  /** Resumen por actividad del año: las más ejecutadas de todas las estaciones. */
+  let actividades = [];
   let anio = null;
   let mes = null;
   let transcurrido = null;
@@ -39,13 +44,15 @@
     else cargando = true;
     errorCarga = "";
     try {
-      const conElementos = !!$disciplinaFiltro && usaElementos($disciplinaFiltro);
-      const [r, elem] = await Promise.all([
+      const [r, elem, act] = await Promise.all([
         substationAdmin.indicadoresPorEstacion(undefined, $disciplinaFiltro),
-        conElementos ? substationAdmin.elementosIntervenidos(undefined, $disciplinaFiltro) : Promise.resolve([]),
+        // Con "Todas las disciplinas" también: los de todas las que usan elementos.
+        conElementos() ? substationAdmin.elementosIntervenidos(undefined, $disciplinaFiltro || undefined) : Promise.resolve([]),
+        substationAdmin.resumenPorActividad(undefined, $disciplinaFiltro || undefined).catch(() => []),
       ]);
       if (mia !== secuencia) return;
       elementos = elem ?? [];
+      actividades = act ?? [];
       anio = r[0]?.anio ?? new Date().getFullYear();
       mes = r[0]?.mes ?? null;
       transcurrido = r[0]?.porcentajeMesTranscurrido != null ? Number(r[0].porcentajeMesTranscurrido) : null;
@@ -89,6 +96,20 @@
       : { esProgramada: false, fechaInicio: `${a}-01-01`, fechaFin: `${a}-12-31` });
     subestacionesActiveTab.set("ejecuciones");
   }
+
+  // Las actividades de una fila del top, en Ejecuciones (todo el año).
+  function verActividad(f) {
+    ejecucionesFiltroInicial.set({ actividadId: f.actividadId, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31` });
+    subestacionesActiveTab.set("ejecuciones");
+  }
+
+  // "Elementos más intervenidos": con una disciplina, si esa usa elementos; con todas, si alguna los usa.
+  // Función (no $:): cargar() corre al iniciar, antes de que Svelte calcule lo reactivo.
+  function conElementos() {
+    const filtro = get(disciplinaFiltro);
+    return filtro ? usaElementos(filtro) : get(disciplinas).some((d) => d.usaElementos);
+  }
+  $: hayElementos = ($disciplinaFiltro, $disciplinas, conElementos());
 
   function conCalculos(i) {
     return {
@@ -136,15 +157,22 @@
         nombre: (s) => s.estacionNombre,
         avance: (s) => (s.programado ? s.avanceAnio : null),
         atrasadas: (s) => s.atrasadas,
+        ejecutado: (s) => s.ejecutadoTotal ?? 0,
+        criticidad: (s) => (totalIntervenciones ? s.ejecutadoTotal ?? 0 : null),
         imp: (s) => s.ejecutadoNoProgramado ?? 0,
       };
   $: filasOrdenadas = ordenarFilas(filas, orden, valores, (s) => s.estacionNombre);
+  // Criticidad: qué parte de todas las intervenciones del año le tocó a cada estación.
+  $: totalIntervenciones = filas.reduce((t, f) => t + (f.ejecutadoTotal ?? 0), 0);
+  $: criticidad = Object.fromEntries(filas.map((f) => [f.estacionId,
+    nivelCriticidad(totalIntervenciones ? ((f.ejecutadoTotal ?? 0) * 100) / totalIntervenciones : null)]));
+  $: intervenidas = filas.filter((f) => (f.ejecutadoTotal ?? 0) > 0).length;
   const ordenar = (e) => (orden = e.detail);
 
   // Columnas que se encogen: a 1024 px la tabla cabe completa (Imprevistos incluida).
   $: cols = vista === "mes"
     ? "minmax(140px,1fr) minmax(150px,1.4fr) minmax(150px,auto) 84px minmax(120px,auto)"
-    : "minmax(150px,1fr) minmax(200px,1.6fr) 84px minmax(120px,auto)";
+    : "minmax(150px,1fr) minmax(190px,1.5fr) 84px minmax(150px,auto) 92px minmax(120px,auto)";
 </script>
 
 <div class="sub-mod">
@@ -177,6 +205,7 @@
           </div>
         {/if}
         <SelectorDisciplina on:change={cargar} />
+        <DescargaExcel hoja="AVANCE" filtros={{ anio }} />
       </div>
     </div>
 
@@ -241,6 +270,11 @@
           <div class="t-v" class:tenue={!total.atrasadas}>{total.atrasadas}</div>
           <div class="t-s">citas de meses cerrados sin ejecutar{total.atrasadas && true ? " · ver cuáles →" : ""}</div>
         </svelte:element>
+        <div class="sub-card tarjeta" data-kpi="intervenidas">
+          <div class="t-l">Estaciones intervenidas</div>
+          <div class="t-v" class:tenue={!intervenidas}>{intervenidas} <span class="t-de">de {filas.length}</span></div>
+          <div class="t-s">con al menos un registro en {anio}</div>
+        </div>
         <svelte:element this={total.ejecutadoNoProgramado ? "button" : "div"} class="sub-card tarjeta" data-kpi="imprevistos"
           class:accion={total.ejecutadoNoProgramado} title={total.ejecutadoNoProgramado ? "Ver cuáles en Ejecuciones" : null}
           on:click={() => total.ejecutadoNoProgramado && verImprevistos(false)} role={total.ejecutadoNoProgramado ? "button" : null}>
@@ -263,6 +297,8 @@
         {:else}
           <ThOrden campo="avance" {orden} on:orden={ordenar}>Avance del año</ThOrden>
           <ThOrden campo="atrasadas" dirInicial="desc" der {orden} on:orden={ordenar} title="Citas de meses ya cerrados que no se ejecutaron">Atrasadas</ThOrden>
+          <ThOrden campo="ejecutado" dirInicial="desc" der {orden} on:orden={ordenar} title="Registros del año: mantenimiento · inspección · total">Ejecutado</ThOrden>
+          <ThOrden campo="criticidad" dirInicial="desc" {orden} on:orden={ordenar} title="Qué parte de todas las intervenciones del año: Alto desde 12 %, Medio desde 6 %">Criticidad</ThOrden>
         {/if}
         <ThOrden campo="imp" dirInicial="desc" der {orden} on:orden={ordenar} title="Registros sin cita del cronograma y qué parte son del total de registros">Imprevistos</ThOrden>
       </div>
@@ -311,6 +347,16 @@
               {/if}
             </span>
             <span class="der num" class:tenue={!s.atrasadas}>{s.atrasadas}</span>
+            <span class="der num ejecutado" title="Mantenimiento · inspección · total">
+              {#if s.ejecutadoTotal}
+                <span class="tenue">{s.ejecutadoMantenimiento ?? 0} · {s.ejecutadoInspeccion ?? 0} ·</span> <strong>{s.ejecutadoTotal}</strong>
+              {:else}<span class="tenue">—</span>{/if}
+            </span>
+            <span>
+              {#if criticidad[s.estacionId]?.l !== "—"}
+                <span class="sub-badge" style="color:{criticidad[s.estacionId].c};background:{criticidad[s.estacionId].bg}">{criticidad[s.estacionId].l}</span>
+              {:else}<span class="tenue">—</span>{/if}
+            </span>
             <span class="der">
               {#if s.ejecutadoNoProgramado}
                 <span class="imp">{s.ejecutadoNoProgramado} · {s.impAnio}% del total</span>
@@ -323,14 +369,26 @@
       {/each}
     </div>
     <p class="pie">Click en una estación para ver su detalle. Los imprevistos son registros sin cita del cronograma: no suman al avance.</p>
-    {#if $disciplinaFiltro && usaElementos($disciplinaFiltro)}
-      <ElementosIntervenidos filas={elementos} alcance="{anio} · todas las estaciones" on:ver={(e) => verElemento(e.detail)} />
-    {/if}
+    <div class="tops">
+      <ActividadesMasEjecutadas filas={actividades} alcance="{anio} · todas las estaciones" on:ver={(e) => verActividad(e.detail)} />
+      {#if hayElementos}
+        <ElementosIntervenidos filas={elementos} alcance="{anio} · todas las estaciones" on:ver={(e) => verElemento(e.detail)} />
+      {/if}
+    </div>
   {/if}
   <SubToast />
 </div>
 
 <style>
+  .tops {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .ejecutado {
+    white-space: nowrap;
+  }
   .inactiva {
     margin-left: 6px;
   }

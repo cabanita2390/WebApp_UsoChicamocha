@@ -1,4 +1,5 @@
 <script>
+  import DescargaExcel from "./subestaciones/DescargaExcel.svelte";
   import { disciplinas, usaElementos } from "../../stores/disciplinas.js";
   import { onMount, onDestroy } from "svelte";
   import { data } from "../../stores/data.js";
@@ -90,6 +91,13 @@
   $: pagina = $data.substationEjecuciones ?? { data: [], totalPages: 0, totalElements: 0, currentPage: 0, pageSize: 20 };
   $: columns = createEjecucionesColumns();
   $: soloHallazgosActivo = filtros.resultado === HALLAZGOS_PRESET.join(",");
+  // El Excel abre con la estación y el año/mes de la fecha de inicio filtrados aquí.
+  $: filtrosExcel = {
+    estacionId: filtros.estacionId || undefined,
+    anio: filtros.fechaInicio ? Number(filtros.fechaInicio.slice(0, 4)) : undefined,
+    mes: filtros.fechaInicio && filtros.fechaFin && filtros.fechaInicio.slice(0, 7) === filtros.fechaFin.slice(0, 7)
+      ? Number(filtros.fechaInicio.slice(5, 7)) : undefined,
+  };
   // "Solo imprevistos" es el mismo filtro Origen = Imprevisto: el botón y el select quedan sincronizados.
   $: soloImprevistosActivo = filtros.esProgramada === "false";
   $: sinAtenderActivo = filtros.seguimiento === SEGUIMIENTO_SIN_ATENDER;
@@ -259,6 +267,7 @@
     <div class="chip-row">
       <!-- La disciplina junto a Filtros: todo lo que filtra la lista queda en un solo lugar. -->
       <SelectorDisciplina on:change={cambiarDisciplina} />
+      <DescargaExcel hoja={soloHallazgosActivo ? "HALLAZGOS" : "EJECUCIONES"} filtros={filtrosExcel} />
       <button type="button" class="btn-filtros" class:activos={etiquetasFiltro.length > 0} on:click={abrirFiltros}>
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
           <path d="M2 4h12M4.5 8h7M7 12h2"></path>

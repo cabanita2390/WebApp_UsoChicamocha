@@ -10,6 +10,7 @@ vi.mock('../../stores/ui.js', () => ({
 vi.mock('../../stores/substationAdmin.js', () => ({
   substationAdmin: {
     indicadoresPorEstacion: vi.fn(),
+    resumenPorActividad: vi.fn(async () => []),
     listarEstaciones: vi.fn(),
     listarActividades: vi.fn(),
     criticidad: vi.fn(),
@@ -124,11 +125,13 @@ describe('DashboardEstaciones', () => {
     expect(ayalas.children[0].textContent.replace(/\s+/g, ' ').trim()).toBe('Ayalas Bombeo');
     expect(clan.children[0].textContent).toContain('Complementaria');
     expect(ayalas.children[1].textContent.replace(/\s+/g, ' ').trim()).toBe('3 de 4 75%');
-    expect(ayalas.querySelector('.sub-badge')).toBeNull(); // el año no lleva semáforo
+    expect(ayalas.querySelector('.sub-badge.estado')).toBeNull(); // el año no lleva semáforo (sí criticidad)
     expect(ayalas.children[2].textContent.trim()).toBe('1'); // atrasada: 4 vencidas, 3 ejecutadas
-    expect(ayalas.children[3].textContent.trim()).toBe('1 · 25% del total');
+    expect(ayalas.children[3].textContent.replace(/\s+/g, ' ').trim()).toBe('3 · 0 · 4'); // mantenimiento · inspección · total
+    expect(ayalas.children[4].textContent.trim()).toMatch(/^(Alto|Medio|Bajo)$/);
+    expect(ayalas.children[5].textContent.trim()).toBe('1 · 25% del total');
     expect(clan.children[1].textContent).toContain('Sin citas en 2026');
-    expect(clan.children[3].textContent.trim()).toBe('—');
+    expect(clan.children[5].textContent.trim()).toBe('—');
   });
 
   it('clic en el encabezado ordena la tabla; otro clic invierte; sin citas va siempre al final', async () => {
@@ -448,12 +451,38 @@ describe('DashboardEstaciones', () => {
     expect(get(subestacionesActiveTab)).toBe('ejecuciones');
   });
 
-  it('Civil o todas: no muestra elementos ni los pide', async () => {
+  it('Civil: no muestra elementos ni los pide', async () => {
     disciplinaFiltro.set('CIVIL');
     render(DashboardEstaciones);
     await screen.findByText(/Civil · cuánto se ha hecho en cada estación/);
     expect(screen.queryByText('Elementos más intervenidos')).toBeNull();
     expect(substationAdmin.elementosIntervenidos).not.toHaveBeenCalled();
+  });
+
+  it('todas las disciplinas: elementos de las que los usan, sin filtrar por disciplina', async () => {
+    disciplinaFiltro.set('');
+    render(DashboardEstaciones);
+
+    expect(await screen.findByText('Elementos más intervenidos')).toBeTruthy();
+    expect(substationAdmin.elementosIntervenidos).toHaveBeenCalledWith(undefined, undefined);
+  });
+
+  it('vista Año: ejecutado (mant · insp · total), criticidad, estaciones intervenidas y actividades más ejecutadas', async () => {
+    disciplinaFiltro.set('');
+    substationAdmin.resumenPorActividad.mockResolvedValueOnce([
+      { actividadId: 10, actividadNombre: 'Pintura muros', ejecutadoTotal: 7, estaciones: 3 },
+      { actividadId: 11, actividadNombre: 'Sin registros', ejecutadoTotal: 0, estaciones: 0 },
+    ]);
+    render(DashboardEstaciones);
+
+    expect(await screen.findByText('Estaciones intervenidas')).toBeTruthy();
+    expect(screen.getByText('Ejecutado')).toBeTruthy();
+    expect(screen.getByText('Criticidad')).toBeTruthy();
+    expect(screen.getByText('Actividades más ejecutadas')).toBeTruthy();
+    expect(screen.getByText('Pintura muros')).toBeTruthy();
+    expect(screen.queryByText('Sin registros')).toBeNull();
+    await fireEvent.click(screen.getByText('Pintura muros'));
+    expect(get(ejecucionesFiltroInicial)).toEqual({ actividadId: 10, fechaInicio: '2026-01-01', fechaFin: '2026-12-31' });
   });
 
   it('detalle eléctrico: elementos de esa estación y del año del detalle', async () => {

@@ -354,3 +354,18 @@ export function aniosParaSelector(info, anioActual, modo, seleccionado = null) {
     if (seleccionado != null) base.push(Number(seleccionado));
     return [...new Set(base.map(Number))].sort((a, b) => b - a);
 }
+
+/** Cortes de criticidad del Excel de indicadores: Alto ≥ 12 % de las intervenciones, Medio ≥ 6 % (igual que el back). */
+export const CRITICIDAD_ALTA = 12;
+export const CRITICIDAD_MEDIA = 6;
+
+/**
+ * Nivel de criticidad de una estación según qué parte de todas las intervenciones del año le tocó.
+ * participacion: 0-100, o null si todavía no hay intervenciones.
+ */
+export function nivelCriticidad(participacion) {
+    if (participacion == null) return { ...BADGE.neu, l: '—', orden: 0 };
+    if (participacion >= CRITICIDAD_ALTA) return { ...BADGE.bad, l: 'Alto', orden: 3 };
+    if (participacion >= CRITICIDAD_MEDIA) return { ...BADGE.warn, l: 'Medio', orden: 2 };
+    return { ...BADGE.ok, l: 'Bajo', orden: 1 };
+}
