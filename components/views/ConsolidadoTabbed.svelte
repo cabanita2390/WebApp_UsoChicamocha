@@ -1,4 +1,5 @@
 <script>
+  import { nombreConCorte } from "../../utils/periodoExcel.js";
   import { push } from 'svelte-spa-router';
   import { data } from '../../stores/data.js';
   import { auth } from '../../stores/auth.js';
@@ -69,7 +70,7 @@
   async function handleExportVehicles() {
     isExportingVehicles = true;
     try {
-      await download('vehicle/monitoring/consolidated/export', 'consolidado_vehiculos.xlsx');
+      await download('vehicle/monitoring/consolidated/export', nombreConCorte('consolidado_vehiculos'));
       addNotification({ id: Date.now(), text: 'Consolidado de vehículos descargado.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
@@ -81,7 +82,7 @@
   async function handleExportMotos() {
     isExportingMotos = true;
     try {
-      await download('moto/monitoring/consolidated/export', 'consolidado_motos.xlsx');
+      await download('moto/monitoring/consolidated/export', nombreConCorte('consolidado_motos'));
       addNotification({ id: Date.now(), text: 'Consolidado de motos descargado.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });

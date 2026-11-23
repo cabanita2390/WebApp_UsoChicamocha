@@ -11,10 +11,12 @@
   /** Qué se descarga, para el título ("Inspecciones de vehículos"). */
   export let titulo = "Descargar Excel";
   export let descargando = false;
+  /** Atajo con el que abre ("anio" por defecto; "todo" donde antes se descargaba todo). */
+  export let presetInicial = "anio";
 
   const dispatch = createEventDispatcher();
 
-  let preset = "anio";
+  let preset = presetInicial;
   let desde = "";
   let hasta = "";
 

@@ -635,7 +635,7 @@ describe('TanqueoDistribucion', () => {
 
     expect(download).toHaveBeenCalledWith(
       'fuel/refueling/reporte/export?tipo=VEHICULO',
-      'tanqueos_export.xlsx'
+      'tanqueos.xlsx' // sin periodo filtrado; con fechas: tanqueos_<desde>_a_<hasta>.xlsx, igual que el back
     );
   });
 

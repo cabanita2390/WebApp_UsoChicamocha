@@ -1,4 +1,5 @@
 <script>
+  import { nombreConPeriodo } from "../../utils/periodoExcel.js";
   import { onMount } from "svelte";
   import { push } from "svelte-spa-router";
   import { data } from "../../stores/data.js";
@@ -37,7 +38,8 @@
       if (area && area !== "TODAS") params.set("area", area);
       if ($fuelDateRange.fechaInicio) params.set("fechaInicio", $fuelDateRange.fechaInicio);
       if ($fuelDateRange.fechaFin) params.set("fechaFin", $fuelDateRange.fechaFin);
-      await download(`fuel/refueling/reporte/export?${params.toString()}`, "tanqueos_export.xlsx");
+      await download(`fuel/refueling/reporte/export?${params.toString()}`,
+        nombreConPeriodo("tanqueos", { desde: $fuelDateRange.fechaInicio, hasta: $fuelDateRange.fechaFin }));
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
     } finally {

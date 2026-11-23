@@ -1,4 +1,5 @@
 <script>
+  import { nombreConPeriodo } from "../../utils/periodoExcel.js";
   import { onMount } from "svelte";
   import { push } from "svelte-spa-router";
   import { data } from "../../stores/data.js";
@@ -290,7 +291,8 @@
       if (exportFechaInicio) params.set("fechaInicio", exportFechaInicio);
       if (exportFechaFin) params.set("fechaFin", exportFechaFin);
       const query = params.toString();
-      await download(`fuel/rendimiento/export-mensual${query ? `?${query}` : ""}`, "rendimiento_mensual.xlsx");
+      await download(`fuel/rendimiento/export-mensual${query ? `?${query}` : ""}`,
+        nombreConPeriodo("rendimiento_mensual", { desde: exportFechaInicio, hasta: exportFechaFin }));
       showExportModal = false;
     } catch (err) {
       addNotification({ id: Date.now(), text: `No se pudo exportar el rendimiento mensual: ${err.message}` });

@@ -1,4 +1,6 @@
 <script>
+  import { nombreConPeriodo } from "../../utils/periodoExcel.js";
+  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
   import { onMount } from "svelte";
   import { push, pop } from "svelte-spa-router";
   import { data } from "../../stores/data.js";
@@ -229,17 +231,23 @@
     data.fetchFuelPerformanceHistory(FECHA_INICIO_HISTORICO, new Date().toISOString().slice(0, 10));
   }
 
-  // Exporta TODO el histórico del activo (no el rango 1M/3M/6M/1A/Todo elegido
-  // arriba) — la separación por hoja/mes ya da el desglose temporal, así que
-  // acotar además por el pill del selector solo recortaría meses del archivo sin
-  // aportar nada.
+  // El periodo se elige en el panel común de descargas; abre en "Todo el historial" (lo que
+  // descargaba antes): la separación por hoja/mes ya da el desglose temporal.
   let isExportingExcel = false;
-  async function handleExportarExcel() {
+  let periodoAbierto = false;
+  function handleExportarExcel() {
+    periodoAbierto = true;
+  }
+
+  async function exportarConPeriodo(periodo) {
     isExportingExcel = true;
     try {
       const params = new URLSearchParams({ tipo: tipoElemento, activoId: String(activoId) });
-      const nombreArchivo = `rendimiento_${activoLabel.replace(/[^a-z0-9]+/gi, "_")}.xlsx`;
+      if (periodo.desde) params.set("desde", periodo.desde);
+      if (periodo.hasta) params.set("hasta", periodo.hasta);
+      const nombreArchivo = nombreConPeriodo(`rendimiento_${activoLabel.replace(/[^a-z0-9]+/gi, "_")}`, periodo);
       await download(`fuel/rendimiento/export?${params.toString()}`, nombreArchivo);
+      periodoAbierto = false;
     } catch (err) {
       addNotification({ id: Date.now(), text: `No se pudo exportar el historial: ${err.message}` });
     } finally {
@@ -449,6 +457,9 @@
     on:close={() => (showCfgModal = false)}
   />
 {/if}
+
+<PeriodoExcelModal bind:abierto={periodoAbierto} titulo={`Historial de rendimiento · ${activoLabel}`} presetInicial="todo"
+  descargando={isExportingExcel} on:descargar={(e) => exportarConPeriodo(e.detail)} />
 
 <style>
   .perf-history {

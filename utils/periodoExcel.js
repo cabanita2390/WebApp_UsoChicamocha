@@ -51,3 +51,9 @@ export function nombreConPeriodo(base, { desde, hasta } = {}) {
     if (!desde && !hasta) return `${base}.xlsx`;
     return `${base}_${desde || 'inicio'}_a_${hasta || 'hoy'}.xlsx`;
 }
+
+/** Reportes que son una foto de hoy (consolidados): "consolidado_motos" → "consolidado_motos_2026-11-23.xlsx". */
+export function nombreConCorte(base, hoy = new Date()) {
+    const iso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    return `${base}_${iso}.xlsx`;
+}

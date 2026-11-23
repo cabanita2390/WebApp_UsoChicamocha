@@ -1,4 +1,5 @@
 <script>
+  import { nombreConCorte } from "../../utils/periodoExcel.js";
   import { push } from 'svelte-spa-router';
   import { createConsolidadoColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
@@ -77,7 +78,7 @@
   async function handleExportConsolidated() {
     isExporting = true;
     try {
-      await download('oil-changes/consolidated/excel', 'consolidado.xlsx', { version: null });
+      await download('oil-changes/consolidated/excel', nombreConCorte('consolidado_aceites_maquinaria'), { version: null });
       addNotification({ id: Date.now(), text: 'Archivo consolidado descargado con éxito.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar el archivo: ${e.message}` });

@@ -311,7 +311,7 @@ describe('FuelPerformance', () => {
 
       expect(download).toHaveBeenCalledWith(
         'fuel/rendimiento/export-mensual?fechaInicio=2026-07-01&fechaFin=2026-07-15',
-        'rendimiento_mensual.xlsx'
+        'rendimiento_mensual_2026-07-01_a_2026-07-15.xlsx'
       );
     });
 
@@ -325,7 +325,7 @@ describe('FuelPerformance', () => {
 
       expect(download).toHaveBeenCalledWith(
         'fuel/rendimiento/export-mensual?fechaInicio=2026-01-01&fechaFin=2026-07-31',
-        'rendimiento_mensual.xlsx'
+        'rendimiento_mensual_2026-01-01_a_2026-07-31.xlsx'
       );
     });
 
