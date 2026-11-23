@@ -1,4 +1,6 @@
 <script>
+  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
+  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
   import { onMount } from 'svelte';
   import { createEventDispatcher } from "svelte";
   import DataGrid from "../shared/DataGrid.svelte";
@@ -59,10 +61,17 @@
     }
   }
 
-  async function handleExportInspections() {
+  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
+  let periodoAbierto = false;
+  function handleExportInspections() {
+    periodoAbierto = true;
+  }
+
+  async function handleExportInspectionsConPeriodo(periodo) {
     isExporting = true;
     try {
-      await download("inspection/export", "inspecciones.xlsx");
+      await download(conPeriodo("inspection/export", periodo), nombreConPeriodo("inspecciones_maquinaria", periodo));
+      periodoAbierto = false;
       addNotification({
         id: Date.now(),
         text: "Archivo de inspecciones descargado con éxito.",
@@ -117,3 +126,6 @@
     {/if}
   </div>
 </div>
+
+<PeriodoExcelModal bind:abierto={periodoAbierto} titulo="Inspecciones de maquinaria" descargando={isExporting}
+  on:descargar={(e) => handleExportInspectionsConPeriodo(e.detail)} />

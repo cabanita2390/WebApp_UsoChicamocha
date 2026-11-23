@@ -1,4 +1,6 @@
 <script>
+  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
+  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import DataGrid from "../shared/DataGrid.svelte";
@@ -525,10 +527,17 @@
     }
   }
 
-  async function handleExportVehicles() {
+  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
+  let periodoAbierto = false;
+  function handleExportVehicles() {
+    periodoAbierto = true;
+  }
+
+  async function handleExportVehiclesConPeriodo(periodo) {
     isExporting = true;
     try {
-      await download('curriculum/export/vehicles', 'vehiculos_curriculum.xlsx');
+      await download(conPeriodo('curriculum/export/vehicles', periodo), nombreConPeriodo('hojas_de_vida_vehiculos', periodo));
+      periodoAbierto = false;
       addNotification({ id: Date.now(), text: 'Archivo de vehículos descargado con éxito.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
@@ -911,6 +920,9 @@
     </div>
   </div>
 {/if}
+
+<PeriodoExcelModal bind:abierto={periodoAbierto} titulo="Hojas de vida de vehículos" descargando={isExporting}
+  on:descargar={(e) => handleExportVehiclesConPeriodo(e.detail)} />
 
 <style>
   .create-form {

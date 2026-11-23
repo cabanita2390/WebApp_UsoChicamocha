@@ -1,4 +1,6 @@
 <script>
+  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
+  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
   import ExecuteOrderModal from '../shared/ExecuteOrderModal.svelte';
@@ -15,10 +17,17 @@
   let isExecuting = false;
   let isExporting = false;
 
-  async function handleExport() {
+  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
+  let periodoAbierto = false;
+  function handleExport() {
+    periodoAbierto = true;
+  }
+
+  async function handleExportConPeriodo(periodo) {
     isExporting = true;
     try {
-      await download('order/export', 'ordenes_maquinaria.xlsx');
+      await download(conPeriodo('order/export', periodo), nombreConPeriodo('ordenes_maquinaria', periodo));
+      periodoAbierto = false;
       addNotification({ id: Date.now(), text: 'Órdenes de maquinaria descargadas.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
@@ -100,3 +109,6 @@
     on:execute={handleExecuteOrder}
   />
 {/if}
+
+<PeriodoExcelModal bind:abierto={periodoAbierto} titulo="Órdenes de trabajo de maquinaria" descargando={isExporting}
+  on:descargar={(e) => handleExportConPeriodo(e.detail)} />

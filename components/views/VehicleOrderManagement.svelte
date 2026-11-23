@@ -1,4 +1,6 @@
 <script>
+  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
+  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
   import ExecuteOrderModal from '../shared/ExecuteOrderModal.svelte';
@@ -46,12 +48,19 @@
     selectedWorkOrder = null;
   }
 
-  async function handleExport() {
+  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
+  let periodoAbierto = false;
+  function handleExport() {
+    periodoAbierto = true;
+  }
+
+  async function handleExportConPeriodo(periodo) {
     isExporting = true;
     try {
       const endpoint = soloMotos ? 'order/vehicle/export?soloMotos=true' : 'order/vehicle/export';
-      const filename = soloMotos ? 'ordenes_motos.xlsx' : 'ordenes_vehiculos.xlsx';
-      await download(endpoint, filename);
+      const filename = nombreConPeriodo(soloMotos ? 'ordenes_motos' : 'ordenes_vehiculos_motos', periodo);
+      await download(conPeriodo(endpoint, periodo), filename);
+      periodoAbierto = false;
       addNotification({ id: Date.now(), text: soloMotos ? 'Órdenes de motos descargadas.' : 'Órdenes de vehículos descargadas.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
@@ -102,3 +111,6 @@
     on:cancel={handleCancelExecute}
   />
 {/if}
+
+<PeriodoExcelModal bind:abierto={periodoAbierto} titulo={soloMotos ? "Órdenes de trabajo de motos" : "Órdenes de trabajo de vehículos y motos"} descargando={isExporting}
+  on:descargar={(e) => handleExportConPeriodo(e.detail)} />

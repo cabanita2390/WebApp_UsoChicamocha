@@ -1,4 +1,6 @@
 <script>
+  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
+  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import DataGrid from "../shared/DataGrid.svelte";
@@ -252,10 +254,17 @@
     else if (showCvModal) closeCurriculumModal();
   }
 
-  async function handleExportCurriculum() {
+  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
+  let periodoAbierto = false;
+  function handleExportCurriculum() {
+    periodoAbierto = true;
+  }
+
+  async function handleExportCurriculumConPeriodo(periodo) {
     isExporting = true;
     try {
-      await download('curriculum/export', 'curriculum.xlsx');
+      await download(conPeriodo('curriculum/export', periodo), nombreConPeriodo('hojas_de_vida_maquinaria', periodo));
+      periodoAbierto = false;
       addNotification({ id: Date.now(), text: 'Archivo de curriculum descargado con éxito.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar el archivo: ${e.message}` });
@@ -522,6 +531,9 @@
     </div>
   </div>
 {/if}
+<PeriodoExcelModal bind:abierto={periodoAbierto} titulo="Hojas de vida de maquinaria" descargando={isExporting}
+  on:descargar={(e) => handleExportCurriculumConPeriodo(e.detail)} />
+
 <style>
   /* ── Grid layout compartido (igual que Vehicle/Moto) ─────────────────── */
   .create-form--compact {

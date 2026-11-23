@@ -1,4 +1,6 @@
 <script>
+  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
+  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
   import { vehicleInspectionReportColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
   import { ui, addNotification } from '../../stores/ui.js';
@@ -20,10 +22,17 @@
     await data.fetchVehicleInspections(currentPage, pageSize, { reload: true });
   }
 
-  async function handleExport() {
+  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
+  let periodoAbierto = false;
+  function handleExport() {
+    periodoAbierto = true;
+  }
+
+  async function handleExportConPeriodo(periodo) {
     isExporting = true;
     try {
-      await download('vehicle-inspection/export', 'inspecciones_vehiculos.xlsx');
+      await download(conPeriodo('vehicle-inspection/export', periodo), nombreConPeriodo('inspecciones_vehiculos', periodo));
+      periodoAbierto = false;
       addNotification({ id: Date.now(), text: 'Inspecciones de vehículos descargadas.' });
     } catch (e) {
       addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
@@ -85,3 +94,6 @@
     {/if}
   </div>
 </div>
+
+<PeriodoExcelModal bind:abierto={periodoAbierto} titulo="Inspecciones de vehículos" descargando={isExporting}
+  on:descargar={(e) => handleExportConPeriodo(e.detail)} />
