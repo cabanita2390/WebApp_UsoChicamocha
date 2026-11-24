@@ -1,10 +1,9 @@
 <script>
-  import { nombreConCorte } from "../../utils/periodoExcel.js";
+  import BotonExcel from "../shared/BotonExcel.svelte";
   import { push } from 'svelte-spa-router';
   import { data } from '../../stores/data.js';
   import { auth } from '../../stores/auth.js';
   import { addNotification } from '../../stores/ui.js';
-  import { download } from '../../stores/api.js';
   import { formatVehiclePayload } from '@/lib/textFormat.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
@@ -64,32 +63,8 @@
     }
   }
 
-  let isExportingVehicles = false;
-  let isExportingMotos = false;
 
-  async function handleExportVehicles() {
-    isExportingVehicles = true;
-    try {
-      await download('vehicle/monitoring/consolidated/export', nombreConCorte('consolidado_vehiculos'));
-      addNotification({ id: Date.now(), text: 'Consolidado de vehículos descargado.' });
-    } catch (e) {
-      addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
-    } finally {
-      isExportingVehicles = false;
-    }
-  }
 
-  async function handleExportMotos() {
-    isExportingMotos = true;
-    try {
-      await download('moto/monitoring/consolidated/export', nombreConCorte('consolidado_motos'));
-      addNotification({ id: Date.now(), text: 'Consolidado de motos descargado.' });
-    } catch (e) {
-      addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
-    } finally {
-      isExportingMotos = false;
-    }
-  }
   import TabPanel from '../shared/TabPanel.svelte';
   import Consolidado from './Consolidado.svelte';
   import DataGrid from '../shared/DataGrid.svelte';
@@ -143,9 +118,7 @@
             <button class="vehicle-btn" on:click={() => data.fetchVehicleMonitoring()}>
               Refrescar
             </button>
-            <button class="vehicle-btn vehicle-btn--export" on:click={handleExportVehicles} disabled={isExportingVehicles}>
-              {isExportingVehicles ? 'Descargando...' : 'Exportar Excel'}
-            </button>
+            <BotonExcel claves="consolidado-vehiculos" />
           </div>
           {#if isLoadingVehicleMonitoring}
             <div class="vehicle-loader">
@@ -176,9 +149,7 @@
             <button class="vehicle-btn" on:click={() => data.fetchMotoMonitoring()}>
               Refrescar
             </button>
-            <button class="vehicle-btn vehicle-btn--export" on:click={handleExportMotos} disabled={isExportingMotos}>
-              {isExportingMotos ? 'Descargando...' : 'Exportar Excel'}
-            </button>
+            <BotonExcel claves="consolidado-motos" />
           </div>
           {#if isLoadingMotoMonitoring}
             <div class="vehicle-loader">

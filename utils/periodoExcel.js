@@ -1,6 +1,7 @@
 /**
- * Periodos de las descargas a Excel: atajos ("Este mes", "Este año"…) y cómo se pasan al back
- * (`desde` / `hasta` en aaaa-mm-dd; sin fechas = todo el historial).
+ * Periodos de las descargas a Excel: atajos ("Este mes", "Este año"…) del panel de BotonExcel.
+ * Se mandan al back como `desde` / `hasta` (aaaa-mm-dd); sin fechas = todo el historial. El nombre
+ * del archivo lo pone el back.
  */
 
 export const PRESETS_PERIODO = [
@@ -34,26 +35,4 @@ export function rangoDePreset(preset, hoy = new Date()) {
         default:
             return { desde: '', hasta: '' };
     }
-}
-
-/** El endpoint con el periodo: "order/export" + {desde, hasta} → "order/export?desde=…&hasta=…". */
-export function conPeriodo(endpoint, { desde, hasta } = {}) {
-    const params = new URLSearchParams();
-    if (desde) params.set('desde', desde);
-    if (hasta) params.set('hasta', hasta);
-    const q = params.toString();
-    if (!q) return endpoint;
-    return endpoint + (endpoint.includes('?') ? '&' : '?') + q;
-}
-
-/** "inspecciones_vehiculos" + periodo → "inspecciones_vehiculos_2026-01-01_a_2026-12-31.xlsx" (igual que el back). */
-export function nombreConPeriodo(base, { desde, hasta } = {}) {
-    if (!desde && !hasta) return `${base}.xlsx`;
-    return `${base}_${desde || 'inicio'}_a_${hasta || 'hoy'}.xlsx`;
-}
-
-/** Reportes que son una foto de hoy (consolidados): "consolidado_motos" → "consolidado_motos_2026-11-23.xlsx". */
-export function nombreConCorte(base, hoy = new Date()) {
-    const iso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-    return `${base}_${iso}.xlsx`;
 }

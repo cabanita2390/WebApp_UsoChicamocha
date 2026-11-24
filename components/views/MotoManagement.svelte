@@ -1,6 +1,5 @@
 <script>
-  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
-  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
+  import BotonExcel from "../shared/BotonExcel.svelte";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import DataGrid from "../shared/DataGrid.svelte";
@@ -17,7 +16,6 @@
   import { onMount, onDestroy } from "svelte";
   import { addNotification } from "../../stores/ui.js";
   import { syncPreventiveAlertsFromServer } from "../../composables/useAlerts.js";
-  import { download } from "../../stores/api.js";
   import { formatMotoVehiclePayload, validarPlaca } from "@/lib/textFormat.js";
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
   import { normLower, normalizeBelongsTo, filePickLabel, locationLabel, firstOversizedDocError as firstOversizedDocErrorOf } from '@/lib/assetUtils.js';
@@ -28,7 +26,6 @@
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
 
   let isSubmitting = false;
-  let isExporting = false;
   let errorMessage = "";
 
   // Soft-delete recovery
@@ -463,24 +460,6 @@
     errorMessage = "";
   }
 
-  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
-  let periodoAbierto = false;
-  function handleExportMotos() {
-    periodoAbierto = true;
-  }
-
-  async function handleExportMotosConPeriodo(periodo) {
-    isExporting = true;
-    try {
-      await download(conPeriodo('curriculum/export/motos', periodo), nombreConPeriodo('hojas_de_vida_motos', periodo));
-      periodoAbierto = false;
-      addNotification({ id: Date.now(), text: 'Archivo de motocicletas descargado con éxito.' });
-    } catch (e) {
-      addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
-    } finally {
-      isExporting = false;
-    }
-  }
 
   function handleKeydown(event) {
     if (event.key !== "Escape") return;
@@ -505,10 +484,7 @@
         <button type="button" class="vehicle-btn" on:click={() => data.fetchMotos()}>
           Refrescar
         </button>
-        <button class="vehicle-btn vehicle-btn--export" on:click={handleExportMotos} disabled={isExporting}>
-          {#if isExporting}<span class="spin">⟳</span>{/if}
-          {isExporting ? 'Descargando...' : 'Exportar Excel'}
-        </button>
+        <BotonExcel claves="hojas-de-vida-motos" />
       </div>
 
       {#if isAdmin || isSupervisorOperativo}
@@ -797,8 +773,6 @@
   </div>
 {/if}
 
-<PeriodoExcelModal bind:abierto={periodoAbierto} titulo="Hojas de vida de motos" descargando={isExporting}
-  on:descargar={(e) => handleExportMotosConPeriodo(e.detail)} />
 
 <style>
   .vehicle-loader {

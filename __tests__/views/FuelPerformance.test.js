@@ -33,6 +33,11 @@ vi.mock('../../stores/ui.js', () => ({
 }));
 
 vi.mock('../../stores/api.js', () => ({
+  // El catálogo del motor de reportes a Excel (GET /reportes).
+  default: vi.fn((url) => Promise.resolve(url === 'reportes' ? [{
+    clave: 'rendimiento-mensual', titulo: 'Rendimiento mensual de combustible', modulo: 'Combustible',
+    usaPeriodo: true, periodoInicial: 'mes', filtros: [], columnas: [],
+  }] : [])),
   download: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -272,7 +277,7 @@ describe('FuelPerformance', () => {
     expect(push).toHaveBeenCalledWith('/fuel-performance-history/MAQUINARIA/5');
   });
 
-  describe('Exportar rendimiento mensual (modal)', () => {
+  describe('Exportar rendimiento mensual (panel común)', () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ['Date'] });
       vi.setSystemTime(new Date('2026-07-15T12:00:00'));
@@ -282,66 +287,50 @@ describe('FuelPerformance', () => {
       vi.useRealTimers();
     });
 
-    it('"Exportar Excel" abre un modal (no descarga directo) con el mes en curso propuesto por defecto', async () => {
-      const { container } = render(FuelPerformance);
+    it('"Exportar Excel" abre el panel común en "Este mes" (no descarga directo)', async () => {
+      render(FuelPerformance);
 
       await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
 
+      const panel = await screen.findByRole('dialog', { name: /descargar excel/i });
       expect(download).not.toHaveBeenCalled();
-      expect(screen.getByRole('dialog', { name: /exportar rendimiento mensual/i })).not.toBeNull();
-      expect(container.querySelector('#exportFechaInicio').value).toBe('2026-07-01');
-      expect(container.querySelector('#exportFechaFin').value).toBe('2026-07-15');
+      expect(panel.textContent).toContain('Rendimiento mensual de combustible');
+      expect(screen.getByRole('radio', { name: 'Este mes' }).getAttribute('aria-checked')).toBe('true');
     });
 
-    it('"Cancelar" cierra el modal sin descargar', async () => {
+    it('"Cancelar" cierra el panel sin descargar', async () => {
       render(FuelPerformance);
       await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+      await screen.findByRole('dialog');
 
       await fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
 
       expect(download).not.toHaveBeenCalled();
-      expect(screen.queryByRole('dialog', { name: /exportar rendimiento mensual/i })).toBeNull();
+      expect(screen.queryByRole('dialog')).toBeNull();
     });
 
-    it('"Descargar" con el rango por defecto (mes en curso) llama a download con esas fechas', async () => {
+    it('"Descargar" manda el periodo elegido al motor de reportes', async () => {
       render(FuelPerformance);
       await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+      await screen.findByRole('dialog');
 
+      await fireEvent.click(screen.getByRole('radio', { name: 'Este año' }));
       await fireEvent.click(screen.getByRole('button', { name: /^descargar$/i }));
 
-      expect(download).toHaveBeenCalledWith(
-        'fuel/rendimiento/export-mensual?fechaInicio=2026-07-01&fechaFin=2026-07-15',
-        'rendimiento_mensual_2026-07-01_a_2026-07-15.xlsx'
-      );
+      await waitFor(() => expect(download).toHaveBeenCalledWith(
+        'reportes/rendimiento-mensual?desde=2026-01-01&hasta=2026-12-31', 'rendimiento_mensual.xlsx'));
     });
 
-    it('"Descargar" con fechas elegidas en el modal las manda como query, independiente del filtro de pantalla', async () => {
-      const { container } = render(FuelPerformance);
-      await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
-
-      await fireEvent.input(container.querySelector('#exportFechaInicio'), { target: { value: '2026-01-01' } });
-      await fireEvent.input(container.querySelector('#exportFechaFin'), { target: { value: '2026-07-31' } });
-      await fireEvent.click(screen.getByRole('button', { name: /^descargar$/i }));
-
-      expect(download).toHaveBeenCalledWith(
-        'fuel/rendimiento/export-mensual?fechaInicio=2026-01-01&fechaFin=2026-07-31',
-        'rendimiento_mensual_2026-01-01_a_2026-07-31.xlsx'
-      );
-    });
-
-    it('si la exportación mensual falla, muestra una notificación de error y deja el modal abierto', async () => {
+    it('si la descarga falla, lo dice en el panel y lo deja abierto', async () => {
       download.mockRejectedValueOnce(new Error('sin conexión'));
 
       render(FuelPerformance);
       await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
+      await screen.findByRole('dialog');
       await fireEvent.click(screen.getByRole('button', { name: /^descargar$/i }));
 
-      await waitFor(() => {
-        expect(addNotification).toHaveBeenCalledWith(
-          expect.objectContaining({ text: expect.stringContaining('sin conexión') })
-        );
-      });
-      expect(screen.getByRole('dialog', { name: /exportar rendimiento mensual/i })).not.toBeNull();
+      expect((await screen.findByRole('alert')).textContent).toContain('sin conexión');
+      expect(screen.getByRole('dialog')).not.toBeNull();
     });
   });
 });

@@ -1,12 +1,10 @@
 <script>
-  import { nombreConPeriodo } from "../../utils/periodoExcel.js";
-  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
+  import BotonExcel from "../shared/BotonExcel.svelte";
   import { onMount } from "svelte";
   import { push, pop } from "svelte-spa-router";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import { addNotification } from "../../stores/ui.js";
-  import { download } from "../../stores/api.js";
   import Loader from "../shared/Loader.svelte";
   import DataGrid from "../shared/DataGrid.svelte";
   import RefuelingFormModal from "../shared/RefuelingFormModal.svelte";
@@ -231,29 +229,6 @@
     data.fetchFuelPerformanceHistory(FECHA_INICIO_HISTORICO, new Date().toISOString().slice(0, 10));
   }
 
-  // El periodo se elige en el panel común de descargas; abre en "Todo el historial" (lo que
-  // descargaba antes): la separación por hoja/mes ya da el desglose temporal.
-  let isExportingExcel = false;
-  let periodoAbierto = false;
-  function handleExportarExcel() {
-    periodoAbierto = true;
-  }
-
-  async function exportarConPeriodo(periodo) {
-    isExportingExcel = true;
-    try {
-      const params = new URLSearchParams({ tipo: tipoElemento, activoId: String(activoId) });
-      if (periodo.desde) params.set("desde", periodo.desde);
-      if (periodo.hasta) params.set("hasta", periodo.hasta);
-      const nombreArchivo = nombreConPeriodo(`rendimiento_${activoLabel.replace(/[^a-z0-9]+/gi, "_")}`, periodo);
-      await download(`fuel/rendimiento/export?${params.toString()}`, nombreArchivo);
-      periodoAbierto = false;
-    } catch (err) {
-      addNotification({ id: Date.now(), text: `No se pudo exportar el historial: ${err.message}` });
-    } finally {
-      isExportingExcel = false;
-    }
-  }
 
   let _lastKey = "";
   $: if (`${tipoElemento}:${activoId}` !== _lastKey) {
@@ -320,9 +295,9 @@
       <button type="button" class="btn-secondary" on:click={() => (showCfgModal = true)}>Ajustar estándar</button>
       <button type="button" class="btn-secondary" on:click={() => irAAdyacente(-1)} disabled={activosMismoTipo.length < 2}>‹ Anterior</button>
       <button type="button" class="btn-secondary" on:click={() => irAAdyacente(1)} disabled={activosMismoTipo.length < 2}>Siguiente ›</button>
-      <button type="button" class="btn-export" on:click={handleExportarExcel} disabled={isExportingExcel || filas.length === 0}>
-        {isExportingExcel ? "Descargando..." : "Exportar Excel"}
-      </button>
+      <!-- El periodo abre en "Todo el historial": cada mes ya sale en su hoja. -->
+      <span class="excel-slot"><BotonExcel claves="rendimiento-historial" clase="btn-export"
+        contexto={{ tipo: tipoElemento, activoId }} disabled={filas.length === 0} /></span>
       <button type="button" class="btn-filter" on:click={loadHistory} disabled={isLoading}>
         {isLoading ? "Cargando..." : "Refrescar"}
       </button>
@@ -458,8 +433,6 @@
   />
 {/if}
 
-<PeriodoExcelModal bind:abierto={periodoAbierto} titulo={`Historial de rendimiento · ${activoLabel}`} presetInicial="todo"
-  descargando={isExportingExcel} on:descargar={(e) => exportarConPeriodo(e.detail)} />
 
 <style>
   .perf-history {
@@ -699,7 +672,10 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
-  .btn-export {
+  .excel-slot {
+    display: contents;
+  }
+  .excel-slot :global(.btn-export) {
     font-family: inherit;
     padding: 9px 20px;
     background: #2e7d32;
@@ -712,10 +688,10 @@
     height: 34px;
     white-space: nowrap;
   }
-  .btn-export:hover {
+  .excel-slot :global(.btn-export:hover) {
     background: #256428;
   }
-  .btn-export:disabled {
+  .excel-slot :global(.btn-export:disabled) {
     opacity: 0.6;
     cursor: not-allowed;
   }

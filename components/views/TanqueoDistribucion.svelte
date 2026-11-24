@@ -1,5 +1,5 @@
 <script>
-  import { nombreConPeriodo } from "../../utils/periodoExcel.js";
+  import BotonExcel from "../shared/BotonExcel.svelte";
   import { onMount } from "svelte";
   import { push } from "svelte-spa-router";
   import { data } from "../../stores/data.js";
@@ -29,23 +29,7 @@
   let showEditModal = false;
   let editingRow = null;
   let refuelingToDelete = null;
-  let isExporting = false;
 
-  async function handleExportarExcel() {
-    isExporting = true;
-    try {
-      const params = new URLSearchParams({ tipo });
-      if (area && area !== "TODAS") params.set("area", area);
-      if ($fuelDateRange.fechaInicio) params.set("fechaInicio", $fuelDateRange.fechaInicio);
-      if ($fuelDateRange.fechaFin) params.set("fechaFin", $fuelDateRange.fechaFin);
-      await download(`fuel/refueling/reporte/export?${params.toString()}`,
-        nombreConPeriodo("tanqueos", { desde: $fuelDateRange.fechaInicio, hasta: $fuelDateRange.fechaFin }));
-    } catch (e) {
-      addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
-    } finally {
-      isExporting = false;
-    }
-  }
   let reintegrandoRow = null;
   let elementosCargando = false;
 
@@ -234,9 +218,10 @@
     </div>
 
     <div class="accion-btn-wrap">
-      <button type="button" class="btn-export" on:click={handleExportarExcel} disabled={isExporting}>
-        {isExporting ? "Descargando..." : "Exportar Excel"}
-      </button>
+      <!-- Lo mismo que la pantalla: su tipo, su área y sus fechas. -->
+      <span class="excel-slot"><BotonExcel claves="tanqueos" clase="btn-export"
+        contexto={{ tipo, area: area && area !== "TODAS" ? area : "" }}
+        periodo={{ desde: $fuelDateRange.fechaInicio, hasta: $fuelDateRange.fechaFin }} /></span>
       <button type="button" class="btn-filter btn-registrar" on:click={() => (showModal = true)}>+ Registrar tanqueo</button>
     </div>
   </div>
@@ -446,7 +431,10 @@
   .btn-filter:hover {
     background: #256abf;
   }
-  .btn-export {
+  .excel-slot {
+    display: contents;
+  }
+  .excel-slot :global(.btn-export) {
     font-family: inherit;
     padding: 9px 20px;
     background: #fff;
@@ -459,10 +447,10 @@
     height: 34px;
     white-space: nowrap;
   }
-  .btn-export:hover {
+  .excel-slot :global(.btn-export:hover) {
     background: #fafaf9;
   }
-  .btn-export:disabled {
+  .excel-slot :global(.btn-export:disabled) {
     opacity: 0.6;
     cursor: not-allowed;
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import fetchWithAuth, { getFileUrl, conAccesoArchivo, MENSAJE_SIN_CONEXION } from '../stores/api.js';
+import fetchWithAuth, { getFileUrl, conAccesoArchivo, MENSAJE_SIN_CONEXION, nombreDeDescarga, download } from '../stores/api.js';
 
 /**
  * @fileoverview Suite de tests para la función fetchWithAuth.
@@ -308,5 +308,41 @@ describe('conAccesoArchivo', () => {
   it('getFileUrl ya devuelve la URL con la credencial', () => {
     expect(getFileUrl('/uploads/documents/fuel/refueling/18/current.jpeg'))
       .toBe('http://localhost:8080/uploads/documents/fuel/refueling/18/current.jpeg?k=K1');
+  });
+});
+
+describe('nombreDeDescarga (el nombre que pone el motor de reportes)', () => {
+  it('lee filename*=UTF-8 y, si no, filename', () => {
+    expect(nombreDeDescarga("attachment; filename=\"ordenes.xlsx\"; filename*=UTF-8''%C3%B3rdenes_2026.xlsx")).toBe('órdenes_2026.xlsx');
+    expect(nombreDeDescarga('attachment; filename="consolidado_motos_2026-11-23.xlsx"')).toBe('consolidado_motos_2026-11-23.xlsx');
+    expect(nombreDeDescarga(null)).toBeNull();
+    expect(nombreDeDescarga('attachment')).toBeNull();
+  });
+});
+
+describe('download: si el back no puede generar el archivo, dice por qué', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.getItem.mockReturnValue('mockToken');
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080');
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  const respuesta = (status, texto) => ({ ok: false, status, text: () => Promise.resolve(texto), headers: new Headers() });
+
+  it('texto plano del back', async () => {
+    global.fetch.mockResolvedValue(respuesta(404, 'No hay historial de rendimiento para este activo.'));
+    await expect(download('reportes/rendimiento-historial?tipo=MAQUINARIA&activoId=1', 'x.xlsx'))
+      .rejects.toThrow('No hay historial de rendimiento para este activo.');
+  });
+
+  it('JSON con message', async () => {
+    global.fetch.mockResolvedValue(respuesta(400, JSON.stringify({ message: 'Falta el filtro tipo' })));
+    await expect(download('reportes/tanqueos', 'x.xlsx')).rejects.toThrow('Falta el filtro tipo');
+  });
+
+  it('sin explicación (o una página HTML), el código', async () => {
+    global.fetch.mockResolvedValue(respuesta(500, '<html>error</html>'));
+    await expect(download('reportes/x', 'x.xlsx')).rejects.toThrow('Error 500: no se pudo descargar el archivo.');
   });
 });

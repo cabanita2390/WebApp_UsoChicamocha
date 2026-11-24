@@ -1,6 +1,5 @@
 <script>
-  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
-  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
+  import BotonExcel from "../shared/BotonExcel.svelte";
   import { onMount } from 'svelte';
   import { createEventDispatcher } from "svelte";
   import DataGrid from "../shared/DataGrid.svelte";
@@ -8,7 +7,6 @@
   import { dashboardColumns } from "../../config/table-definitions.js";
   import { data } from "../../stores/data.js";
   import { addNotification, ui } from "../../stores/ui.js";
-  import { download } from "../../stores/api.js";
 
   const dispatch = createEventDispatcher();
 
@@ -20,7 +18,6 @@
       data.fetchDashboardData(0, 20);
     }
   });
-  let isExporting = false;
 
   function handlePageChange(event) {
     const newPage = event.detail;
@@ -61,30 +58,6 @@
     }
   }
 
-  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
-  let periodoAbierto = false;
-  function handleExportInspections() {
-    periodoAbierto = true;
-  }
-
-  async function handleExportInspectionsConPeriodo(periodo) {
-    isExporting = true;
-    try {
-      await download(conPeriodo("inspection/export", periodo), nombreConPeriodo("inspecciones_maquinaria", periodo));
-      periodoAbierto = false;
-      addNotification({
-        id: Date.now(),
-        text: "Archivo de inspecciones descargado con éxito.",
-      });
-    } catch (e) {
-      addNotification({
-        id: Date.now(),
-        text: `Error al descargar el archivo: ${e.message}`,
-      });
-    } finally {
-      isExporting = false;
-    }
-  }
 </script>
 
 <div class="vehicle-module">
@@ -99,15 +72,7 @@
         <button type="button" class="vehicle-btn" on:click={() => data.fetchDashboardData()}>
           Refrescar
         </button>
-        <button
-          type="button"
-          class="vehicle-btn vehicle-btn--export"
-          on:click={handleExportInspections}
-          disabled={isExporting}
-        >
-          {#if isExporting}<span class="spin">⟳</span>{/if}
-          {isExporting ? "Descargando..." : "Exportar Excel"}
-        </button>
+        <BotonExcel claves="inspecciones-maquinaria" />
       </div>
       <div class="vehicle-table-wrap vehicle-table-wrap--inset">
         <DataGrid
@@ -127,5 +92,3 @@
   </div>
 </div>
 
-<PeriodoExcelModal bind:abierto={periodoAbierto} titulo="Inspecciones de maquinaria" descargando={isExporting}
-  on:descargar={(e) => handleExportInspectionsConPeriodo(e.detail)} />

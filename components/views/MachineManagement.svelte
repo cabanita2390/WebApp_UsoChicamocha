@@ -1,6 +1,5 @@
 <script>
-  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
-  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
+  import BotonExcel from "../shared/BotonExcel.svelte";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import DataGrid from "../shared/DataGrid.svelte";
@@ -16,7 +15,6 @@
   import { asignacionDeActivo, sincronizarPerfilLlantas } from "../../lib/presionLlantas.js";
   import { addNotification } from '../../stores/ui.js';
   import { syncPreventiveAlertsFromServer } from '../../composables/useAlerts.js';
-  import { download } from '../../stores/api.js';
   import { formatMachinePayload } from '@/lib/textFormat.js';
   import { checkExpiringDocuments } from '@/lib/expireNotifications.js';
   import { normalizeBelongsTo } from '@/lib/assetUtils.js';
@@ -29,7 +27,6 @@
 
   let isSubmitting = false;
   let errorMessage = "";
-  let isExporting = false;
 
   const initialMachineState = {
     name: "",
@@ -254,24 +251,6 @@
     else if (showCvModal) closeCurriculumModal();
   }
 
-  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
-  let periodoAbierto = false;
-  function handleExportCurriculum() {
-    periodoAbierto = true;
-  }
-
-  async function handleExportCurriculumConPeriodo(periodo) {
-    isExporting = true;
-    try {
-      await download(conPeriodo('curriculum/export', periodo), nombreConPeriodo('hojas_de_vida_maquinaria', periodo));
-      periodoAbierto = false;
-      addNotification({ id: Date.now(), text: 'Archivo de curriculum descargado con éxito.' });
-    } catch (e) {
-      addNotification({ id: Date.now(), text: `Error al descargar el archivo: ${e.message}` });
-    } finally {
-      isExporting = false;
-    }
-  }
 
 </script>
 
@@ -289,10 +268,7 @@
         <button type="button" class="vehicle-btn" on:click={() => data.fetchMachines()}>
           Refrescar
         </button>
-        <button type="button" class="vehicle-btn vehicle-btn--export" on:click={handleExportCurriculum} disabled={isExporting}>
-          {#if isExporting}<span class="spin">⟳</span>{/if}
-          {isExporting ? 'Descargando...' : 'Exportar Excel'}
-        </button>
+        <BotonExcel claves="hojas-de-vida-maquinaria" />
       </div>
       {#if isAdmin || isSupervisorOperativo}
       <div class="vehicle-form-section">
@@ -531,8 +507,6 @@
     </div>
   </div>
 {/if}
-<PeriodoExcelModal bind:abierto={periodoAbierto} titulo="Hojas de vida de maquinaria" descargando={isExporting}
-  on:descargar={(e) => handleExportCurriculumConPeriodo(e.detail)} />
 
 <style>
   /* ── Grid layout compartido (igual que Vehicle/Moto) ─────────────────── */

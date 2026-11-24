@@ -1,4 +1,4 @@
-import fetchWithAuth, { download } from './api.js';
+import fetchWithAuth from './api.js';
 
 /**
  * Escrituras y lecturas "de pantalla" del módulo Subestaciones web v2 (Configuración y
@@ -38,19 +38,6 @@ export const substationAdmin = {
     cambiarEstadoConjunto: (id, activa) =>
         fetchWithAuth(`substation/conjuntos/${id}/estado`, { method: 'PATCH', body: json({ activa }) }),
     /** Lo que tiene adentro el conjunto, en orden: [{ elementoId | nombre, pideDetalle }]. Reemplaza la lista. */
-    /** Hojas que se pueden descargar a Excel, con sus filtros y columnas (las define el back). */
-    hojasExportables: () => fetchWithAuth('substation/exportar/hojas'),
-    /** Descarga el Excel de Estaciones. p: { hoja, disciplina, anio, mes, estacionId, columnas: [] }. */
-    exportar: (p) => {
-        const params = new URLSearchParams();
-        Object.entries(p).forEach(([k, v]) => {
-            if (v === undefined || v === null || v === '') return;
-            params.set(k, Array.isArray(v) ? v.join(',') : String(v));
-        });
-        const nombre = ['estaciones', p.hoja.toLowerCase(), p.disciplina?.toLowerCase(), p.anio,
-            p.mes ? String(p.mes).padStart(2, '0') : null].filter(Boolean).join('_') + '.xlsx';
-        return download(`substation/exportar?${params}`, nombre);
-    },
     guardarElementosConjunto: (id, elementos) =>
         fetchWithAuth(`substation/conjuntos/${id}/elementos`, { method: 'PUT', body: json({ elementos }) }),
 

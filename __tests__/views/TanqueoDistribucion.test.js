@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/svelte';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/svelte';
 import TanqueoDistribucion from '../../components/views/TanqueoDistribucion.svelte';
 
 vi.mock('svelte-spa-router', () => ({
@@ -35,6 +35,13 @@ vi.mock('../../stores/ui.js', () => ({
 }));
 
 vi.mock('../../stores/api.js', () => ({
+  // El catálogo del motor de reportes a Excel (GET /reportes).
+  default: vi.fn((url) => Promise.resolve(url === 'reportes' ? [{
+    clave: 'tanqueos', titulo: 'Tanqueo y distribución de combustible', modulo: 'Combustible', usaPeriodo: true,
+    periodoInicial: 'mes', columnas: [],
+    filtros: [{ clave: 'tipo', etiqueta: 'Tipo de activo', tipo: 'CONTEXTO', obligatorio: true },
+      { clave: 'area', etiqueta: 'Área de costo', tipo: 'CONTEXTO', obligatorio: false }],
+  }] : [])),
   getFileUrl: vi.fn((path) => (path ? `https://api.test${path}` : null)),
   openDocumentSafely: vi.fn(),
   download: vi.fn().mockResolvedValue(undefined),
@@ -628,15 +635,14 @@ describe('TanqueoDistribucion', () => {
     expect(screen.getByText('Cantidad (m³)')).toBeTruthy();
   });
 
-  it('el botón "Exportar Excel" llama a download con el endpoint y filtros actuales', async () => {
+  it('"Exportar Excel" descarga por el motor con el tipo, el área y las fechas de la pantalla, sin preguntar', async () => {
     render(TanqueoDistribucion);
 
     await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
 
-    expect(download).toHaveBeenCalledWith(
-      'fuel/refueling/reporte/export?tipo=VEHICULO',
-      'tanqueos.xlsx' // sin periodo filtrado; con fechas: tanqueos_<desde>_a_<hasta>.xlsx, igual que el back
-    );
+    // El nombre del archivo lo pone el back (con el periodo); este es solo el de respaldo.
+    await waitFor(() => expect(download).toHaveBeenCalledWith('reportes/tanqueos?tipo=VEHICULO', 'tanqueos.xlsx'));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('mientras exporta, el botón se deshabilita y muestra "Descargando..."', async () => {
@@ -647,7 +653,7 @@ describe('TanqueoDistribucion', () => {
     const boton = screen.getByRole('button', { name: /exportar excel/i });
     await fireEvent.click(boton);
 
-    expect(screen.getByRole('button', { name: /descargando/i })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: /descargando/i })).toBeDisabled();
 
     resolverDescarga();
     await screen.findByRole('button', { name: /exportar excel/i });
@@ -658,10 +664,10 @@ describe('TanqueoDistribucion', () => {
     render(TanqueoDistribucion);
 
     await fireEvent.click(screen.getByRole('button', { name: /exportar excel/i }));
-    await screen.findByRole('button', { name: /exportar excel/i });
 
-    expect(addNotification).toHaveBeenCalledWith(
+    await waitFor(() => expect(addNotification).toHaveBeenCalledWith(
       expect.objectContaining({ text: expect.stringContaining('sin conexión') })
-    );
+    ));
+    expect(screen.getByRole('button', { name: /exportar excel/i })).toBeTruthy();
   });
 });

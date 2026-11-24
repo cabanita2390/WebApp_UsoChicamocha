@@ -1,5 +1,5 @@
 <script>
-  import { nombreConCorte } from "../../utils/periodoExcel.js";
+  import BotonExcel from "../shared/BotonExcel.svelte";
   import { push } from 'svelte-spa-router';
   import { createConsolidadoColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
@@ -7,7 +7,6 @@
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
   import { addNotification } from '../../stores/ui.js';
-  import { download } from '../../stores/api.js';
 
   $: isAdmin = $auth?.currentUser?.role === 'ADMIN';
   $: isSupervisorOperativo = $auth?.currentUser?.role === 'SUPERVISOR_OPERATIVO';
@@ -19,7 +18,6 @@
   $: asociacionMachines = $data.consolidated.asociacion;
   $: isLoading = $data.isLoadingConsolidado;
   $: errorMessage = $data.errorConsolidado;
-  let isExporting = false;
 
   // --- modal corregir horómetro ---
   let hourmeterModalOpen = false;
@@ -75,17 +73,6 @@
     push(`/machine-oil-history/${row.machine.id}/${tipo}`);
   }
 
-  async function handleExportConsolidated() {
-    isExporting = true;
-    try {
-      await download('oil-changes/consolidated/excel', nombreConCorte('consolidado_aceites_maquinaria'), { version: null });
-      addNotification({ id: Date.now(), text: 'Archivo consolidado descargado con éxito.' });
-    } catch (e) {
-      addNotification({ id: Date.now(), text: `Error al descargar el archivo: ${e.message}` });
-    } finally {
-      isExporting = false;
-    }
-  }
 </script>
 
 <div class="vehicle-module">
@@ -94,10 +81,7 @@
       <button type="button" class="vehicle-btn" on:click={() => data.fetchConsolidadoData()}>
         Refrescar
       </button>
-      <button class="vehicle-btn vehicle-btn--export" on:click={handleExportConsolidated} disabled={isExporting}>
-        {#if isExporting}<span class="spin">⟳</span>{/if}
-        {isExporting ? 'Descargando...' : 'Exportar Excel'}
-      </button>
+      <BotonExcel claves="consolidado-aceites-maquinaria" />
     </div>
 
     {#if isLoading}

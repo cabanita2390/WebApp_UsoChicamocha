@@ -122,10 +122,45 @@ async function fetchWithAuth(endpoint, options = {}, retryCount = 0) {
 }
 
 /**
+ * El nombre del archivo que manda el back en Content-Disposition (filename*=UTF-8''… o filename="…"),
+ * o null si no viene.
+ * @param {string|null|undefined} cabecera
+ */
+export function nombreDeDescarga(cabecera) {
+    if (!cabecera) return null;
+    const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(cabecera);
+    if (utf8) {
+        try {
+            return decodeURIComponent(utf8[1].trim().replace(/^"|"$/g, ''));
+        } catch {
+            // Mal codificado: se prueba con el nombre simple.
+        }
+    }
+    const simple = /filename="?([^";]+)"?/i.exec(cabecera);
+    return simple ? simple[1].trim() : null;
+}
+
+/** El mensaje que manda el back en una respuesta de error (JSON con message/mensaje o texto corto). */
+async function motivoDelError(response) {
+    try {
+        const texto = (await response.text())?.trim();
+        if (!texto) return null;
+        try {
+            const j = JSON.parse(texto);
+            return j?.message || j?.mensaje || j?.detail || null;
+        } catch {
+            return texto.length <= 300 && !texto.startsWith('<') ? texto : null;
+        }
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Descarga un archivo binario (ej. exports a Excel) reutilizando la autenticación,
  * el refresh de token en 401 y el manejo de 403 del resto de la app.
  * @param {string} endpoint - Ruta relativa, misma convención que fetchWithAuth (ej. 'vehicle/export').
- * @param {string} filename - Nombre con el que se descarga el archivo en el navegador.
+ * @param {string} filename - Nombre con el que se descarga si el back no manda uno (Content-Disposition).
  * @param {object} options - { version, headers, ...resto de opciones de fetch }.
  */
 export async function download(endpoint, filename, options = {}, retryCount = 0) {
@@ -148,14 +183,17 @@ export async function download(endpoint, filename, options = {}, retryCount = 0)
     }
 
     if (!response.ok) {
-        throw new Error(`Error ${response.status}: no se pudo descargar el archivo.`);
+        // El back explica el motivo ("No hay historial de rendimiento para este activo", "Falta el
+        // filtro tipo"…): se muestra ese texto y no solo el código.
+        const motivo = await motivoDelError(response);
+        throw new Error(motivo || `Error ${response.status}: no se pudo descargar el archivo.`);
     }
 
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = nombreDeDescarga(response.headers?.get?.('Content-Disposition')) || filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

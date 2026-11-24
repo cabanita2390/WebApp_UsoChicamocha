@@ -1,11 +1,10 @@
 <script>
-  import { nombreConPeriodo } from "../../utils/periodoExcel.js";
+  import BotonExcel from "../shared/BotonExcel.svelte";
   import { onMount } from "svelte";
   import { push } from "svelte-spa-router";
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import { fuelDateRange, resetFuelDateRange } from "../../stores/fuelFilters.js";
-  import { download } from "../../stores/api.js";
   import { addNotification } from "../../stores/ui.js";
   import Loader from "../shared/Loader.svelte";
   import AssetFuelConfigManagement from "./AssetFuelConfigManagement.svelte";
@@ -262,44 +261,6 @@
     handleFiltrar();
   }
 
-  // Export mensual (todos los activos configurados, una hoja por mes, sin importar
-  // la pestaña Maquinaria/Vehículo/Motocicleta activa) — rango independiente del
-  // filtro de arriba, a propósito: ese filtro acota las tarjetas en pantalla, pero
-  // lo normal al exportar es elegir el periodo del reporte aparte. Se pide en un
-  // modal (en vez de inputs sueltos en la barra de filtros, poco intuitivo ahí) que
-  // por defecto propone el mes en curso.
-  function primerDiaDelMes(fecha) {
-    return new Date(fecha.getFullYear(), fecha.getMonth(), 1).toISOString().slice(0, 10);
-  }
-
-  let showExportModal = false;
-  let exportFechaInicio = "";
-  let exportFechaFin = "";
-  let isExportingMensual = false;
-
-  function abrirExportModal() {
-    const hoy = new Date();
-    exportFechaInicio = primerDiaDelMes(hoy);
-    exportFechaFin = hoy.toISOString().slice(0, 10);
-    showExportModal = true;
-  }
-
-  async function confirmarExportarMensual() {
-    isExportingMensual = true;
-    try {
-      const params = new URLSearchParams();
-      if (exportFechaInicio) params.set("fechaInicio", exportFechaInicio);
-      if (exportFechaFin) params.set("fechaFin", exportFechaFin);
-      const query = params.toString();
-      await download(`fuel/rendimiento/export-mensual${query ? `?${query}` : ""}`,
-        nombreConPeriodo("rendimiento_mensual", { desde: exportFechaInicio, hasta: exportFechaFin }));
-      showExportModal = false;
-    } catch (err) {
-      addNotification({ id: Date.now(), text: `No se pudo exportar el rendimiento mensual: ${err.message}` });
-    } finally {
-      isExportingMensual = false;
-    }
-  }
 
   function seleccionarTipo(nuevoTipo) {
     tipo = nuevoTipo;
@@ -349,7 +310,8 @@
           {mostrarConfig ? "Ocultar configuración" : "Configurar consumo estándar"}
         </button>
       {/if}
-      <button type="button" class="btn-export" on:click={abrirExportModal}>Exportar Excel</button>
+      <!-- Todos los activos configurados, una hoja por mes (sin importar la pestaña activa). -->
+      <span class="excel-slot"><BotonExcel claves="rendimiento-mensual" clase="btn-export" /></span>
     </div>
   </div>
 
@@ -357,34 +319,6 @@
     <AssetFuelConfigManagement on:close={() => (mostrarConfig = false)} />
   {/if}
 
-  {#if showExportModal}
-    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <div class="modal-overlay" role="presentation" on:click={() => (showExportModal = false)}>
-      <div class="modal-content" role="dialog" aria-modal="true" aria-label="Exportar rendimiento mensual" on:click|stopPropagation>
-        <h3>Exportar rendimiento mensual</h3>
-        <p class="modal-hint">
-          Genera un .xlsx con una hoja por mes (todos los activos configurados, sin importar la pestaña activa).
-        </p>
-        <div class="modal-fechas">
-          <label class="field" for="exportFechaInicio">
-            <span class="field-lab">Desde</span>
-            <input id="exportFechaInicio" type="date" bind:value={exportFechaInicio} disabled={isExportingMensual} />
-          </label>
-          <label class="field" for="exportFechaFin">
-            <span class="field-lab">Hasta</span>
-            <input id="exportFechaFin" type="date" bind:value={exportFechaFin} disabled={isExportingMensual} />
-          </label>
-        </div>
-        <div class="create-actions">
-          <button type="button" class="btn-cancel" on:click={() => (showExportModal = false)} disabled={isExportingMensual}>Cancelar</button>
-          <button type="button" class="btn-create" on:click={confirmarExportarMensual} disabled={isExportingMensual}>
-            {isExportingMensual ? "Descargando..." : "Descargar"}
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
 
   {#if isLoading}
     <div class="fuel-loader">
@@ -610,7 +544,10 @@
   .btn-config:hover {
     background: #fafaf9;
   }
-  .btn-export {
+  .excel-slot {
+    display: contents;
+  }
+  .excel-slot :global(.btn-export) {
     font-family: inherit;
     padding: 9px 20px;
     background: #fff;
@@ -623,10 +560,10 @@
     height: 34px;
     white-space: nowrap;
   }
-  .btn-export:hover {
+  .excel-slot :global(.btn-export:hover) {
     background: #fafaf9;
   }
-  .btn-export:disabled {
+  .excel-slot :global(.btn-export:disabled) {
     opacity: 0.6;
     cursor: not-allowed;
   }
@@ -879,85 +816,4 @@
     color: #898781;
   }
 
-  /* ---- Modal "Exportar rendimiento mensual" ---- */
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(11, 11, 11, 0.4);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    padding: 24px;
-    overflow: auto;
-  }
-  .modal-content {
-    background: #fff;
-    padding: 28px;
-    border-radius: 20px;
-    width: 420px;
-    max-width: 100%;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  .modal-content h3 {
-    margin: 0 0 8px;
-    font-size: 16px;
-    font-weight: 700;
-    color: #0b0b0b;
-  }
-  .modal-hint {
-    margin: 0 0 18px;
-    font-size: 12px;
-    color: #52514e;
-  }
-  .modal-fechas {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-  .modal-fechas .field {
-    flex: 1;
-  }
-  .create-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-  }
-  .btn-cancel {
-    font-family: inherit;
-    background: #f0f0ef;
-    color: #52514e;
-    border: none;
-    border-radius: 999px;
-    padding: 9px 18px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .btn-cancel:hover {
-    background: #e4e4e2;
-  }
-  .btn-create {
-    font-family: inherit;
-    background: #2a78d6;
-    color: #fff;
-    border: none;
-    border-radius: 999px;
-    padding: 9px 18px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .btn-create:hover {
-    background: #256abf;
-  }
-  .btn-cancel:disabled,
-  .btn-create:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
 </style>

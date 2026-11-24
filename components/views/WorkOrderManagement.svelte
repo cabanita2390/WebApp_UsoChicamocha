@@ -1,13 +1,11 @@
 <script>
-  import PeriodoExcelModal from "../shared/PeriodoExcelModal.svelte";
-  import { conPeriodo, nombreConPeriodo } from "../../utils/periodoExcel.js";
+  import BotonExcel from "../shared/BotonExcel.svelte";
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
   import ExecuteOrderModal from '../shared/ExecuteOrderModal.svelte';
   import { workOrderColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
   import { addNotification } from '../../stores/ui.js';
-  import { download } from '../../stores/api.js';
 
   $: workOrderInfo = $data.workOrders;
   $: isLoading = $data.isLoadingWorkOrders;
@@ -15,26 +13,7 @@
   let showExecuteModal = false;
   let orderToExecute = null;
   let isExecuting = false;
-  let isExporting = false;
 
-  // El periodo se elige en el panel (atajos o rango); sin fechas trae todo el historial.
-  let periodoAbierto = false;
-  function handleExport() {
-    periodoAbierto = true;
-  }
-
-  async function handleExportConPeriodo(periodo) {
-    isExporting = true;
-    try {
-      await download(conPeriodo('order/export', periodo), nombreConPeriodo('ordenes_maquinaria', periodo));
-      periodoAbierto = false;
-      addNotification({ id: Date.now(), text: 'Órdenes de maquinaria descargadas.' });
-    } catch (e) {
-      addNotification({ id: Date.now(), text: `Error al descargar: ${e.message}` });
-    } finally {
-      isExporting = false;
-    }
-  }
 
   function handlePageChange(event) {
     data.fetchWorkOrders(event.detail, workOrderInfo.pageSize);
@@ -79,9 +58,7 @@
         <button type="button" class="vehicle-btn" on:click={() => data.fetchWorkOrders()}>
           Refrescar
         </button>
-        <button type="button" class="vehicle-btn vehicle-btn--export" on:click={handleExport} disabled={isExporting}>
-          {isExporting ? 'Descargando...' : 'Exportar Excel'}
-        </button>
+        <BotonExcel claves="ordenes-maquinaria" />
       </div>
       <div class="vehicle-table-wrap vehicle-table-wrap--inset">
         <DataGrid
@@ -110,5 +87,3 @@
   />
 {/if}
 
-<PeriodoExcelModal bind:abierto={periodoAbierto} titulo="Órdenes de trabajo de maquinaria" descargando={isExporting}
-  on:descargar={(e) => handleExportConPeriodo(e.detail)} />
