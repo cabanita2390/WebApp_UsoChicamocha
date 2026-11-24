@@ -5,7 +5,6 @@
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import { fuelDateRange, resetFuelDateRange } from "../../stores/fuelFilters.js";
-  import { addNotification } from "../../stores/ui.js";
   import Loader from "../shared/Loader.svelte";
   import AssetFuelConfigManagement from "./AssetFuelConfigManagement.svelte";
   import FuelPerformanceSparkline from "../shared/FuelPerformanceSparkline.svelte";

@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { reportMotoColumns } from '../../config/table-definitions.js';
   import { data } from '../../stores/data.js';
-  import { ui, addNotification } from '../../stores/ui.js';
+  import { ui } from '../../stores/ui.js';
   import DataGrid from '../shared/DataGrid.svelte';
   import Loader from '../shared/Loader.svelte';
 

@@ -45,9 +45,4 @@
     min-height: 0;
     overflow: hidden;
   }
-  .tab-export-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    padding: 4px 8px 0;
-  }
 </style>

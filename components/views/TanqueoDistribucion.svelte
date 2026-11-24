@@ -5,7 +5,7 @@
   import { data } from "../../stores/data.js";
   import { auth } from "../../stores/auth.js";
   import { addNotification } from "../../stores/ui.js";
-  import { getFileUrl, openDocumentSafely, download } from "../../stores/api.js";
+  import { getFileUrl, openDocumentSafely } from "../../stores/api.js";
   import { fuelDateRange, resetFuelDateRange } from "../../stores/fuelFilters.js";
   import Loader from "../shared/Loader.svelte";
   import DataGrid from "../shared/DataGrid.svelte";
