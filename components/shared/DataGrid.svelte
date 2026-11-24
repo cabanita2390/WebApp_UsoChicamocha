@@ -1,4 +1,5 @@
 <script>
+  import { claseEstado } from "../../utils/claseEstado.js";
   import { createEventDispatcher } from "svelte";
   import { writable } from "svelte/store";
   import {
@@ -113,48 +114,6 @@
   }
 
   /** Semáforo textual: Bueno/Vigente/SÍ, Regular/Próximo a vencer, Malo/Vencido/NO, mixtos (advertencia). */
-  function getStatusClass(value) {
-    const raw = String(value ?? "").trim();
-    if (!raw) return "status-unknown";
-    const status = raw
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-
-    if (status.includes(",") && /\bsi\b/.test(status) && /\bno\b/.test(status)) {
-      return "status-regular";
-    }
-    if (status === "si" || status === "sí") return "status-optimo";
-    if (status === "no") return "status-malo";
-    if (status === "n/a" || status === "na") return "status-unknown";
-
-    if (
-      status.includes("optimo") ||
-      status.includes("optima") ||
-      status.includes("vigente") ||
-      status === "ok" ||
-      status.includes("bueno") ||
-      status.includes("excelente")
-    ) {
-      return "status-optimo";
-    }
-    if (
-      status.includes("regular") ||
-      status.includes("proximo") ||
-      status.includes("medio")
-    ) {
-      return "status-regular";
-    }
-    if (
-      status.includes("malo") ||
-      status.includes("vencido") ||
-      (status.includes("cambio") && !status.includes("sin cambio"))
-    ) {
-      return "status-malo";
-    }
-    return "status-unknown";
-  }
-
   /** LocalDate / ISO desde API → "yyyy-mm-dd" para clases de fecha. */
   function normalizeDateForClass(v) {
     if (v == null || v === "") return null;
@@ -536,7 +495,7 @@
                   </span>
                 {:else if cell.column.columnDef.meta?.isStatus || cell.column.columnDef.meta?.isBadge}
                   {@const cellValue = cell.getContext().getValue()}
-                  {@const colorClass = getStatusClass(cellValue)}
+                  {@const colorClass = claseEstado(cellValue, cell.column.columnDef)}
                   <button
                     type="button"
                     class="status-btn {colorClass}"

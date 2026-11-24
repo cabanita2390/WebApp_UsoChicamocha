@@ -79,7 +79,8 @@ export const vehicleInspectionReportColumns = [
   { header: 'Salud física', accessorFn: (row) => yn(row.saludFisica), id: 'vi_sf', size: 82, meta: { isStatus: true } },
   { header: 'Salud mental', accessorFn: (row) => yn(row.saludMental), id: 'vi_sm', size: 88, meta: { isStatus: true } },
   { header: 'Sobrio', accessorFn: (row) => yn(row.sobrio), id: 'vi_sob', size: 68, meta: { isStatus: true } },
-  { header: 'Medicamentos', accessorFn: (row) => yn(row.medicamentos), id: 'vi_med', size: 95, meta: { isStatus: true } },
+  // ¿Consume medicamentos que afecten los sentidos? Aquí lo malo es el "SÍ".
+  { header: 'Medicamentos', accessorFn: (row) => yn(row.medicamentos), id: 'vi_med', size: 95, meta: { isStatus: true, siEsMalo: true } },
   { header: '¿Apto para conducir?', accessorFn: (row) => yn(row.condicionParaConducir), id: 'vi_cond', size: 108, meta: { isStatus: true } },
   { header: 'Consciente responsabilidad', accessorFn: (row) => yn(row.conscienteResponsabilidad), id: 'vi_cons', size: 118, meta: { isStatus: true } },
   { header: '¿Aprobado salida a ruta?', accessorFn: (row) => yn(row.aprobadoRuta), id: 'vi_ruta', size: 108, meta: { isStatus: true } },

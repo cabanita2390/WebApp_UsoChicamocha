@@ -1,4 +1,5 @@
 <script>
+  import { claseEstado } from '../../utils/claseEstado.js';
   import { createEventDispatcher } from 'svelte';
 
   // --- PROPS ---
@@ -89,48 +90,6 @@
   let showConfirmation = false;
 
   // --- FUNCTIONS ---
-  function getStatusClass(status) {
-    const raw = String(status ?? '').trim();
-    if (!raw) return 'status-unknown';
-    const s = raw
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '');
-
-    if (s.includes(',') && /\bsi\b/.test(s) && /\bno\b/.test(s)) {
-      return 'status-regular';
-    }
-    if (s === 'si' || s === 'sí') return 'status-optimo';
-    if (s === 'no') return 'status-malo';
-    if (s === 'n/a' || s === 'na') return 'status-unknown';
-
-    if (
-      s.includes('optimo') ||
-      s.includes('optima') ||
-      s.includes('vigente') ||
-      s === 'ok' ||
-      s.includes('bueno') ||
-      s.includes('excelente')
-    ) {
-      return 'status-optimo';
-    }
-    if (
-      s.includes('regular') ||
-      s.includes('proximo') ||
-      s.includes('medio')
-    ) {
-      return 'status-regular';
-    }
-    if (
-      s.includes('malo') ||
-      s.includes('vencido') ||
-      (s.includes('cambio') && !s.includes('sin cambio'))
-    ) {
-      return 'status-malo';
-    }
-    return 'status-unknown';
-  }
-
   function handleSubmit(event) {
     event.preventDefault();
     showConfirmation = true;
@@ -209,7 +168,7 @@
         <div class="info-panel-body">
           <p><strong>{assetLabelPrefix}:</strong> {assetLabel}</p>
           <p><strong>Área afectada:</strong> {cleanColumnHeader}</p>
-          <p><strong>Estado del área afectada:</strong> <span class="status-badge {getStatusClass(currentStatus)}">{currentStatus}</span></p>
+          <p><strong>Estado del área afectada:</strong> <span class="status-badge {claseEstado(currentStatus, columnDef)}">{currentStatus}</span></p>
           <p><strong>Asignado por:</strong> {currentUser}</p>
         </div>
       </div>
@@ -269,7 +228,7 @@
       <div class="confirmation-details">
         <p><strong>{assetLabelPrefix}:</strong> {assetLabel}</p>
         <p><strong>Componente:</strong> {cleanColumnHeader}</p>
-        <p><strong>Estado:</strong> <span class="status-badge {getStatusClass(currentStatus)}">{currentStatus}</span></p>
+        <p><strong>Estado:</strong> <span class="status-badge {claseEstado(currentStatus, columnDef)}">{currentStatus}</span></p>
         <p><strong>Asignado a:</strong> {workOrderForm.asignadoA}</p>
       </div>
       <div class="confirmation-buttons">
